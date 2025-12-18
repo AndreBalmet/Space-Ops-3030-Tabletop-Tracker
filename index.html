@@ -13,22 +13,41 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e0e0e0;
-            padding: 20px;
+            background: #0a0a0a;
+            color: #ffffff;
+            padding: 0;
+            margin: 0;
             min-height: 100vh;
         }
 
+        .logo-header {
+            background: #000000;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 3px solid #FFD700;
+            margin-bottom: 0;
+        }
+
+        .logo-header img {
+            max-width: 500px;
+            width: 100%;
+            height: auto;
+        }
+
+        .main-content {
+            padding: 20px;
+        }
+
         .header {
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.8);
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid #FFD700;
         }
 
         .header h1 {
-            color: #ff6b35;
+            color: #FFD700;
             margin-bottom: 15px;
             font-size: 2em;
         }
@@ -43,21 +62,23 @@
         .tab {
             padding: 10px 20px;
             background: rgba(255, 255, 255, 0.1);
-            border: none;
+            border: 1px solid #333;
             border-radius: 5px;
-            color: #e0e0e0;
+            color: #ffffff;
             cursor: pointer;
             font-size: 14px;
             transition: all 0.3s;
         }
 
         .tab.active {
-            background: #ff6b35;
-            color: white;
+            background: #FFD700;
+            color: #000000;
+            border-color: #FFD700;
         }
 
         .tab:hover {
-            background: rgba(255, 107, 53, 0.5);
+            background: rgba(255, 215, 0, 0.3);
+            border-color: #FFD700;
         }
 
         .tab-content {
@@ -77,9 +98,9 @@
 
         .session-controls input {
             padding: 10px;
-            border: 1px solid #444;
-            background: #2a2a3e;
-            color: #e0e0e0;
+            border: 1px solid #FFD700;
+            background: #1a1a1a;
+            color: #ffffff;
             border-radius: 5px;
             font-size: 14px;
             flex: 1;
@@ -97,55 +118,59 @@
         }
 
         .btn-primary {
-            background: #ff6b35;
-            color: white;
+            background: #FFD700;
+            color: #000000;
         }
 
         .btn-primary:hover {
-            background: #ff8555;
+            background: #FFC700;
             transform: translateY(-2px);
         }
 
         .btn-secondary {
-            background: #4a5568;
-            color: white;
+            background: #333333;
+            color: #ffffff;
         }
 
         .btn-secondary:hover {
-            background: #5a6578;
+            background: #444444;
         }
 
         .btn-success {
-            background: #48bb78;
-            color: white;
+            background: #9CAF88;
+            color: #000000;
+        }
+
+        .btn-success:hover {
+            background: #AAC096;
         }
 
         .btn-danger {
-            background: #f56565;
+            background: #ff4444;
             color: white;
         }
 
         .btn-warning {
-            background: #ed8936;
-            color: white;
+            background: #FFD700;
+            color: #000000;
         }
 
         .btn-info {
-            background: #4299e1;
-            color: white;
+            background: #9CAF88;
+            color: #000000;
         }
 
         .btn-purple {
-            background: #9f7aea;
-            color: white;
+            background: #9CAF88;
+            color: #000000;
         }
 
         .session-info {
             margin-top: 15px;
             padding: 10px;
-            background: rgba(255, 107, 53, 0.1);
+            background: rgba(255, 215, 0, 0.1);
             border-radius: 5px;
-            border-left: 3px solid #ff6b35;
+            border-left: 3px solid #FFD700;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -156,9 +181,9 @@
         .undo-section, .combat-log-section {
             margin-top: 10px;
             padding: 10px;
-            background: rgba(66, 153, 225, 0.1);
+            background: rgba(156, 175, 136, 0.1);
             border-radius: 5px;
-            border-left: 3px solid #4299e1;
+            border-left: 3px solid #9CAF88;
         }
 
         .action-history, .combat-log {
@@ -176,6 +201,7 @@
             margin-bottom: 5px;
             border-radius: 5px;
             font-size: 0.9em;
+            border: 1px solid #333;
         }
 
         .action-item .action-text, .log-item .log-text {
@@ -183,7 +209,7 @@
         }
 
         .action-item .action-time, .log-item .log-time {
-            color: #a0a0a0;
+            color: #9CAF88;
             font-size: 0.85em;
             margin-right: 10px;
         }
@@ -196,16 +222,17 @@
         }
 
         .session-card {
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.6);
             padding: 15px;
             border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid #FFD700;
             transition: all 0.3s;
         }
 
         .session-card:hover {
-            border-color: #ff6b35;
+            border-color: #9CAF88;
             transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
         }
 
         .session-card.archived {
@@ -214,13 +241,13 @@
         }
 
         .session-card h3 {
-            color: #ff6b35;
+            color: #FFD700;
             margin-bottom: 10px;
         }
 
         .session-meta {
             font-size: 0.9em;
-            color: #a0a0a0;
+            color: #9CAF88;
             margin-bottom: 10px;
         }
 
@@ -345,10 +372,10 @@
         }
 
         .team {
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.6);
             padding: 20px;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid #FFD700;
         }
 
         .team-header {
@@ -357,11 +384,11 @@
             align-items: center;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid rgba(255, 107, 53, 0.3);
+            border-bottom: 2px solid #FFD700;
         }
 
         .team-header h2 {
-            color: #ff6b35;
+            color: #FFD700;
             font-size: 1.5em;
         }
 
@@ -389,10 +416,10 @@
         }
 
         .character-card {
-            background: #2a2a3e;
+            background: #1a1a1a;
             border-radius: 8px;
             padding: 15px;
-            border: 2px solid #444;
+            border: 2px solid #FFD700;
             transition: all 0.3s;
         }
 
@@ -402,13 +429,13 @@
 
         .character-card.dead {
             opacity: 0.5;
-            border-color: #f56565;
+            border-color: #ff4444;
         }
 
         .character-card:hover {
-            border-color: #ff6b35;
+            border-color: #9CAF88;
             transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(255, 107, 53, 0.3);
+            box-shadow: 0 5px 20px rgba(156, 175, 136, 0.3);
         }
 
         .character-header {
@@ -428,8 +455,15 @@
             height: 80px;
             border-radius: 8px;
             object-fit: cover;
-            border: 2px solid #ff6b35;
-            background: #1a1a2e;
+            border: 2px solid #FFD700;
+            background: #0a0a0a;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .character-portrait:hover {
+            border-color: #9CAF88;
+            transform: scale(1.05);
         }
 
         .character-portrait.compact {
@@ -438,7 +472,7 @@
         }
 
         .character-info h3 {
-            color: #ff6b35;
+            color: #FFD700;
             margin-bottom: 5px;
             font-size: 1.2em;
         }
@@ -448,7 +482,7 @@
         }
 
         .character-role {
-            color: #a0a0a0;
+            color: #9CAF88;
             font-size: 0.9em;
         }
 
@@ -458,13 +492,13 @@
 
         .expand-toggle {
             cursor: pointer;
-            color: #4299e1;
+            color: #9CAF88;
             font-size: 0.9em;
             margin-top: 5px;
         }
 
         .expand-toggle:hover {
-            color: #63b3ed;
+            color: #FFD700;
         }
 
         .character-details {
@@ -492,6 +526,7 @@
             background: rgba(255, 255, 255, 0.05);
             padding: 8px;
             border-radius: 5px;
+            border: 1px solid #333;
         }
 
         .stat.compact {
@@ -500,7 +535,7 @@
 
         .stat-label {
             font-size: 0.75em;
-            color: #a0a0a0;
+            color: #9CAF88;
             margin-bottom: 3px;
         }
 
@@ -510,7 +545,7 @@
 
         .stat-value {
             font-size: 1.1em;
-            color: #ff6b35;
+            color: #FFD700;
             font-weight: bold;
         }
 
@@ -519,10 +554,11 @@
         }
 
         .health-section {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 215, 0, 0.05);
             padding: 12px;
             border-radius: 5px;
             margin-bottom: 15px;
+            border: 1px solid #FFD700;
         }
 
         .health-section.compact {
@@ -532,7 +568,7 @@
 
         .health-label {
             font-size: 0.9em;
-            color: #a0a0a0;
+            color: #FFD700;
             margin-bottom: 8px;
         }
 
@@ -577,10 +613,11 @@
             text-align: center;
             font-size: 1.5em;
             font-weight: bold;
-            color: #48bb78;
+            color: #9CAF88;
             padding: 5px;
-            background: rgba(72, 187, 120, 0.1);
+            background: rgba(156, 175, 136, 0.1);
             border-radius: 5px;
+            border: 1px solid #9CAF88;
         }
 
         .health-value.compact {
@@ -846,19 +883,19 @@
         }
 
         .modal-content {
-            background: #2a2a3e;
+            background: #1a1a1a;
             padding: 30px;
             border-radius: 10px;
             max-width: 600px;
             width: 90%;
             max-height: 90vh;
             overflow-y: auto;
-            border: 2px solid #ff6b35;
+            border: 2px solid #FFD700;
             margin: 20px;
         }
 
         .modal-content h2 {
-            color: #ff6b35;
+            color: #FFD700;
             margin-bottom: 20px;
         }
 
@@ -869,7 +906,7 @@
         .form-group label {
             display: block;
             margin-bottom: 5px;
-            color: #a0a0a0;
+            color: #9CAF88;
             font-size: 0.9em;
         }
 
@@ -878,9 +915,9 @@
         .form-group select {
             width: 100%;
             padding: 10px;
-            border: 1px solid #444;
-            background: #1a1a2e;
-            color: #e0e0e0;
+            border: 1px solid #FFD700;
+            background: #0a0a0a;
+            color: #ffffff;
             border-radius: 5px;
             font-size: 14px;
         }
@@ -891,10 +928,11 @@
         }
 
         .weapons-form-section, .consumables-form-section {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 215, 0, 0.05);
             padding: 15px;
             border-radius: 5px;
             margin-bottom: 15px;
+            border: 1px solid #FFD700;
         }
 
         .weapon-entry, .consumable-entry {
@@ -1043,8 +1081,13 @@
     </style>
 </head>
 <body>
+    <div class="logo-header">
+        <img src="https://spaceops3030.com/cdn/shop/files/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png?v=1740979952" alt="Space Ops 3030" />
+    </div>
+
+    <div class="main-content">
     <div class="header">
-        <h1>⚔️ Tabletop Character Tracker Pro</h1>
+        <h1>⚔️ Tabletop Model Tracker</h1>
         
         <div class="tabs">
             <button class="tab active" onclick="switchTab('join')">Join/Create</button>
@@ -2928,5 +2971,6 @@
         // Load templates on page load
         loadTemplates();
     </script>
+    </div> <!-- end main-content -->
 </body>
 </html>
