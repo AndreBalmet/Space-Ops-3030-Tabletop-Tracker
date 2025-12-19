@@ -5,6 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tabletop Character Tracker Pro</title>
     <style>
+        @keyframes damageFlash {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 68, 68, 0);
+                background: rgba(255, 68, 68, 0);
+            }
+            10% {
+                box-shadow: 0 0 30px 10px rgba(255, 68, 68, 0.8);
+                background: rgba(255, 68, 68, 0.3);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 68, 68, 0);
+                background: rgba(255, 68, 68, 0);
+            }
+        }
+
+        .damage-flash {
+            animation: damageFlash 2s ease-out;
+        }
+
+        @keyframes healFlash {
+            0% {
+                box-shadow: 0 0 0 0 rgba(156, 175, 136, 0);
+                background: rgba(156, 175, 136, 0);
+            }
+            10% {
+                box-shadow: 0 0 30px 10px rgba(156, 175, 136, 0.8);
+                background: rgba(156, 175, 136, 0.3);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(156, 175, 136, 0);
+                background: rgba(156, 175, 136, 0);
+            }
+        }
+
+        .heal-flash {
+            animation: healFlash 2s ease-out;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -50,6 +88,74 @@
             color: #FF9500;
             margin-bottom: 15px;
             font-size: 2em;
+        }
+
+        .mission-section {
+            background: rgba(255, 149, 0, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid #FF9500;
+        }
+
+        .mission-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .mission-name {
+            font-size: 1.2em;
+            color: #FF9500;
+            font-weight: bold;
+        }
+
+        .mission-name.editable {
+            cursor: pointer;
+            border-bottom: 2px dashed #FF9500;
+        }
+
+        .mission-name.editable:hover {
+            color: #9CAF88;
+        }
+
+        .objectives-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .objective-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            border-left: 3px solid #9CAF88;
+        }
+
+        .objective-item.completed {
+            opacity: 0.6;
+            border-left-color: #FF9500;
+        }
+
+        .objective-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .objective-text {
+            flex: 1;
+            color: #ffffff;
+        }
+
+        .objective-item.completed .objective-text {
+            text-decoration: line-through;
+            color: #9CAF88;
         }
 
         .tabs {
@@ -1061,6 +1167,259 @@
             color: #a0a0a0;
         }
 
+        /* NEW 3-SECTION MODEL CARD DESIGN */
+        .model-section-1 {
+            background: rgba(255, 149, 0, 0.05);
+            padding: 15px;
+            border-bottom: 2px solid #FF9500;
+        }
+
+        .model-header-top {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .model-portrait-new {
+            width: 100px;
+            height: 100px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 2px solid #FF9500;
+            background: #0a0a0a;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .model-portrait-new:hover {
+            border-color: #9CAF88;
+            transform: scale(1.05);
+        }
+
+        .model-header-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .model-name-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .model-name-new {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #FF9500;
+            margin: 0;
+        }
+
+        .model-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .model-stat-box {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px 4px;
+            border-radius: 5px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+
+        .model-stat-label {
+            font-size: 0.7em;
+            color: #9CAF88;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+            font-weight: bold;
+        }
+
+        .model-stat-value {
+            font-size: 1.1em;
+            color: #FF9500;
+            font-weight: bold;
+        }
+
+        .model-effects-field {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 5px;
+            border: 1px solid #333;
+            min-height: 40px;
+        }
+
+        .model-effects-label {
+            font-size: 0.75em;
+            color: #9CAF88;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .model-effects-text {
+            color: #ffffff;
+            font-size: 0.9em;
+        }
+
+        .model-section-2 {
+            background: rgba(156, 175, 136, 0.05);
+            padding: 15px;
+            border-bottom: 2px solid #9CAF88;
+        }
+
+        .section-title {
+            font-size: 1em;
+            color: #FF9500;
+            margin-bottom: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .special-action-item {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            border-left: 3px solid #9CAF88;
+        }
+
+        .special-action-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .special-action-name {
+            font-weight: bold;
+            color: #9CAF88;
+            font-size: 0.95em;
+        }
+
+        .special-action-uses {
+            background: rgba(156, 175, 136, 0.2);
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .special-action-desc {
+            font-size: 0.85em;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+
+        .special-action-effects {
+            font-size: 0.8em;
+            color: #FF9500;
+        }
+
+        .model-section-3 {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .equipment-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .equipment-slot {
+            background: rgba(255, 149, 0, 0.05);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #FF9500;
+        }
+
+        .equipment-slot.empty {
+            border-style: dashed;
+            opacity: 0.5;
+            text-align: center;
+            color: #666;
+        }
+
+        .equipment-label {
+            font-size: 0.8em;
+            color: #9CAF88;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .equipment-name {
+            color: #FF9500;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        .equipment-stats {
+            font-size: 0.85em;
+            color: #ffffff;
+        }
+
+        .equipment-effects {
+            font-size: 0.8em;
+            color: #9CAF88;
+            margin-top: 3px;
+        }
+
+        .turn-status-btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 1em;
+            font-weight: bold;
+        }
+
+        /* Turn Timer Styles */
+        .timer-container {
+            background: rgba(255, 149, 0, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #FF9500;
+            margin-bottom: 20px;
+        }
+
+        .timer-display {
+            font-size: 4em;
+            font-weight: bold;
+            text-align: center;
+            color: #FF9500;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .timer-display.warning {
+            color: #ff4444;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .timer-input {
+            width: 80px;
+            text-align: center;
+            font-size: 1.2em;
+            padding: 10px;
+        }
+
         @media (max-width: 768px) {
             .characters-grid {
                 grid-template-columns: 1fr;
@@ -1088,6 +1447,18 @@
     <div class="main-content">
     <div class="header">
         <h1>⚔️ Tabletop Model Tracker</h1>
+        
+        <!-- Mission/Objectives Section -->
+        <div id="missionSection" class="mission-section" style="display: none;">
+            <div class="mission-header">
+                <div class="mission-name editable" id="missionName" onclick="editMissionName()">Click to set mission name...</div>
+                <button class="btn btn-secondary" onclick="toggleObjectives()">📋 Objectives</button>
+            </div>
+            <div id="objectivesContainer" style="display: none;">
+                <div class="objectives-list" id="objectivesList"></div>
+                <button class="btn btn-success" style="margin-top: 10px;" onclick="addObjective()">+ Add Objective</button>
+            </div>
+        </div>
         
         <div class="tabs">
             <button class="tab active" onclick="switchTab('join')">Join/Create</button>
@@ -1156,6 +1527,20 @@
 
         <!-- Tools Tab -->
         <div id="toolsTab" class="tab-content">
+            <!-- Turn Timer -->
+            <div class="timer-container">
+                <h3 style="color: #FF9500; margin-bottom: 10px; text-align: center;">⏱️ Turn Timer</h3>
+                <div class="timer-display" id="timerDisplay">00:00</div>
+                <div class="timer-controls">
+                    <input type="number" id="timerMinutes" class="timer-input" placeholder="Min" min="0" max="99" value="3">
+                    <input type="number" id="timerSeconds" class="timer-input" placeholder="Sec" min="0" max="59" value="0">
+                    <button class="btn btn-success" onclick="startTimer()">▶️ Start</button>
+                    <button class="btn btn-warning" onclick="pauseTimer()">⏸️ Pause</button>
+                    <button class="btn btn-danger" onclick="resetTimer()">🔄 Reset</button>
+                </div>
+                <div style="text-align: center; margin-top: 10px; color: #9CAF88; font-size: 0.9em;" id="timerStatus">Ready</div>
+            </div>
+
             <!-- Dice Roller -->
             <div class="dice-roller">
                 <h3 style="color: #9f7aea; margin-bottom: 10px;">🎲 Dice Roller</h3>
@@ -2183,6 +2568,12 @@
                 document.getElementById('toolsTab').style.display = 'block';
                 document.getElementById('gameArea').style.display = 'block';
 
+                // Load mission and objectives
+                loadMissionObjectives();
+                
+                // Sync turn timer
+                syncTimer();
+
                 switchTab('game');
 
                 const archived = snapshot.val().archived || false;
@@ -2579,6 +2970,16 @@
                     status: newHealth > 0 ? 'alive' : 'dead'
                 });
                 
+                // Add flash animation
+                const cardElement = document.getElementById(`model-card-${teamId}-${charId}`);
+                if (cardElement) {
+                    const flashClass = change < 0 ? 'damage-flash' : 'heal-flash';
+                    cardElement.classList.add(flashClass);
+                    setTimeout(() => {
+                        cardElement.classList.remove(flashClass);
+                    }, 2000);
+                }
+                
                 const action = change > 0 ? 'healed' : 'damaged';
                 logAction(`${char.name} ${action} for ${Math.abs(change)} HP`, {
                     type: 'healthChange',
@@ -2814,172 +3215,150 @@
                             .map(target => `<option value="${target.teamId}:${target.charId}">${target.owner} - ${target.name}</option>`)
                             .join('');
 
-                        teamHTML += `
-                            <div class="model-card ${char.status === 'dead' ? 'dead' : ''} ${isCompact ? 'compact' : ''}">
-                                <div class="model-header ${isCompact ? 'compact' : ''}">
-                                    <img src="${char.portrait || 'https://via.placeholder.com/80?text=' + char.name[0]}" 
-                                         alt="${char.name}" 
-                                         class="model-portrait ${isCompact ? 'compact' : ''}"
-                                         onclick="editPortrait('${teamId}', '${charId}')"
-                                         onerror="this.src='https://via.placeholder.com/80?text=${char.name[0]}'"
-                                         title="Click to change portrait">
-                                    <div class="model-info ${isCompact ? 'compact' : ''}">
-                                        <h3>${char.name}</h3>
-                                        <div class="model-role ${isCompact ? 'compact' : ''}">${char.role || 'Operative'}</div>
-                                        <span class="status-indicator status-${char.status}">${char.status}</span>
-                                    </div>
-                                </div>
+teamHTML += `
+    <div class="model-card ${char.status === 'dead' ? 'dead' : ''} ${isCompact ? 'compact' : ''}" id="model-card-${teamId}-${charId}">
+        
+        <!-- SECTION 1: Header - Portrait, Name, Stats, Effects -->
+        <div class="model-section-1">
+            <div class="model-header-top">
+                <img src="${char.portrait || 'https://via.placeholder.com/100?text=' + char.name[0]}" 
+                     alt="${char.name}" 
+                     class="model-portrait-new"
+                     onclick="editPortrait('${teamId}', '${charId}')"
+                     onerror="this.src='https://via.placeholder.com/100?text=${char.name[0]}'"
+                     title="Click to change portrait">
+                <div class="model-header-info">
+                    <div class="model-name-row">
+                        <h3 class="model-name-new">${char.name}</h3>
+                        <span class="status-indicator status-${char.status}">${char.status}</span>
+                    </div>
+                    <div class="model-role">${char.role || 'Operative'}</div>
+                    
+                    <!-- Health Controls -->
+                    <div style="display: flex; align-items: center; gap: 5px; margin-top: 8px;">
+                        <button class="health-btn btn-danger" style="width: 30px; height: 30px; font-size: 14px;" onclick="updateHealth('${teamId}', '${charId}', -1)">-</button>
+                        <div style="flex: 1; text-align: center; font-weight: bold; color: ${healthColor}; font-size: 1.1em;">
+                            ${char.currentHealth}/${char.maxHealth} HP
+                        </div>
+                        <button class="health-btn btn-success" style="width: 30px; height: 30px; font-size: 14px;" onclick="updateHealth('${teamId}', '${charId}', 1)">+</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stats Grid -->
+            <div class="model-stats-grid">
+                ${char.speed ? `
+                    <div class="model-stat-box">
+                        <div class="model-stat-label">Speed</div>
+                        <div class="model-stat-value">${char.speed}</div>
+                    </div>
+                ` : ''}
+                ${char.shoot ? `
+                    <div class="model-stat-box">
+                        <div class="model-stat-label">Shoot</div>
+                        <div class="model-stat-value">${char.shoot}</div>
+                    </div>
+                ` : ''}
+                ${char.fight ? `
+                    <div class="model-stat-box">
+                        <div class="model-stat-label">Fight</div>
+                        <div class="model-stat-value">${char.fight}</div>
+                    </div>
+                ` : ''}
+                ${char.nerve ? `
+                    <div class="model-stat-box">
+                        <div class="model-stat-label">Nerve</div>
+                        <div class="model-stat-value">${char.nerve}</div>
+                    </div>
+                ` : ''}
+                <div class="model-stat-box">
+                    <div class="model-stat-label">Health</div>
+                    <div class="model-stat-value">${char.maxHealth}</div>
+                </div>
+            </div>
+            
+            <!-- Effects Field -->
+            <div class="model-effects-field">
+                <div class="model-effects-label">Effects:</div>
+                <div class="model-effects-text">
+                    ${char.statusEffects && char.statusEffects.length > 0 ? 
+                        char.statusEffects.map(e => `${e.name} (${e.duration})`).join(', ') : 
+                        'none'}
+                </div>
+            </div>
+            
+            <!-- Turn Status Button -->
+            <button class="btn ${char.turnTaken ? 'btn-secondary' : 'btn-primary'} turn-status-btn" style="margin-top: 10px;" onclick="toggleTurnStatus('${teamId}', '${charId}')">
+                ${char.turnTaken ? '✓ Turn Taken' : '⏸ Waiting for Turn'}
+            </button>
+        </div>
+        
+        <!-- SECTION 2: Special Actions -->
+        <div class="model-section-2">
+            <div class="section-title">⚡ Special Actions</div>
+            ${char.specialActions && char.specialActions.length > 0 ? char.specialActions.map((action, idx) => `
+                <div class="special-action-item">
+                    <div class="special-action-header">
+                        <span class="special-action-name">${action.name}</span>
+                        <span class="special-action-uses">${action.uses}/${action.maxUses} uses</span>
+                    </div>
+                    <div class="special-action-desc">${action.description}</div>
+                    ${action.effects ? `<div class="special-action-effects">Effects: ${action.effects}</div>` : ''}
+                </div>
+            `).join('') : '<div style="color: #666; text-align: center; padding: 10px;">No special actions</div>'}
+        </div>
+        
+        <!-- SECTION 3: Equipment -->
+        <div class="model-section-3">
+            <div class="section-title">🎯 Equipment</div>
+            <div class="equipment-grid">
+                <!-- Weapon Slot 1 -->
+                <div class="equipment-slot ${!char.weapons || !char.weapons[0] ? 'empty' : ''}">
+                    <div class="equipment-label">Weapon 1</div>
+                    ${char.weapons && char.weapons[0] ? `
+                        <div class="equipment-name">${char.weapons[0].name}</div>
+                        <div class="equipment-stats">${char.weapons[0].type} | A${char.weapons[0].attacks} P${char.weapons[0].power} D${char.weapons[0].damage}</div>
+                        ${char.weapons[0].effects ? `<div class="equipment-effects">${char.weapons[0].effects}</div>` : ''}
+                    ` : '<div style="color: #666;">Empty</div>'}
+                </div>
+                
+                <!-- Weapon Slot 2 -->
+                <div class="equipment-slot ${!char.weapons || !char.weapons[1] ? 'empty' : ''}">
+                    <div class="equipment-label">Weapon 2</div>
+                    ${char.weapons && char.weapons[1] ? `
+                        <div class="equipment-name">${char.weapons[1].name}</div>
+                        <div class="equipment-stats">${char.weapons[1].type} | A${char.weapons[1].attacks} P${char.weapons[1].power} D${char.weapons[1].damage}</div>
+                        ${char.weapons[1].effects ? `<div class="equipment-effects">${char.weapons[1].effects}</div>` : ''}
+                    ` : '<div style="color: #666;">Empty</div>'}
+                </div>
+                
+                <!-- Inventory Slot 1 -->
+                <div class="equipment-slot ${!char.inventory || !char.inventory[0] ? 'empty' : ''}">
+                    <div class="equipment-label">Inventory 1</div>
+                    ${char.inventory && char.inventory[0] ? `
+                        <div class="equipment-name">${char.inventory[0]}</div>
+                    ` : '<div style="color: #666;">Empty</div>'}
+                </div>
+                
+                <!-- Inventory Slot 2 -->
+                <div class="equipment-slot ${!char.inventory || !char.inventory[1] ? 'empty' : ''}">
+                    <div class="equipment-label">Inventory 2</div>
+                    ${char.inventory && char.inventory[1] ? `
+                        <div class="equipment-name">${char.inventory[1]}</div>
+                    ` : '<div style="color: #666;">Empty</div>'}
+                </div>
+            </div>
+            
+            ${team.owner === currentPlayer && !isCompact ? `
+                <div style="margin-top: 15px; display: flex; gap: 5px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="openEditModal('${teamId}', '${charId}')">✏️ Edit</button>
+                    <button class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="deleteCharacter('${teamId}', '${charId}')">🗑️ Delete</button>
+                </div>
+            ` : ''}
+        </div>
+    </div>
+`;
 
-                                <div class="health-section ${isCompact ? 'compact' : ''}">
-                                    <div class="health-label ${isCompact ? 'compact' : ''}">Health Points</div>
-                                    <div class="health-controls ${isCompact ? 'compact' : ''}">
-                                        <button class="health-btn btn-danger ${isCompact ? 'compact' : ''}" onclick="updateHealth('${teamId}', '${charId}', -1)">-</button>
-                                        <div class="health-value ${isCompact ? 'compact' : ''}" style="color: ${healthColor}">
-                                            ${char.currentHealth} / ${char.maxHealth}
-                                        </div>
-                                        <button class="health-btn btn-success ${isCompact ? 'compact' : ''}" onclick="updateHealth('${teamId}', '${charId}', 1)">+</button>
-                                    </div>
-                                </div>
-
-                                <div style="margin-bottom: 15px;">
-                                    <button class="btn ${char.turnTaken ? 'btn-secondary' : 'btn-primary'}" style="width: 100%; padding: 10px;" onclick="toggleTurnStatus('${teamId}', '${charId}')">
-                                        ${char.turnTaken ? '✓ Turn Taken' : '⏸ Waiting for Turn'}
-                                    </button>
-                                </div>
-
-                                ${isCompact ? `
-                                    <div class="expand-toggle" id="toggle-${teamId}-${charId}" onclick="toggleCharacterExpand('${teamId}', '${charId}')">▶ Show More</div>
-                                ` : ''}
-
-                                <div class="model-details ${isCompact ? 'hidden' : ''}" id="details-${teamId}-${charId}">
-                                    ${char.statusEffects && char.statusEffects.length > 0 ? `
-                                        <div class="status-effects">
-                                            <h4>✨ Status Effects</h4>
-                                            ${char.statusEffects.map((effect, idx) => `
-                                                <span class="status-effect-item">
-                                                    ${effect.name} 
-                                                    <span class="duration">(${effect.duration} turns)</span>
-                                                    ${team.owner === currentPlayer ? `<button onclick="removeStatusEffect('${teamId}', '${charId}', ${idx})" style="background: none; border: none; color: #f56565; cursor: pointer; margin-left: 5px;">×</button>` : ''}
-                                                </span>
-                                            `).join('')}
-                                            ${team.owner === currentPlayer ? `<button class="btn btn-secondary" style="padding: 5px 10px; margin-top: 5px; font-size: 0.8em;" onclick="openStatusEffectModal('${teamId}', '${charId}')">+ Add Effect</button>` : ''}
-                                        </div>
-                                    ` : team.owner === currentPlayer ? `
-                                        <div style="margin-bottom: 15px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.85em;" onclick="openStatusEffectModal('${teamId}', '${charId}')">+ Add Status Effect</button>
-                                        </div>
-                                    ` : ''}
-
-                                    <div class="stats-grid ${isCompact ? 'compact' : ''}">
-                                        ${char.speed ? `<div class="stat ${isCompact ? 'compact' : ''}"><div class="stat-label ${isCompact ? 'compact' : ''}">Speed</div><div class="stat-value ${isCompact ? 'compact' : ''}">${char.speed}</div></div>` : ''}
-                                        ${char.shoot ? `<div class="stat ${isCompact ? 'compact' : ''}"><div class="stat-label ${isCompact ? 'compact' : ''}">Shoot</div><div class="stat-value ${isCompact ? 'compact' : ''}">${char.shoot}</div></div>` : ''}
-                                        ${char.fight ? `<div class="stat ${isCompact ? 'compact' : ''}"><div class="stat-label ${isCompact ? 'compact' : ''}">Fight</div><div class="stat-value ${isCompact ? 'compact' : ''}">${char.fight}</div></div>` : ''}
-                                        ${char.nerve ? `<div class="stat ${isCompact ? 'compact' : ''}"><div class="stat-label ${isCompact ? 'compact' : ''}">Nerve</div><div class="stat-value ${isCompact ? 'compact' : ''}">${char.nerve}</div></div>` : ''}
-                                    </div>
-
-                                    ${char.weapons && char.weapons.length > 0 ? `
-                                        <div class="weapons-section">
-                                            <h4>⚔️ Weapons</h4>
-                                            ${char.weapons.map((weapon, idx) => `
-                                                <div class="weapon-item">
-                                                    <div>
-                                                        <span class="weapon-name">${weapon.name}</span>
-                                                        <div style="font-size: 0.85em; color: #a0a0a0;">
-                                                            ${weapon.type} | A${weapon.attacks} P${weapon.power} D${weapon.damage}
-                                                        </div>
-                                                    </div>
-                                                    <button class="btn btn-purple weapon-transfer" onclick="openTransferModal('${teamId}', '${charId}', 'weapon', ${idx}, '${weapon.name}')">🔄</button>
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    ` : ''}
-
-                                    ${char.consumables && char.consumables.length > 0 ? `
-                                        <div class="consumables-section">
-                                            <h4>💊 Consumable Items</h4>
-                                            ${char.consumables.map((consumable, idx) => {
-                                                const effectIcon = consumable.effect === 'heal' ? '❤️' : consumable.effect === 'damage' ? '💥' : '⚡';
-                                                const effectText = consumable.effect === 'heal' ? 'Heal' : consumable.effect === 'damage' ? 'Damage' : 'Buff';
-                                                
-                                                return `
-                                                    <div class="consumable-item">
-                                                        <div class="consumable-header">
-                                                            <span class="consumable-name">${effectIcon} ${consumable.name}</span>
-                                                            <span class="consumable-uses">${consumable.uses}/${consumable.maxUses} uses</span>
-                                                        </div>
-                                                        <div class="consumable-effect">${effectText} ${consumable.amount} HP • Target: ${consumable.targetType}</div>
-                                                        ${consumable.uses > 0 ? `
-                                                            <div class="consumable-actions">
-                                                                ${consumable.targetType === 'self' ? `
-                                                                    <button class="btn btn-success" onclick="useConsumable('${teamId}', '${charId}', ${idx})">Use on Self</button>
-                                                                ` : `
-                                                                    <select id="consumable-target-${teamId}-${charId}-${idx}">
-                                                                        <option value="">Select target...</option>
-                                                                        ${targetOptions}
-                                                                    </select>
-                                                                    <button class="btn btn-success" onclick="useConsumableOnTarget('${teamId}', '${charId}', ${idx})">Use</button>
-                                                                `}
-                                                                <button class="btn btn-purple" onclick="openTransferModal('${teamId}', '${charId}', 'consumable', ${idx}, '${consumable.name}')">🔄</button>
-                                                            </div>
-                                                        ` : `
-                                                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                                                <span style="text-align: center; color: #666; padding: 5px;">No uses remaining</span>
-                                                                <button class="btn btn-purple" onclick="openTransferModal('${teamId}', '${charId}', 'consumable', ${idx}, '${consumable.name}')">🔄</button>
-                                                            </div>
-                                                        `}
-                                                    </div>
-                                                `;
-                                            }).join('')}
-                                        </div>
-                                    ` : ''}
-
-                                    ${char.status === 'alive' && targetOptions ? `
-                                        <div class="attack-section">
-                                            <h4>🎯 Attack Another Character</h4>
-                                            <div class="attack-controls">
-                                                <select id="target-${teamId}-${charId}">
-                                                    <option value="">Select target...</option>
-                                                    ${targetOptions}
-                                                </select>
-                                                <input type="number" id="damage-${teamId}-${charId}" placeholder="DMG" min="1" />
-                                                <button class="btn btn-warning" onclick="attackCharacter('${teamId}', '${charId}')">Attack</button>
-                                            </div>
-                                        </div>
-                                    ` : ''}
-
-                                    ${char.inventory && char.inventory.length > 0 ? `
-                                        <div class="inventory">
-                                            <h4>📦 Inventory</h4>
-                                            <div class="inventory-list">
-                                                ${char.inventory.map((item, idx) => `
-                                                    <span class="inventory-item">
-                                                        ${item}
-                                                        <button onclick="openTransferModal('${teamId}', '${charId}', 'inventory', ${idx}, '${item}')">🔄</button>
-                                                    </span>
-                                                `).join('')}
-                                            </div>
-                                        </div>
-                                    ` : ''}
-
-                                    ${char.notes ? `
-                                        <div class="notes-section">
-                                            <h4>📝 Notes</h4>
-                                            <div class="notes-display">${char.notes}</div>
-                                        </div>
-                                    ` : ''}
-
-                                    ${team.owner === currentPlayer ? `
-                                        <div class="model-actions">
-                                            <button class="btn btn-secondary" onclick='openEditModal("${teamId}", "${charId}", ${JSON.stringify(char).replace(/'/g, "&apos;")})'>Edit</button>
-                                            <button class="btn ${char.status === 'alive' ? 'btn-danger' : 'btn-success'}" onclick="toggleStatus('${teamId}', '${charId}')">
-                                                ${char.status === 'alive' ? '☠️ Kill' : '❤️ Revive'}
-                                            </button>
-                                            <button class="btn btn-danger" onclick="deleteCharacter('${teamId}', '${charId}')">🗑️</button>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        `;
                     });
                 }
 
@@ -3012,6 +3391,197 @@
 
         // Load templates on page load
         loadTemplates();
+
+        // ==================== TURN TIMER FUNCTIONS ====================
+        let timerInterval = null;
+        let timerSecondsLeft = 0;
+
+        function startTimer() {
+            const minutes = parseInt(document.getElementById('timerMinutes').value) || 0;
+            const seconds = parseInt(document.getElementById('timerSeconds').value) || 0;
+            
+            if (!currentSession) return;
+            
+            const totalSeconds = (minutes * 60) + seconds;
+            if (totalSeconds <= 0) {
+                alert('Please enter a valid time');
+                return;
+            }
+            
+            database.ref(`sessions/${currentSession}/timer`).set({
+                running: true,
+                secondsLeft: totalSeconds,
+                totalSeconds: totalSeconds,
+                startedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function pauseTimer() {
+            if (!currentSession) return;
+            database.ref(`sessions/${currentSession}/timer/running`).set(false);
+        }
+
+        function resetTimer() {
+            if (!currentSession) return;
+            const minutes = parseInt(document.getElementById('timerMinutes').value) || 0;
+            const seconds = parseInt(document.getElementById('timerSeconds').value) || 0;
+            const totalSeconds = (minutes * 60) + seconds;
+            
+            database.ref(`sessions/${currentSession}/timer`).set({
+                running: false,
+                secondsLeft: totalSeconds,
+                totalSeconds: totalSeconds,
+                startedAt: null
+            });
+        }
+
+        function updateTimerDisplay(secondsLeft) {
+            const minutes = Math.floor(secondsLeft / 60);
+            const seconds = secondsLeft % 60;
+            const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            const displayElement = document.getElementById('timerDisplay');
+            displayElement.textContent = display;
+            
+            // Add warning class if under 30 seconds
+            if (secondsLeft <= 30 && secondsLeft > 0) {
+                displayElement.classList.add('warning');
+            } else {
+                displayElement.classList.remove('warning');
+            }
+            
+            // Play sound at 0 (optional - currently disabled)
+            if (secondsLeft === 0) {
+                document.getElementById('timerStatus').textContent = '⏰ Time\'s Up!';
+            }
+        }
+
+        function syncTimer() {
+            if (!currentSession) return;
+            
+            database.ref(`sessions/${currentSession}/timer`).on('value', (snapshot) => {
+                const timer = snapshot.val();
+                if (!timer) {
+                    updateTimerDisplay(0);
+                    document.getElementById('timerStatus').textContent = 'Ready';
+                    return;
+                }
+                
+                if (timer.running) {
+                    document.getElementById('timerStatus').textContent = '⏱️ Running...';
+                    
+                    // Calculate actual seconds left based on server timestamp
+                    if (timerInterval) clearInterval(timerInterval);
+                    
+                    timerInterval = setInterval(() => {
+                        database.ref(`sessions/${currentSession}/timer`).once('value', (snap) => {
+                            const t = snap.val();
+                            if (!t || !t.running) {
+                                clearInterval(timerInterval);
+                                return;
+                            }
+                            
+                            let secondsLeft = t.secondsLeft - 1;
+                            if (secondsLeft < 0) secondsLeft = 0;
+                            
+                            updateTimerDisplay(secondsLeft);
+                            
+                            if (secondsLeft === 0) {
+                                clearInterval(timerInterval);
+                                database.ref(`sessions/${currentSession}/timer/running`).set(false);
+                            } else {
+                                database.ref(`sessions/${currentSession}/timer/secondsLeft`).set(secondsLeft);
+                            }
+                        });
+                    }, 1000);
+                } else {
+                    if (timerInterval) clearInterval(timerInterval);
+                    updateTimerDisplay(timer.secondsLeft || 0);
+                    document.getElementById('timerStatus').textContent = timer.secondsLeft === 0 ? '⏰ Time\'s Up!' : '⏸️ Paused';
+                }
+            });
+        }
+
+        // ==================== MISSION/OBJECTIVES FUNCTIONS ====================
+        function editMissionName() {
+            if (!currentSession) return;
+            
+            database.ref(`sessions/${currentSession}/missionName`).once('value', (snapshot) => {
+                const currentName = snapshot.val() || '';
+                const newName = prompt('Enter mission name:', currentName);
+                if (newName !== null) {
+                    database.ref(`sessions/${currentSession}/missionName`).set(newName);
+                }
+            });
+        }
+
+        function toggleObjectives() {
+            const container = document.getElementById('objectivesContainer');
+            container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addObjective() {
+            if (!currentSession) return;
+            const text = prompt('Enter objective:');
+            if (text && text.trim()) {
+                database.ref(`sessions/${currentSession}/objectives`).push({
+                    text: text.trim(),
+                    completed: false,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
+        }
+
+        function toggleObjective(objectiveId) {
+            if (!currentSession) return;
+            const ref = database.ref(`sessions/${currentSession}/objectives/${objectiveId}`);
+            ref.once('value', snapshot => {
+                const obj = snapshot.val();
+                if (obj) {
+                    ref.update({ completed: !obj.completed });
+                }
+            });
+        }
+
+        function deleteObjective(objectiveId) {
+            if (!currentSession) return;
+            if (confirm('Delete this objective?')) {
+                database.ref(`sessions/${currentSession}/objectives/${objectiveId}`).remove();
+            }
+        }
+
+        function loadMissionObjectives() {
+            if (!currentSession) return;
+            
+            // Load mission name
+            database.ref(`sessions/${currentSession}/missionName`).on('value', snapshot => {
+                const name = snapshot.val() || 'Click to set mission name...';
+                document.getElementById('missionName').textContent = name;
+                document.getElementById('missionName').style.color = snapshot.val() ? '#FF9500' : '#666';
+            });
+            
+            // Load objectives
+            database.ref(`sessions/${currentSession}/objectives`).on('value', snapshot => {
+                const objectives = snapshot.val() || {};
+                const container = document.getElementById('objectivesList');
+                
+                if (Object.keys(objectives).length === 0) {
+                    container.innerHTML = '<div style="color: #666; text-align: center; padding: 10px;">No objectives yet. Click "Add Objective" to create one.</div>';
+                } else {
+                    container.innerHTML = Object.entries(objectives).map(([id, obj]) => `
+                        <div class="objective-item ${obj.completed ? 'completed' : ''}">
+                            <input type="checkbox" class="objective-checkbox" 
+                                   ${obj.completed ? 'checked' : ''} 
+                                   onchange="toggleObjective('${id}')">
+                            <span class="objective-text">${obj.text}</span>
+                            <button onclick="deleteObjective('${id}')" style="background: none; border: none; color: #ff4444; cursor: pointer; margin-left: auto;">×</button>
+                        </div>
+                    `).join('');
+                }
+            });
+            
+            // Show section
+            document.getElementById('missionSection').style.display = 'block';
+        }
     </script>
     </div> <!-- end main-content -->
 </body>
