@@ -2891,6 +2891,16 @@
         function closeCreateSessionModal() {
             document.getElementById('createSessionModal').classList.remove('active');
         }
+        
+        // Sanitize session name for Firebase paths
+        function sanitizeSessionName(name) {
+            // Replace spaces with hyphens and remove invalid Firebase characters: . # $ [ ]
+            return name
+                .replace(/\s+/g, '-')           // Replace spaces with hyphens
+                .replace(/[.#$\[\]]/g, '')      // Remove invalid Firebase characters
+                .replace(/-+/g, '-')            // Replace multiple hyphens with single hyphen
+                .replace(/^-|-$/g, '');         // Remove leading/trailing hyphens
+        }
 
         function createSession() {
             const sessionName = document.getElementById('newSessionName').value.trim();
@@ -2906,8 +2916,16 @@
                 alert('Please enter your player name');
                 return;
             }
+            
+            // Sanitize session name for Firebase (remove spaces and invalid characters)
+            const sanitizedSessionName = sanitizeSessionName(sessionName);
+            
+            if (!sanitizedSessionName) {
+                alert('Session name contains only invalid characters. Please use letters and numbers.');
+                return;
+            }
 
-            const sessionRef = database.ref('sessions/' + sessionName);
+            const sessionRef = database.ref('sessions/' + sanitizedSessionName);
             sessionRef.once('value', (snapshot) => {
                 if (snapshot.exists()) {
                     alert('A session with this name already exists. Please choose a different name.');
@@ -2915,7 +2933,7 @@
                 }
 
                 sessionRef.set({
-                    name: sessionName,
+                    name: sessionName,  // Store original name for display
                     description: description,
                     created: firebase.database.ServerValue.TIMESTAMP,
                     archived: false,
@@ -2929,8 +2947,8 @@
                     combatLog: {},
                     initiative: {}
                 }).then(() => {
-                    // Set values in main interface
-                    document.getElementById('sessionName').value = sessionName;
+                    // Set values in main interface (use sanitized name for joining)
+                    document.getElementById('sessionName').value = sanitizedSessionName;
                     document.getElementById('playerName').value = playerName;
                     
                     closeCreateSessionModal();
@@ -2952,21 +2970,31 @@
                 alert('Please enter your player name');
                 return;
             }
+            
+            // Sanitize session name for Firebase lookup
+            const sanitizedSessionName = sanitizeSessionName(sessionName);
+            
+            if (!sanitizedSessionName) {
+                alert('Session name contains only invalid characters. Please use letters and numbers.');
+                return;
+            }
 
-            const sessionRef = database.ref('sessions/' + sessionName);
+            const sessionRef = database.ref('sessions/' + sanitizedSessionName);
             sessionRef.once('value', (snapshot) => {
                 if (!snapshot.exists()) {
                     alert('Session not found. Please create it first or check the name.');
                     return;
                 }
 
-                currentSession = sessionName;
+                currentSession = sanitizedSessionName;  // Use sanitized name
                 currentPlayer = playerName;
                 
                 // Save player name for next time
                 localStorage.setItem('lastPlayerName', playerName);
 
-                document.getElementById('currentSession').textContent = sessionName;
+                // Display the original session name (from database)
+                const sessionData = snapshot.val();
+                document.getElementById('currentSession').textContent = sessionData.name || sanitizedSessionName;
                 document.getElementById('currentPlayer').textContent = playerName;
                 document.getElementById('gameTabBtn').style.display = 'block';
                 document.getElementById('toolsTabBtn').style.display = 'block';
@@ -3344,7 +3372,6 @@
                 // Auto-select faction if team has one
                 if (teamFaction) {
                     document.getElementById('presetFactionSelect').value = teamFaction;
-                    document.getElementById('charFaction').value = teamFaction;
                     updatePresetModels();
                     document.getElementById('presetModelGroup').style.display = 'block';
                 } else {
