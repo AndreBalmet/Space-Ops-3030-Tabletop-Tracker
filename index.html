@@ -4639,17 +4639,6 @@ teamHTML += `
         // Return to Landing Page
         function returnToLanding() {
             document.getElementById('landingPage').style.display = 'flex';
-            
-        // Random Color Generator
-        function generateRandomColor() {
-            const colors = [
-                '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-                '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52B788',
-                '#FF9AA2', '#FFB7B2', '#FFDAC1', '#E2F0CB', '#B5EAD7',
-                '#C7CEEA', '#FFB347', '#77DD77', '#AEC6CF', '#CFCFC4'
-            ];
-            return colors[Math.floor(Math.random() * colors.length)];
-        }
             document.getElementById('appInterface').style.display = 'none';
             document.getElementById('teamBuilderTab').style.display = 'none';
             document.getElementById('myTeamsTab').style.display = 'none';
@@ -4661,6 +4650,17 @@ teamHTML += `
             document.getElementById('gameTabBtn').style.display = 'none';
             document.getElementById('toolsTabBtn').style.display = 'none';
             document.getElementById('templatesTabBtn').style.display = 'none';
+        }
+        
+        // Random Color Generator
+        function generateRandomColor() {
+            const colors = [
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+                '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52B788',
+                '#FF9AA2', '#FFB7B2', '#FFDAC1', '#E2F0CB', '#B5EAD7',
+                '#C7CEEA', '#FFB347', '#77DD77', '#AEC6CF', '#CFCFC4'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
         }
 
         // Team Builder Functions
