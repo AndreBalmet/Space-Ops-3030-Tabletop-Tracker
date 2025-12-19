@@ -611,6 +611,12 @@
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             gap: 15px;
         }
+        
+        .characters-grid.tiny {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
 
         .model-card {
             background: #1a1a1a;
@@ -625,19 +631,19 @@
         }
 
         /* Ultra-Compact View */
-        .model-card.ultra-compact {
+        .model-card.tiny {
             width: 100px;
             padding: 8px;
             text-align: center;
         }
 
-        .model-card.ultra-compact .model-portrait-new {
+        .model-card.tiny .model-portrait-new {
             width: 40px;
             height: 40px;
             margin: 0 auto 5px auto;
         }
 
-        .model-card.ultra-compact .model-name-new {
+        .model-card.tiny .model-name-new {
             font-size: 0.75em;
             white-space: nowrap;
             overflow: hidden;
@@ -645,17 +651,17 @@
             margin-bottom: 3px;
         }
 
-        .model-card.ultra-compact .ultra-hp {
+        .model-card.tiny .ultra-hp {
             font-size: 0.7em;
             color: #9CAF88;
         }
 
-        .model-card.ultra-compact .ultra-turn {
+        .model-card.tiny .ultra-turn {
             font-size: 1.2em;
             margin-top: 3px;
         }
 
-        .team-container.ultra-compact {
+        .team-container.tiny {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
             gap: 10px;
@@ -1373,6 +1379,23 @@
             color: #FF9500;
             font-weight: bold;
         }
+        
+        /* Compact view adjustments */
+        .model-card.compact .model-stats-grid {
+            gap: 5px;
+        }
+        
+        .model-card.compact .model-stat-box {
+            padding: 6px 2px;
+        }
+        
+        .model-card.compact .model-stat-label {
+            font-size: 0.65em;
+        }
+        
+        .model-card.compact .model-stat-value {
+            font-size: 0.95em;
+        }
 
         .model-effects-field {
             margin-top: 10px;
@@ -1731,15 +1754,14 @@
 
     <div id="gameArea" style="display: none;">
         <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="btn btn-success" onclick="openAddTeamModal()">+ Add Model</button>
-            <button class="btn btn-warning" onclick="showCloneSessionModal()">Clone Clone Session</button>
+            <button class="btn btn-warning" onclick="showCloneSessionModal()">Clone Session</button>
             <button class="btn btn-secondary" onclick="toggleArchiveSession()"> <span id="archiveButtonText">Archive Session</span></button>
         </div>
 
         <!-- Team Summary Section -->
-        <div id="teamsSummary" style="background: rgba(255, 149, 0, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #FF9500; display: none;">
-            <h3 style="color: #FF9500; margin: 0 0 15px 0; font-size: 1.2em;">Session Overview</h3>
-            <div id="teamsSummaryContent" style="display: grid; gap: 10px;"></div>
+        <div id="teamsSummary" style="background: rgba(255, 149, 0, 0.1); padding: 8px 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #FF9500; display: none;">
+            <h3 style="color: #FF9500; margin: 0 0 8px 0; font-size: 1em;">Session Overview</h3>
+            <div id="teamsSummaryContent" style="display: grid; gap: 6px;"></div>
         </div>
         
         <div id="teamsContainer" class="teams-container"></div>
@@ -1980,7 +2002,7 @@
         let consumableFields = [];
         let specialActionFields = [];
         let transferData = null;
-        let currentView = 'expanded'; // or 'compact' or 'ultra-compact'
+        let currentView = 'expanded'; // or 'compact' or 'tiny'
         let currentTurn = 0;
         let statusEffectTarget = null;
         let currentMode = null; // 'quickplay', 'teambuilder', 'joinsession', 'lore'
@@ -3712,17 +3734,17 @@
                 const totalModels = characters.length;
                 
                 return `
-                    <div style="background: rgba(0, 0, 0, 0.3); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid ${team.faction ? (gameData.factions.find(f => f.name === team.faction)?.primaryColor || '#FF9500') : '#FF9500'};">
+                    <div style="background: rgba(0, 0, 0, 0.3); padding: 6px 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid ${team.faction ? (gameData.factions.find(f => f.name === team.faction)?.primaryColor || '#FF9500') : '#FF9500'};">
                         <div>
-                            <div style="font-weight: bold; color: white; font-size: 1.1em;">${team.owner}'s Team</div>
-                            <div style="color: #9CAF88; font-size: 0.9em;">${team.faction || 'No Faction'} • ${totalModels} model${totalModels !== 1 ? 's' : ''}</div>
+                            <div style="font-weight: bold; color: white; font-size: 0.95em;">${team.owner}'s Team</div>
+                            <div style="color: #9CAF88; font-size: 0.8em;">${team.faction || 'Choose Faction'} • ${totalModels} model${totalModels !== 1 ? 's' : ''}</div>
                         </div>
-                        <div style="display: flex; gap: 6px; align-items: center;">
-                            ${Array(healthStats.healthy).fill('<span style="color: #4CAF50; font-size: 20px;">●</span>').join('')}
-                            ${Array(healthStats.damaged).fill('<span style="color: #FFA500; font-size: 20px;">●</span>').join('')}
-                            ${Array(healthStats.critical).fill('<span style="color: #F44336; font-size: 20px;">●</span>').join('')}
-                            ${Array(healthStats.dead).fill('<span style="color: #666; font-size: 20px;">●</span>').join('')}
-                            ${totalModels === 0 ? '<span style="color: #666;">No models</span>' : ''}
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            ${Array(healthStats.healthy).fill('<span style="color: #4CAF50; font-size: 16px;">●</span>').join('')}
+                            ${Array(healthStats.damaged).fill('<span style="color: #FFA500; font-size: 16px;">●</span>').join('')}
+                            ${Array(healthStats.critical).fill('<span style="color: #F44336; font-size: 16px;">●</span>').join('')}
+                            ${Array(healthStats.dead).fill('<span style="color: #666; font-size: 16px;">●</span>').join('')}
+                            ${totalModels === 0 ? '<span style="color: #666; font-size: 0.85em;">No models</span>' : ''}
                         </div>
                     </div>
                 `;
@@ -3745,6 +3767,20 @@
             });
 
             container.innerHTML = '';
+            
+            // Add view toggle buttons and Add Model button at top (once)
+            const controlsDiv = document.createElement('div');
+            controlsDiv.style.cssText = 'background: rgba(255, 149, 0, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; justify-content: space-between; border: 1px solid #FF9500; flex-wrap: wrap;';
+            controlsDiv.innerHTML = `
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span style="color: #FF9500; font-weight: bold; margin-right: 10px;">View Mode:</span>
+                    <button class="btn ${currentView === 'expanded' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='expanded'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Expanded</button>
+                    <button class="btn ${currentView === 'compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Compact</button>
+                    <button class="btn ${currentView === 'tiny' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='tiny'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Tiny</button>
+                </div>
+                <button class="btn btn-success" onclick="openAddTeamModal()" style="font-size: 1.1em; padding: 10px 20px;">+ Add Model</button>
+            `;
+            container.appendChild(controlsDiv);
 
             // Sort teams: current player's team first, then others
             const sortedTeams = Object.entries(teams).sort(([idA, teamA], [idB, teamB]) => {
@@ -3764,11 +3800,6 @@
                             ${team.faction ? `<div style="color: #9CAF88; font-size: 1.1em; margin-top: 5px;">Faction: ${team.faction}</div>` : ''}
                         </div>
                         <div class="team-controls">
-                            <div class="view-toggle">
-                                <button class="btn ${currentView === 'expanded' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='expanded'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Expanded</button>
-                                <button class="btn ${currentView === 'compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Compact</button>
-                                <button class="btn ${currentView === 'ultra-compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='ultra-compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Ultra</button>
-                            </div>
                             <button class="btn btn-warning" onclick="resetTeamTurns('${teamId}')">Reset All Turns</button>
                             ${team.owner === currentPlayer ? `
                                 <button class="btn btn-success" onclick="openAddTeamModal()">+ Add Model</button>
@@ -3776,7 +3807,7 @@
                             ` : ''}
                         </div>
                     </div>
-                    <div class="characters-grid ${currentView === 'ultra-compact' ? 'ultra-compact' : currentView === 'compact' ? 'compact' : ''}">
+                    <div class="characters-grid ${currentView === 'tiny' ? 'tiny' : currentView === 'compact' ? 'compact' : ''}">
                 `;
 
                 if (team.characters) {
@@ -3790,9 +3821,9 @@
                             .join('');
 
 // ULTRA-COMPACT VIEW
-if (currentView === 'ultra-compact') {
+if (currentView === 'tiny') {
     teamHTML += `
-        <div class="model-card ultra-compact ${char.status === 'dead' ? 'dead' : ''}" id="model-card-${teamId}-${charId}">
+        <div class="model-card tiny ${char.status === 'dead' ? 'dead' : ''}" id="model-card-${teamId}-${charId}">
             ${char.portrait ? `
                 <img src="${char.portrait}" 
                      alt="${char.name}" 
@@ -3967,7 +3998,7 @@ teamHTML += `
         </div>
     </div>
 `;
-} // End ultra-compact else
+} // End tiny else
 
                     });
                 }
