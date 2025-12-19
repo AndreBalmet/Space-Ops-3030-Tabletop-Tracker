@@ -1622,16 +1622,51 @@
 
     <div class="main-content">
     <div class="header">
-        <h1>Tabletop Model Tracker</h1>
+        <!-- Session Info Bar (moved to top) -->
+        <div id="sessionInfoBar" style="background: rgba(255, 149, 0, 0.1); padding: 8px 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #FF9500; display: none;">
+            <strong style="color: #FF9500;">Session:</strong> <span id="currentSession" style="color: white;"></span> | 
+            <strong style="color: #FF9500;">Player:</strong> <span id="currentPlayer" style="color: white;"></span>
+        </div>
         
-        <!-- Mission/Objectives Section -->
+        <!-- Campaign Info Section -->
+        <div id="campaignSection" style="background: rgba(156, 175, 136, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #9CAF88; display: none;">
+            <!-- Campaign Name -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <h2 id="campaignNameDisplay" style="color: #9CAF88; margin: 0; cursor: pointer; flex: 1;" onclick="editCampaignName()" title="Click to edit">Campaign Name</h2>
+                    <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85em;" onclick="editCampaignName()">Edit</button>
+                </div>
+            </div>
+            
+            <!-- Campaign Description -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 5px;">
+                    <p id="campaignDescDisplay" style="color: #ccc; margin: 0; flex: 1; cursor: pointer; font-size: 0.95em; line-height: 1.4;" onclick="editCampaignDescription()" title="Click to edit">Click to add campaign description...</p>
+                    <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85em; margin-left: 10px;" onclick="editCampaignDescription()">Edit</button>
+                </div>
+            </div>
+            
+            <!-- Objectives Section -->
+            <div id="objectivesSection">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h3 style="color: #9CAF88; margin: 0; font-size: 1em;">Objectives</h3>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-success" style="padding: 4px 10px; font-size: 0.85em;" onclick="addObjective()">+ Add</button>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85em;" onclick="toggleObjectivesCollapse()">Toggle</button>
+                    </div>
+                </div>
+                <div id="objectivesList" style="margin-top: 8px;"></div>
+            </div>
+        </div>
+        
+        <!-- Mission/Objectives Section (OLD - keeping for backwards compatibility)-->
         <div id="missionSection" class="mission-section" style="display: none;">
             <div class="mission-header">
                 <div class="mission-name editable" id="missionName" onclick="editMissionName()">Click to set mission name...</div>
                 <button class="btn btn-secondary" onclick="toggleObjectives()">Objectives</button>
             </div>
             <div id="objectivesContainer" style="display: none;">
-                <div class="objectives-list" id="objectivesList"></div>
+                <div class="objectives-list" id="objectivesList-old"></div>
                 <button class="btn btn-success" style="margin-top: 10px;" onclick="addObjective()">+ Add Objective</button>
             </div>
         </div>
@@ -1676,10 +1711,10 @@
 
         <!-- Current Game Tab -->
         <div id="gameTab" class="tab-content">
-            <div id="sessionInfo" class="session-info">
+            <div id="sessionInfo" class="session-info" style="display: none;">
                 <div>
-                    <strong>Session:</strong> <span id="currentSession"></span> | 
-                    <strong>Player:</strong> <span id="currentPlayer"></span>
+                    <strong>Session:</strong> <span id="currentSession-old"></span> | 
+                    <strong>Player:</strong> <span id="currentPlayer-old"></span>
                 </div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <button class="btn btn-success" onclick="showLoadTeamModal()">Load Saved Team</button>
@@ -1753,9 +1788,31 @@
     </div>
 
     <div id="gameArea" style="display: none;">
-        <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="btn btn-warning" onclick="showCloneSessionModal()">Clone Session</button>
-            <button class="btn btn-secondary" onclick="toggleArchiveSession()"> <span id="archiveButtonText">Archive Session</span></button>
+        <!-- Quick Actions Toolbar -->
+        <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-success" onclick="showLoadTeamModal()">Load Saved Team</button>
+                <button class="btn btn-info" onclick="toggleUndoPanel()">History</button>
+                <button class="btn btn-info" onclick="toggleCombatLog()">Combat Log</button>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-secondary" onclick="exportSession()">Export</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">Import</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importSession(event)">
+                <button class="btn btn-warning" onclick="showCloneSessionModal()">Clone Session</button>
+                <button class="btn btn-secondary" onclick="toggleArchiveSession()"><span id="archiveButtonText">Archive Session</span></button>
+                <button class="btn btn-danger" onclick="leaveSession()">Leave Session</button>
+            </div>
+        </div>
+        
+        <div id="undoPanel" class="undo-section" style="display: none;">
+            <h4 style="color: #4299e1; margin-bottom: 10px;">⏮ Recent Actions (Undo)</h4>
+            <div id="actionHistory" class="action-history"></div>
+        </div>
+        <div id="combatLogPanel" class="combat-log-section" style="display: none;">
+            <h4 style="color: #4299e1; margin-bottom: 10px;"> Combat Log</h4>
+            <button class="btn btn-secondary" style="margin-bottom: 10px;" onclick="clearCombatLog()">Clear Log</button>
+            <div id="combatLog" class="combat-log"></div>
         </div>
 
         <!-- Team Summary Section -->
@@ -2870,6 +2927,11 @@
                     description: description,
                     created: firebase.database.ServerValue.TIMESTAMP,
                     archived: false,
+                    campaign: {
+                        name: 'Campaign Name',
+                        description: 'Click to add campaign description...',
+                        objectives: []
+                    },
                     teams: {},
                     actionHistory: {},
                     combatLog: {},
@@ -2918,6 +2980,13 @@
                 document.getElementById('toolsTabBtn').style.display = 'block';
                 document.getElementById('templatesTabBtn').style.display = 'block';
                 document.getElementById('gameArea').style.display = 'block';
+                
+                // Show session info bar and campaign section
+                document.getElementById('sessionInfoBar').style.display = 'block';
+                document.getElementById('campaignSection').style.display = 'block';
+                
+                // Load campaign info
+                loadCampaignInfo();
 
                 // Load mission and objectives
                 loadMissionObjectives();
@@ -2940,6 +3009,8 @@
             if (currentSession) {
                 const sessionRef = database.ref('sessions/' + currentSession + '/teams');
                 sessionRef.off();
+                const campaignRef = database.ref(`sessions/${currentSession}/campaign`);
+                campaignRef.off();
             }
 
             currentSession = null;
@@ -2947,10 +3018,127 @@
             document.getElementById('gameTabBtn').style.display = 'none';
             document.getElementById('toolsTabBtn').style.display = 'none';
             document.getElementById('gameArea').style.display = 'none';
+            document.getElementById('sessionInfoBar').style.display = 'none';
+            document.getElementById('campaignSection').style.display = 'none';
             document.getElementById('sessionName').value = '';
             document.getElementById('teamsContainer').innerHTML = '';
             
             switchTab('join');
+        }
+        
+        // Campaign Management Functions
+        function loadCampaignInfo() {
+            if (!currentSession) return;
+            
+            const campaignRef = database.ref(`sessions/${currentSession}/campaign`);
+            campaignRef.on('value', (snapshot) => {
+                const campaign = snapshot.val() || {
+                    name: 'Campaign Name',
+                    description: 'Click to add campaign description...',
+                    objectives: []
+                };
+                
+                document.getElementById('campaignNameDisplay').textContent = campaign.name || 'Campaign Name';
+                document.getElementById('campaignDescDisplay').textContent = campaign.description || 'Click to add campaign description...';
+                
+                renderObjectives(campaign.objectives || []);
+            });
+        }
+        
+        function editCampaignName() {
+            if (!currentSession) return;
+            
+            const current = document.getElementById('campaignNameDisplay').textContent;
+            const newName = prompt('Enter campaign name:', current);
+            
+            if (newName && newName.trim()) {
+                database.ref(`sessions/${currentSession}/campaign/name`).set(newName.trim());
+            }
+        }
+        
+        function editCampaignDescription() {
+            if (!currentSession) return;
+            
+            const current = document.getElementById('campaignDescDisplay').textContent;
+            const currentText = current === 'Click to add campaign description...' ? '' : current;
+            const newDesc = prompt('Enter campaign description:', currentText);
+            
+            if (newDesc !== null) {
+                database.ref(`sessions/${currentSession}/campaign/description`).set(newDesc.trim() || 'Click to add campaign description...');
+            }
+        }
+        
+        function addObjective() {
+            if (!currentSession) return;
+            
+            const text = prompt('Enter new objective:');
+            if (!text || !text.trim()) return;
+            
+            const objectivesRef = database.ref(`sessions/${currentSession}/campaign/objectives`);
+            objectivesRef.once('value', (snapshot) => {
+                const objectives = snapshot.val() || [];
+                objectives.push({
+                    text: text.trim(),
+                    completed: false,
+                    id: Date.now()
+                });
+                objectivesRef.set(objectives);
+            });
+        }
+        
+        function toggleObjective(index) {
+            if (!currentSession) return;
+            
+            const objectiveRef = database.ref(`sessions/${currentSession}/campaign/objectives/${index}/completed`);
+            objectiveRef.once('value', (snapshot) => {
+                objectiveRef.set(!snapshot.val());
+            });
+        }
+        
+        function removeObjective(index) {
+            if (!currentSession) return;
+            if (!confirm('Remove this objective?')) return;
+            
+            const objectivesRef = database.ref(`sessions/${currentSession}/campaign/objectives`);
+            objectivesRef.once('value', (snapshot) => {
+                const objectives = snapshot.val() || [];
+                objectives.splice(index, 1);
+                objectivesRef.set(objectives);
+            });
+        }
+        
+        function renderObjectives(objectives) {
+            const container = document.getElementById('objectivesList');
+            
+            if (!objectives || objectives.length === 0) {
+                container.innerHTML = '<div style="color: #888; font-size: 0.9em; padding: 10px; text-align: center;">No objectives yet. Click "+ Add" to create one.</div>';
+                return;
+            }
+            
+            const completed = objectives.filter(o => o.completed).length;
+            const total = objectives.length;
+            
+            container.innerHTML = `
+                <div style="color: #9CAF88; font-size: 0.9em; margin-bottom: 10px;">Progress: ${completed}/${total} completed</div>
+                ${objectives.map((obj, index) => `
+                    <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" ${obj.completed ? 'checked' : ''} 
+                               onchange="toggleObjective(${index})"
+                               style="width: 18px; height: 18px; cursor: pointer;">
+                        <span style="flex: 1; color: ${obj.completed ? '#888' : '#fff'}; text-decoration: ${obj.completed ? 'line-through' : 'none'}; font-size: 0.95em;">
+                            ${obj.text}
+                        </span>
+                        <button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.8em;" onclick="removeObjective(${index})">×</button>
+                    </div>
+                `).join('')}
+            `;
+        }
+        
+        let objectivesCollapsed = false;
+        function toggleObjectivesCollapse() {
+            objectivesCollapsed = !objectivesCollapsed;
+            const list = document.getElementById('objectivesList');
+            list.style.display = objectivesCollapsed ? 'none' : 'block';
         }
 
         function loadAllSessions() {
@@ -3225,32 +3413,32 @@
                 renderWeaponFields();
             }
             
-            // Auto-fill Jet Pack for all Arc Rangers
+            // Auto-fill Jump Boost special action for all Arc Rangers
             if (factionName === 'Arc Rangers') {
-                // Check if jet pack already exists
-                const hasJetPack = consumableFields.some(c => c.name && c.name.toLowerCase().includes('jet pack'));
-                if (!hasJetPack) {
-                    // Add jet pack if empty field exists
-                    const emptyIndex = consumableFields.findIndex(c => !c.name);
+                // Check if Jump Boost already exists
+                const hasJumpBoost = specialActionFields.some(s => s.name && s.name.toLowerCase().includes('jump boost'));
+                if (!hasJumpBoost) {
+                    // Add Jump Boost if empty field exists
+                    const emptyIndex = specialActionFields.findIndex(s => !s.name);
                     if (emptyIndex >= 0) {
-                        consumableFields[emptyIndex] = {
-                            name: 'Jet Pack',
-                            effect: 'Mobility: Can fly over terrain and enemies',
-                            amount: 3,
-                            maxUses: 3,
-                            targetType: 'Self'
+                        specialActionFields[emptyIndex] = {
+                            name: 'Jump Boost',
+                            description: 'Uses jet pack to boost 6 inches. Ignores terrain.',
+                            effects: 'Dangerous terrain test required',
+                            maxUses: 1,
+                            type: 'Movement'
                         };
                     } else {
                         // Add new field
-                        consumableFields.push({
-                            name: 'Jet Pack',
-                            effect: 'Mobility: Can fly over terrain and enemies',
-                            amount: 3,
-                            maxUses: 3,
-                            targetType: 'Self'
+                        specialActionFields.push({
+                            name: 'Jump Boost',
+                            description: 'Uses jet pack to boost 6 inches. Ignores terrain.',
+                            effects: 'Dangerous terrain test required',
+                            maxUses: 1,
+                            type: 'Movement'
                         });
                     }
-                    renderConsumableFields();
+                    renderSpecialActionFields();
                 }
             }
             
