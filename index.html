@@ -95,6 +95,7 @@
             padding: 15px;
             border-radius: 8px;
             margin-top: 15px;
+            margin-bottom: 20px;
             border: 1px solid #FF9500;
         }
 
@@ -163,6 +164,7 @@
             gap: 10px;
             margin-bottom: 20px;
             flex-wrap: wrap;
+            justify-content: center;
         }
 
         .tab {
@@ -1463,8 +1465,8 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('join')">Join/Create</button>
             <button class="tab" onclick="switchTab('sessions')">Sessions</button>
-            <button class="tab" id="gameTab" onclick="switchTab('game')" style="display: none;">Game</button>
-            <button class="tab" id="toolsTab" onclick="switchTab('tools')" style="display: none;">Tools</button>
+            <button class="tab" id="gameTabBtn" onclick="switchTab('game')" style="display: none;">Game</button>
+            <button class="tab" id="toolsTabBtn" onclick="switchTab('tools')" style="display: none;">Tools</button>
             <button class="tab" onclick="switchTab('templates')">Templates</button>
         </div>
 
@@ -1736,6 +1738,12 @@
                     <button type="button" class="btn btn-success" onclick="addConsumableField()">+ Add Consumable</button>
                 </div>
 
+                <h3 style="color: #FF9500; margin: 20px 0 10px 0;">⚡ Special Actions</h3>
+                <div class="consumables-form-section">
+                    <div id="specialActionsFormList"></div>
+                    <button type="button" class="btn btn-success" onclick="addSpecialActionField()">+ Add Special Action</button>
+                </div>
+
                 <div class="form-group">
                     <label>Inventory (comma-separated)</label>
                     <textarea id="charInventory" placeholder="Medkit, Ammo, Tools"></textarea>
@@ -1775,6 +1783,7 @@
         let editingCharacter = null;
         let weaponFields = [];
         let consumableFields = [];
+        let specialActionFields = [];
         let transferData = null;
         let currentView = 'expanded'; // or 'compact'
         let currentTurn = 0;
@@ -2564,8 +2573,8 @@
 
                 document.getElementById('currentSession').textContent = sessionName;
                 document.getElementById('currentPlayer').textContent = playerName;
-                document.getElementById('gameTab').style.display = 'block';
-                document.getElementById('toolsTab').style.display = 'block';
+                document.getElementById('gameTabBtn').style.display = 'block';
+                document.getElementById('toolsTabBtn').style.display = 'block';
                 document.getElementById('gameArea').style.display = 'block';
 
                 // Load mission and objectives
@@ -2593,8 +2602,8 @@
 
             currentSession = null;
             currentPlayer = null;
-            document.getElementById('gameTab').style.display = 'none';
-            document.getElementById('toolsTab').style.display = 'none';
+            document.getElementById('gameTabBtn').style.display = 'none';
+            document.getElementById('toolsTabBtn').style.display = 'none';
             document.getElementById('gameArea').style.display = 'none';
             document.getElementById('sessionName').value = '';
             document.getElementById('teamsContainer').innerHTML = '';
@@ -2776,10 +2785,13 @@
             document.getElementById('characterForm').reset();
             weaponFields = [];
             consumableFields = [];
+            specialActionFields = [];
             renderWeaponFields();
             renderConsumableFields();
+            renderSpecialActionFields();
             addWeaponField();
             addConsumableField();
+            addSpecialActionField();
             document.getElementById('characterModal').classList.add('active');
         }
 
@@ -2857,10 +2869,52 @@
             `).join('');
         }
 
+        // Special Action Field Management
+        function addSpecialActionField(name = '', description = '', effects = '', maxUses = 1) {
+            specialActionFields.push({ name, description, effects, maxUses, uses: maxUses });
+            renderSpecialActionFields();
+        }
+
+        function removeSpecialActionField(index) {
+            specialActionFields.splice(index, 1);
+            renderSpecialActionFields();
+        }
+
+        function renderSpecialActionFields() {
+            const container = document.getElementById('specialActionsFormList');
+            if (!container) return; // In case the element doesn't exist yet
+            
+            container.innerHTML = specialActionFields.map((action, index) => `
+                <div class="consumable-entry" style="flex-wrap: wrap;">
+                    <input type="text" placeholder="Action name" value="${action.name}" onchange="specialActionFields[${index}].name = this.value" style="min-width: 150px;" />
+                    <input type="text" placeholder="Description" value="${action.description}" onchange="specialActionFields[${index}].description = this.value" style="min-width: 200px; flex: 1;" />
+                    <input type="text" placeholder="Effects (e.g., Dangerous)" value="${action.effects}" onchange="specialActionFields[${index}].effects = this.value" style="min-width: 120px;" />
+                    <input type="number" placeholder="Max Uses" value="${action.maxUses}" onchange="specialActionFields[${index}].maxUses = this.value; specialActionFields[${index}].uses = this.value;" style="width: 80px;" min="1" />
+                    <button type="button" class="btn btn-danger" onclick="removeSpecialActionField(${index})">×</button>
+                </div>
+            `).join('');
+        }
+
         function openEditModal(teamId, charId, character) {
             editingCharacter = { teamId, charId };
             document.getElementById('modalTitle').textContent = 'Edit Character';
             
+            // If character not provided, fetch it
+            if (!character) {
+                database.ref(`sessions/${currentSession}/teams/${teamId}/characters/${charId}`).once('value', (snapshot) => {
+                    const char = snapshot.val();
+                    if (char) {
+                        populateEditForm(char);
+                    }
+                });
+            } else {
+                populateEditForm(character);
+            }
+            
+            document.getElementById('characterModal').classList.add('active');
+        }
+        
+        function populateEditForm(character) {
             document.getElementById('charName').value = character.name || '';
             document.getElementById('charRole').value = character.role || '';
             document.getElementById('charPortrait').value = character.portrait || '';
@@ -2885,8 +2939,11 @@
             })) : [];
             renderConsumableFields();
             if (consumableFields.length === 0) addConsumableField();
-
-            document.getElementById('characterModal').classList.add('active');
+            
+            // Load special actions if they exist
+            specialActionFields = character.specialActions ? character.specialActions.map(a => ({...a})) : [];
+            renderSpecialActionFields();
+            if (specialActionFields.length === 0) addSpecialActionField();
         }
 
         document.getElementById('characterForm').addEventListener('submit', function(e) {
@@ -2916,7 +2973,13 @@
                 status: 'alive',
                 statusEffects: [],
                 turnTaken: false,
-                specialActions: [],
+                specialActions: specialActionFields.filter(a => a.name).map(a => ({
+                    name: a.name,
+                    description: a.description || '',
+                    effects: a.effects || '',
+                    maxUses: parseInt(a.maxUses) || 1,
+                    uses: parseInt(a.maxUses) || 1
+                })),
                 owner: currentPlayer
             };
 
