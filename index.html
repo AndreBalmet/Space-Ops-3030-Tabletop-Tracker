@@ -1628,12 +1628,20 @@
             <strong style="color: #FF9500;">Player:</strong> <span id="currentPlayer" style="color: white;"></span>
         </div>
         
+        <!-- Navigation Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('join')">Join/Create</button>
+            <button class="tab" onclick="switchTab('sessions')">Sessions</button>
+            <button class="tab" id="gameTabBtn" onclick="switchTab('game')" style="display: none;">Game</button>
+            <button class="tab" id="toolsTabBtn" onclick="switchTab('tools')" style="display: none;">Tools</button>
+        </div>
+        
         <!-- Campaign Info Section -->
         <div id="campaignSection" style="background: rgba(156, 175, 136, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #9CAF88; display: none;">
             <!-- Campaign Name -->
             <div style="margin-bottom: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                    <h2 id="campaignNameDisplay" style="color: #9CAF88; margin: 0; cursor: pointer; flex: 1;" onclick="editCampaignName()" title="Click to edit">Campaign Name</h2>
+                    <h2 id="campaignNameDisplay" style="color: #9CAF88; margin: 0; cursor: pointer; flex: 1; text-align: center;" onclick="editCampaignName()" title="Click to edit">Campaign Name</h2>
                     <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85em;" onclick="editCampaignName()">Edit</button>
                 </div>
             </div>
@@ -1641,7 +1649,7 @@
             <!-- Campaign Description -->
             <div style="margin-bottom: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 5px;">
-                    <p id="campaignDescDisplay" style="color: #ccc; margin: 0; flex: 1; cursor: pointer; font-size: 0.95em; line-height: 1.4;" onclick="editCampaignDescription()" title="Click to edit">Click to add campaign description...</p>
+                    <p id="campaignDescDisplay" style="color: #ccc; margin: 0; flex: 1; cursor: pointer; font-size: 0.95em; line-height: 1.4; text-align: center;" onclick="editCampaignDescription()" title="Click to edit">Click to add campaign description...</p>
                     <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85em; margin-left: 10px;" onclick="editCampaignDescription()">Edit</button>
                 </div>
             </div>
@@ -1649,7 +1657,7 @@
             <!-- Objectives Section -->
             <div id="objectivesSection">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h3 style="color: #9CAF88; margin: 0; font-size: 1em;">Objectives</h3>
+                    <h3 style="color: #9CAF88; margin: 0; font-size: 1em; text-align: center; flex: 1;">Objectives</h3>
                     <div style="display: flex; gap: 5px;">
                         <button class="btn btn-success" style="padding: 4px 10px; font-size: 0.85em;" onclick="addObjective()">+ Add</button>
                         <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85em;" onclick="toggleObjectivesCollapse()">Toggle</button>
@@ -1657,15 +1665,6 @@
                 </div>
                 <div id="objectivesList" style="margin-top: 8px;"></div>
             </div>
-        </div>
-        
-        
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('join')">Join/Create</button>
-            <button class="tab" onclick="switchTab('sessions')">Sessions</button>
-            <button class="tab" id="gameTabBtn" onclick="switchTab('game')" style="display: none;">Game</button>
-            <button class="tab" id="toolsTabBtn" onclick="switchTab('tools')" style="display: none;">Tools</button>
-            <button class="tab" id="templatesTabBtn" onclick="switchTab('templates')" style="display: none;">Templates</button>
         </div>
 
         <!-- Join/Create Tab -->
@@ -2967,7 +2966,8 @@
                 document.getElementById('currentPlayer').textContent = playerName;
                 document.getElementById('gameTabBtn').style.display = 'block';
                 document.getElementById('toolsTabBtn').style.display = 'block';
-                document.getElementById('templatesTabBtn').style.display = 'block';
+                // Templates tab removed in v12.11
+                // document.getElementById('templatesTabBtn').style.display = 'block';
                 document.getElementById('gameArea').style.display = 'block';
                 
                 // Show session info bar and campaign section
@@ -4790,7 +4790,8 @@ teamHTML += `
                     document.getElementById('currentPlayer').textContent = playerName;
                     document.getElementById('gameTabBtn').style.display = 'block';
                     document.getElementById('toolsTabBtn').style.display = 'block';
-                    document.getElementById('templatesTabBtn').style.display = 'block';
+                    // Templates tab removed in v12.11
+                    // document.getElementById('templatesTabBtn').style.display = 'block';
                     document.getElementById('gameArea').style.display = 'block';
                     
                     // Load mission/objectives
@@ -4864,7 +4865,8 @@ teamHTML += `
             // Hide tabs
             document.getElementById('gameTabBtn').style.display = 'none';
             document.getElementById('toolsTabBtn').style.display = 'none';
-            document.getElementById('templatesTabBtn').style.display = 'none';
+            // Templates tab removed in v12.11
+            // document.getElementById('templatesTabBtn').style.display = 'none';
         }
         
         // Random Color Generator
