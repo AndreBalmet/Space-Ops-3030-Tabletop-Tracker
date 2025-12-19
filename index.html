@@ -1599,13 +1599,13 @@
 
     <div class="main-content">
     <div class="header">
-        <h1>⚔️ Tabletop Model Tracker</h1>
+        <h1>Tabletop Model Tracker</h1>
         
         <!-- Mission/Objectives Section -->
         <div id="missionSection" class="mission-section" style="display: none;">
             <div class="mission-header">
                 <div class="mission-name editable" id="missionName" onclick="editMissionName()">Click to set mission name...</div>
-                <button class="btn btn-secondary" onclick="toggleObjectives()">📋 Objectives</button>
+                <button class="btn btn-secondary" onclick="toggleObjectives()">Objectives</button>
             </div>
             <div id="objectivesContainer" style="display: none;">
                 <div class="objectives-list" id="objectivesList"></div>
@@ -1645,7 +1645,7 @@
         <!-- Templates Tab -->
         <div id="templatesTab" class="tab-content">
             <div style="margin-bottom: 15px;">
-                <button class="btn btn-success" onclick="openSaveTemplateModal()">💾 Save Current Character as Template</button>
+                <button class="btn btn-success" onclick="openSaveTemplateModal()"> Save Current Character as Template</button>
             </div>
             <h3 style="color: #ff6b35; margin-bottom: 15px;">Character Templates</h3>
             <div id="templatesList" class="template-list"></div>
@@ -1659,20 +1659,21 @@
                     <strong>Player:</strong> <span id="currentPlayer"></span>
                 </div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button class="btn btn-info" onclick="toggleUndoPanel()">⏮️ History</button>
-                    <button class="btn btn-info" onclick="toggleCombatLog()">📜 Combat Log</button>
-                    <button class="btn btn-secondary" onclick="exportSession()">💾 Export</button>
-                    <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📂 Import</button>
+                    <button class="btn btn-success" onclick="showLoadTeamModal()">Load Saved Team</button>
+                    <button class="btn btn-info" onclick="toggleUndoPanel()">History</button>
+                    <button class="btn btn-info" onclick="toggleCombatLog()">Combat Log</button>
+                    <button class="btn btn-secondary" onclick="exportSession()">Export</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">Import</button>
                     <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importSession(event)">
                     <button class="btn btn-secondary" onclick="leaveSession()">Leave</button>
                 </div>
             </div>
             <div id="undoPanel" class="undo-section" style="display: none;">
-                <h4 style="color: #4299e1; margin-bottom: 10px;">⏮️ Recent Actions (Undo)</h4>
+                <h4 style="color: #4299e1; margin-bottom: 10px;">⏮ Recent Actions (Undo)</h4>
                 <div id="actionHistory" class="action-history"></div>
             </div>
             <div id="combatLogPanel" class="combat-log-section" style="display: none;">
-                <h4 style="color: #4299e1; margin-bottom: 10px;">📜 Combat Log</h4>
+                <h4 style="color: #4299e1; margin-bottom: 10px;"> Combat Log</h4>
                 <button class="btn btn-secondary" style="margin-bottom: 10px;" onclick="clearCombatLog()">Clear Log</button>
                 <div id="combatLog" class="combat-log"></div>
             </div>
@@ -1682,21 +1683,21 @@
         <div id="toolsTab" class="tab-content">
             <!-- Turn Timer -->
             <div class="timer-container">
-                <h3 style="color: #FF9500; margin-bottom: 10px; text-align: center;">⏱️ Turn Timer</h3>
+                <h3 style="color: #FF9500; margin-bottom: 10px; text-align: center;">⏱ Turn Timer</h3>
                 <div class="timer-display" id="timerDisplay">00:00</div>
                 <div class="timer-controls">
                     <input type="number" id="timerMinutes" class="timer-input" placeholder="Min" min="0" max="99" value="3">
                     <input type="number" id="timerSeconds" class="timer-input" placeholder="Sec" min="0" max="59" value="0">
-                    <button class="btn btn-success" onclick="startTimer()">▶️ Start</button>
-                    <button class="btn btn-warning" onclick="pauseTimer()">⏸️ Pause</button>
-                    <button class="btn btn-danger" onclick="resetTimer()">🔄 Reset</button>
+                    <button class="btn btn-success" onclick="startTimer()"> Start</button>
+                    <button class="btn btn-warning" onclick="pauseTimer()">Pause Pause</button>
+                    <button class="btn btn-danger" onclick="resetTimer()">Reset Reset</button>
                 </div>
                 <div style="text-align: center; margin-top: 10px; color: #9CAF88; font-size: 0.9em;" id="timerStatus">Ready</div>
             </div>
 
             <!-- Dice Roller -->
             <div class="dice-roller">
-                <h3 style="color: #9f7aea; margin-bottom: 10px;">🎲 Dice Roller</h3>
+                <h3 style="color: #9f7aea; margin-bottom: 10px;"> Dice Roller</h3>
                 <div class="dice-controls">
                     <button class="dice-btn" onclick="rollDice(4)">D4</button>
                     <button class="dice-btn" onclick="rollDice(6)">D6</button>
@@ -1717,10 +1718,10 @@
 
             <!-- Initiative Tracker -->
             <div class="initiative-tracker">
-                <h3 style="color: #ed8936; margin-bottom: 10px;">⚡ Initiative Tracker</h3>
+                <h3 style="color: #ed8936; margin-bottom: 10px;">Initiative Initiative Tracker</h3>
                 <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                    <button class="btn btn-success" onclick="rollInitiativeForAll()">🎲 Roll Initiative for All</button>
-                    <button class="btn btn-warning" onclick="nextTurn()">➡️ Next Turn</button>
+                    <button class="btn btn-success" onclick="rollInitiativeForAll()"> Roll Initiative for All</button>
+                    <button class="btn btn-warning" onclick="nextTurn()"> Next Turn</button>
                     <button class="btn btn-secondary" onclick="clearInitiative()">Clear</button>
                 </div>
                 <div id="initiativeList" class="initiative-list"></div>
@@ -1731,8 +1732,8 @@
     <div id="gameArea" style="display: none;">
         <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
             <button class="btn btn-success" onclick="openAddTeamModal()">+ Add Model</button>
-            <button class="btn btn-warning" onclick="showCloneSessionModal()">📋 Clone Session</button>
-            <button class="btn btn-secondary" onclick="toggleArchiveSession()">🗃️ <span id="archiveButtonText">Archive Session</span></button>
+            <button class="btn btn-warning" onclick="showCloneSessionModal()">Clone Clone Session</button>
+            <button class="btn btn-secondary" onclick="toggleArchiveSession()"> <span id="archiveButtonText">Archive Session</span></button>
         </div>
 
         <div id="teamsContainer" class="teams-container"></div>
@@ -1742,7 +1743,7 @@
     <!-- Transfer Modal -->
     <div id="transferModal" class="modal transfer-modal">
         <div class="modal-content">
-            <h2 id="transferModalTitle">🔄 Transfer Item</h2>
+            <h2 id="transferModalTitle">Reset Transfer Item</h2>
             <p style="color: #a0a0a0; margin-bottom: 20px;">Select a character to transfer this item to:</p>
             <div class="form-group">
                 <label>Recipient:</label>
@@ -1842,6 +1843,30 @@
         <div class="modal-content">
             <h2 id="modalTitle">Add Model</h2>
             <form id="characterForm">
+                <!-- Preset Selection Section -->
+                <div id="presetSelectionSection" style="background: rgba(255, 149, 0, 0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #FF9500;">
+                    <h3 style="color: #FF9500; margin-top: 0;">Quick Add from Preset</h3>
+                    
+                    <div class="form-group">
+                        <label>Step 1: Choose Faction*</label>
+                        <select id="presetFactionSelect" onchange="updateModelPresets()" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid #FF9500; color: white; border-radius: 5px;">
+                            <option value="">-- Select Faction --</option>
+                            <option value="Arc Rangers">Arc Rangers</option>
+                            <option value="Space-Wyrm">Space-Wyrm</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="presetModelGroup" style="display: none;">
+                        <label>Step 2: Choose Model Type*</label>
+                        <select id="presetModelSelect" onchange="fillFormFromPreset()" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid #FF9500; color: white; border-radius: 5px;">
+                            <option value="">-- Select Model --</option>
+                        </select>
+                    </div>
+                    
+                    <p style="color: #9CAF88; font-size: 0.9em; margin: 10px 0 0 0;">Or scroll down to create a custom model</p>
+                </div>
+                
+                <h3 style="color: #FF9500; margin: 20px 0 10px 0;">Model Details</h3>
                 <div class="form-group">
                     <label>Character Name*</label>
                     <input type="text" id="charName" required />
@@ -2094,7 +2119,7 @@
             resultDiv.querySelector('div:last-child').textContent = `D${sides} rolled at ${timestamp}`;
             
             updateDiceHistory();
-            logToCombat(`🎲 Rolled D${sides}: ${result}`);
+            logToCombat(` Rolled D${sides}: ${result}`);
         }
         
         function updateDiceHistory() {
@@ -2138,7 +2163,7 @@
                 });
                 
                 renderInitiative();
-                logToCombat('⚡ Initiative rolled for all characters');
+                logToCombat('Initiative Initiative rolled for all characters');
             });
         }
         
@@ -2158,7 +2183,7 @@
                     <div class="initiative-item ${idx === currentTurn ? 'active-turn' : ''}">
                         <div class="initiative-number">${char.initiative}</div>
                         <div class="initiative-char">${char.owner} - ${char.name}</div>
-                        ${idx === currentTurn ? '<span style="color: #48bb78; font-weight: bold;">◀ Current Turn</span>' : ''}
+                        ${idx === currentTurn ? '<span style="color: #48bb78; font-weight: bold;"> Current Turn</span>' : ''}
                     </div>
                 `).join('');
             });
@@ -2176,14 +2201,14 @@
                 // Decrease status effect durations
                 decreaseStatusEffectDurations();
                 
-                logToCombat(`➡️ Turn passed to ${data.order[newTurn].name}`);
+                logToCombat(` Turn passed to ${data.order[newTurn].name}`);
             });
         }
         
         function clearInitiative() {
             if (confirm('Clear initiative order?')) {
                 database.ref(`sessions/${currentSession}/initiative`).remove();
-                logToCombat('⚡ Initiative cleared');
+                logToCombat('Initiative Initiative cleared');
             }
         }
         
@@ -2241,7 +2266,7 @@
                 statusEffects.push({ name, duration, description });
                 charRef.update({ statusEffects });
                 
-                logToCombat(`✨ ${char.name} gained status: ${name} (${duration} turns)`);
+                logToCombat(` ${char.name} gained status: ${name} (${duration} turns)`);
             });
             
             document.getElementById('statusEffectName').value = '';
@@ -2258,7 +2283,7 @@
                 const removed = statusEffects.splice(effectIndex, 1)[0];
                 charRef.update({ statusEffects });
                 
-                logToCombat(`✨ ${char.name} lost status: ${removed.name}`);
+                logToCombat(` ${char.name} lost status: ${removed.name}`);
             });
         }
 
@@ -2498,7 +2523,7 @@
         function openTransferModal(fromTeamId, fromCharId, itemType, itemIndex, itemName) {
             transferData = { fromTeamId, fromCharId, itemType, itemIndex, itemName };
             
-            document.getElementById('transferModalTitle').textContent = `🔄 Transfer: ${itemName}`;
+            document.getElementById('transferModalTitle').textContent = `Reset Transfer: ${itemName}`;
             
             const sessionRef = database.ref(`sessions/${currentSession}/teams`);
             sessionRef.once('value', (snapshot) => {
@@ -2580,7 +2605,7 @@
                     fromTeamId, fromCharId, toTeamId, toCharId, itemType, item: itemToTransfer
                 });
                 
-                logToCombat(`🔄 ${fromChar.name} → ${toChar.name}: ${itemName}`);
+                logToCombat(`Reset ${fromChar.name} → ${toChar.name}: ${itemName}`);
                 
                 closeTransferModal();
             });
@@ -2893,9 +2918,9 @@
                     card.innerHTML = `
                         <h3>${sessionName} ${session.archived ? '<span class="archived-badge">ARCHIVED</span>' : ''}</h3>
                         <div class="session-meta">
-                            📅 Created: ${created}<br>
-                            👥 ${teamCount} team(s), ${charCount} character(s)<br>
-                            ${session.description ? `📝 ${session.description}` : ''}
+                             Created: ${created}<br>
+                             ${teamCount} team(s), ${charCount} character(s)<br>
+                            ${session.description ? ` ${session.description}` : ''}
                         </div>
                         <div class="session-actions">
                             <button class="btn btn-primary" onclick="joinSessionByName('${sessionName}')">Join</button>
@@ -3043,7 +3068,75 @@
             addWeaponField();
             addConsumableField();
             addSpecialActionField();
+            
+            // Reset preset selectors
+            document.getElementById('presetFactionSelect').value = '';
+            document.getElementById('presetModelGroup').style.display = 'none';
+            document.getElementById('presetModelSelect').innerHTML = '<option value="">-- Select Model --</option>';
+            
             document.getElementById('characterModal').classList.add('active');
+        }
+
+        function updateModelPresets() {
+            const factionSelect = document.getElementById('presetFactionSelect');
+            const modelSelect = document.getElementById('presetModelSelect');
+            const modelGroup = document.getElementById('presetModelGroup');
+            const selectedFaction = factionSelect.value;
+            
+            if (!selectedFaction) {
+                modelGroup.style.display = 'none';
+                return;
+            }
+            
+            // Get models for selected faction
+            const factionModels = gameData.models.filter(m => m.faction === selectedFaction);
+            
+            // Populate model dropdown
+            modelSelect.innerHTML = '<option value="">-- Select Model --</option>' + 
+                factionModels.map(model => 
+                    `<option value="${model.name}">${model.name} (${model.points}pts - ${model.type})</option>`
+                ).join('');
+            
+            modelGroup.style.display = 'block';
+        }
+
+        function fillFormFromPreset() {
+            const factionName = document.getElementById('presetFactionSelect').value;
+            const modelName = document.getElementById('presetModelSelect').value;
+            
+            if (!factionName || !modelName) return;
+            
+            const model = gameData.models.find(m => m.name === modelName && m.faction === factionName);
+            if (!model) return;
+            
+            // Fill form fields
+            document.getElementById('charName').value = model.name;
+            document.getElementById('charRole').value = model.type;
+            document.getElementById('charPortrait').value = model.portrait;
+            document.getElementById('charSpeed').value = model.speed;
+            document.getElementById('charShoot').value = model.shoot;
+            document.getElementById('charFight').value = model.fight;
+            document.getElementById('charNerve').value = model.nerve;
+            document.getElementById('charHealth').value = model.health;
+            
+            // Get faction-specific weapons and add first one
+            const factionWeapons = gameData.weapons.filter(w => w.faction === factionName);
+            if (factionWeapons.length > 0 && weaponFields.length === 1 && !weaponFields[0].name) {
+                // Replace the empty weapon field
+                const weapon = factionWeapons[0];
+                weaponFields[0] = {
+                    name: weapon.name,
+                    type: weapon.type,
+                    attacks: weapon.attacks,
+                    power: weapon.power,
+                    damage: weapon.damage,
+                    effects: weapon.effects || ''
+                };
+                renderWeaponFields();
+            }
+            
+            // Scroll to top of form
+            document.querySelector('.modal-content').scrollTop = 0;
         }
 
         function closeCharacterModal() {
@@ -3077,7 +3170,7 @@
                     <input type="number" placeholder="Attacks" value="${weapon.attacks}" onchange="weaponFields[${index}].attacks = this.value" style="width: 80px;" />
                     <input type="number" placeholder="Power" value="${weapon.power}" onchange="weaponFields[${index}].power = this.value" style="width: 80px;" />
                     <input type="number" placeholder="Damage" value="${weapon.damage}" onchange="weaponFields[${index}].damage = this.value" style="width: 80px;" />
-                    <button type="button" class="btn btn-danger" onclick="removeWeaponField(${index})">×</button>
+                    <button type="button" class="btn btn-danger" onclick="removeWeaponField(${index})">Remove</button>
                 </div>
             `).join('');
         }
@@ -3099,7 +3192,7 @@
                     <select onchange="if(this.value) { const preset = presetConsumables.find(c => c.name === this.value); Object.assign(consumableFields[${index}], preset); renderConsumableFields(); }" style="min-width: 150px;">
                         <option value="">-- Quick Select --</option>
                         ${presetConsumables.map(c => {
-                            const effectIcon = c.effect === 'heal' ? '❤️' : c.effect === 'damage' ? '💥' : '⚡';
+                            const effectIcon = c.effect === 'heal' ? 'heal' : c.effect === 'damage' ? 'damage' : 'Initiative';
                             return `<option value="${c.name}">${effectIcon} ${c.name} (${c.effect} ${c.amount})</option>`;
                         }).join('')}
                     </select>
@@ -3115,7 +3208,7 @@
                         <option value="self" ${consumable.targetType === 'self' ? 'selected' : ''}>Self</option>
                         <option value="other" ${consumable.targetType === 'other' ? 'selected' : ''}>Other</option>
                     </select>
-                    <button type="button" class="btn btn-danger" onclick="removeConsumableField(${index})">×</button>
+                    <button type="button" class="btn btn-danger" onclick="removeConsumableField(${index})">Remove</button>
                 </div>
             `).join('');
         }
@@ -3166,7 +3259,7 @@
                     <input type="text" placeholder="Description" value="${action.description}" onchange="specialActionFields[${index}].description = this.value" style="min-width: 200px; flex: 1;" />
                     <input type="text" placeholder="Effects (e.g., Dangerous)" value="${action.effects}" onchange="specialActionFields[${index}].effects = this.value" style="min-width: 120px;" />
                     <input type="number" placeholder="Max Uses" value="${action.maxUses}" onchange="specialActionFields[${index}].maxUses = this.value; specialActionFields[${index}].uses = this.value;" style="width: 80px;" min="1" />
-                    <button type="button" class="btn btn-danger" onclick="removeSpecialActionField(${index})">×</button>
+                    <button type="button" class="btn btn-danger" onclick="removeSpecialActionField(${index})">Remove</button>
                 </div>
             `).join('');
         }
@@ -3361,7 +3454,7 @@
                     change: change
                 });
                 
-                logToCombat(`${change > 0 ? '❤️' : '💔'} ${char.name} ${action} ${Math.abs(change)} HP (${newHealth}/${char.maxHealth})`);
+                logToCombat(`${change > 0 ? 'heal' : ''} ${char.name} ${action} ${Math.abs(change)} HP (${newHealth}/${char.maxHealth})`);
             });
         }
 
@@ -3416,7 +3509,7 @@
                         healthChange: healthChange
                     });
                     
-                    logToCombat(`💊 ${char.name} used ${consumable.name} on ${targetChar.name} (${effectDesc} ${Math.abs(healthChange)} HP)`);
+                    logToCombat(` ${char.name} used ${consumable.name} on ${targetChar.name} (${effectDesc} ${Math.abs(healthChange)} HP)`);
                 });
             });
         }
@@ -3454,7 +3547,7 @@
                     change: -damage
                 });
                 
-                logToCombat(`⚔️ ${attacker.name} → ${target.name}: ${damage} damage`);
+                logToCombat(`Attack ${attacker.name} → ${target.name}: ${damage} damage`);
             });
             
             targetSelect.value = '';
@@ -3477,7 +3570,7 @@
                 Object.keys(characters).forEach(charId => {
                     teamRef.child(charId).update({ turnTaken: false });
                 });
-                logToCombat(`🔄 All turns reset for team`);
+                logToCombat(`Reset All turns reset for team`);
             });
         }
 
@@ -3499,7 +3592,7 @@
                 const newStatus = char.status === 'alive' ? 'dead' : 'alive';
                 charRef.update({ status: newStatus });
                 
-                logToCombat(`${newStatus === 'dead' ? '☠️' : '❤️'} ${char.name} is now ${newStatus}`);
+                logToCombat(`${newStatus === 'dead' ? '' : 'heal'} ${char.name} is now ${newStatus}`);
             });
         }
 
@@ -3521,10 +3614,10 @@
             
             if (detailsEl.classList.contains('hidden')) {
                 detailsEl.classList.remove('hidden');
-                toggleEl.textContent = '▼ Show Less';
+                toggleEl.textContent = ' Show Less';
             } else {
                 detailsEl.classList.add('hidden');
-                toggleEl.textContent = '▶ Show More';
+                toggleEl.textContent = ' Show More';
             }
         }
 
@@ -3679,7 +3772,7 @@ teamHTML += `
             
             <!-- Turn Status Button -->
             <button class="btn ${char.turnTaken ? 'btn-secondary' : 'btn-primary'} turn-status-btn" style="margin-top: 10px;" onclick="toggleTurnStatus('${teamId}', '${charId}')">
-                ${char.turnTaken ? '✓ Turn Taken' : '⏸ Waiting for Turn'}
+                ${char.turnTaken ? 'Done Turn Taken' : 'Ready Waiting for Turn'}
             </button>
         </div>
         
@@ -3850,7 +3943,7 @@ teamHTML += `
             
             // Play sound at 0 (optional - currently disabled)
             if (secondsLeft === 0) {
-                document.getElementById('timerStatus').textContent = '⏰ Time\'s Up!';
+                document.getElementById('timerStatus').textContent = 'Time Up Time\'s Up!';
             }
         }
 
@@ -3866,7 +3959,7 @@ teamHTML += `
                 }
                 
                 if (timer.running) {
-                    document.getElementById('timerStatus').textContent = '⏱️ Running...';
+                    document.getElementById('timerStatus').textContent = '⏱ Running...';
                     
                     // Calculate actual seconds left based on server timestamp
                     if (timerInterval) clearInterval(timerInterval);
@@ -3895,7 +3988,7 @@ teamHTML += `
                 } else {
                     if (timerInterval) clearInterval(timerInterval);
                     updateTimerDisplay(timer.secondsLeft || 0);
-                    document.getElementById('timerStatus').textContent = timer.secondsLeft === 0 ? '⏰ Time\'s Up!' : '⏸️ Paused';
+                    document.getElementById('timerStatus').textContent = timer.secondsLeft === 0 ? 'Time Up Time\'s Up!' : 'Pause Paused';
                 }
             });
         }
@@ -3972,7 +4065,7 @@ teamHTML += `
                                    ${obj.completed ? 'checked' : ''} 
                                    onchange="toggleObjective('${id}')">
                             <span class="objective-text">${obj.text}</span>
-                            <button onclick="deleteObjective('${id}')" style="background: none; border: none; color: #ff4444; cursor: pointer; margin-left: auto;">×</button>
+                            <button onclick="deleteObjective('${id}')" style="background: none; border: none; color: #ff4444; cursor: pointer; margin-left: auto;">Remove</button>
                         </div>
                     `).join('');
                 }
@@ -4100,7 +4193,7 @@ teamHTML += `
                     <button onclick="showQuickPlayMenu()" class="btn btn-secondary">← Back to Quick Play</button>
                 </div>
                 
-                <h2 style="color: #FF9500; text-align: center; margin-bottom: 20px;">⚡ Quick Build - Auto-Generate Team</h2>
+                <h2 style="color: #FF9500; text-align: center; margin-bottom: 20px;">Initiative Quick Build - Auto-Generate Team</h2>
                 <p style="text-align: center; color: #aaa; margin-bottom: 40px;">Choose a faction and we'll build a balanced 150-point team for you!</p>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto;">
@@ -4205,7 +4298,7 @@ teamHTML += `
                     </div>
                     
                     <div style="text-align: center;">
-                        <button onclick="startQuickGame('${factionName}', ${JSON.stringify(team).replace(/"/g, '&quot;')})" class="btn btn-primary" style="padding: 20px 60px; font-size: 1.3em;">🚀 Start Playing!</button>
+                        <button onclick="startQuickGame('${factionName}', ${JSON.stringify(team).replace(/"/g, '&quot;')})" class="btn btn-primary" style="padding: 20px 60px; font-size: 1.3em;"> Start Playing!</button>
                     </div>
                 </div>
             `;
@@ -4226,64 +4319,89 @@ teamHTML += `
             
             // Store for later use
             currentPlayer = playerName;
-            
-            // Join/create session
             currentSession = sessionName;
             
-            // Hide team builder
-            document.getElementById('teamBuilderTab').style.display = 'none';
-            
-            // Show app interface
-            document.getElementById('appInterface').style.display = 'block';
-            
-            // Set player name in interface
-            document.getElementById('playerName').value = playerName;
-            document.getElementById('sessionName').value = sessionName;
-            
-            // Call join session
-            joinSession();
-            
-            // Add the team models to the session
-            setTimeout(() => {
-                team.forEach(model => {
-                    addQuickTeamModel(model);
-                });
-            }, 1000);
-        }
-
-        function addQuickTeamModel(modelData) {
-            if (!currentSession || !currentPlayer) return;
-            
-            const teamRef = database.ref(`sessions/${currentSession}/teams/${currentPlayer}`);
-            
-            // Create team if doesn't exist
-            teamRef.once('value', snapshot => {
-                if (!snapshot.exists()) {
+            // Create session first
+            const sessionRef = database.ref('sessions/' + sessionName);
+            sessionRef.once('value', (snapshot) => {
+                const sessionPromise = snapshot.exists() ? 
+                    Promise.resolve() : 
+                    sessionRef.set({
+                        name: sessionName,
+                        description: `Quick Build - ${factionName}`,
+                        created: firebase.database.ServerValue.TIMESTAMP,
+                        archived: false,
+                        teams: {},
+                        actionHistory: {},
+                        combatLog: {},
+                        initiative: {}
+                    });
+                
+                sessionPromise.then(() => {
+                    // Hide team builder
+                    document.getElementById('teamBuilderTab').style.display = 'none';
+                    
+                    // Show app interface
+                    document.getElementById('appInterface').style.display = 'block';
+                    
+                    // Set values in interface
+                    document.getElementById('currentSession').textContent = sessionName;
+                    document.getElementById('currentPlayer').textContent = playerName;
+                    document.getElementById('gameTabBtn').style.display = 'block';
+                    document.getElementById('toolsTabBtn').style.display = 'block';
+                    document.getElementById('templatesTabBtn').style.display = 'block';
+                    document.getElementById('gameArea').style.display = 'block';
+                    
+                    // Load mission/objectives
+                    loadMissionObjectives();
+                    syncTimer();
+                    
+                    // Create team with faction
+                    const teamId = currentPlayer.replace(/\s/g, '_');
+                    const teamRef = database.ref(`sessions/${sessionName}/teams/${teamId}`);
                     teamRef.set({
                         owner: currentPlayer,
-                        faction: modelData.faction,
+                        faction: factionName,
                         characters: {}
+                    }).then(() => {
+                        // Add characters
+                        team.forEach((model, index) => {
+                            setTimeout(() => {
+                                addQuickTeamModel(model, factionName);
+                            }, index * 100); // Stagger to avoid conflicts
+                        });
+                        
+                        // Switch to game tab
+                        setTimeout(() => {
+                            switchTab('game');
+                        }, team.length * 100 + 500);
                     });
-                }
-                
-                // Add character
-                const charId = 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                teamRef.child(`characters/${charId}`).set({
-                    name: modelData.name,
-                    role: modelData.type,
-                    maxHealth: modelData.health,
-                    currentHealth: modelData.health,
-                    speed: modelData.speed,
-                    shoot: modelData.shoot,
-                    fight: modelData.fight,
-                    nerve: modelData.nerve,
-                    portrait: modelData.portrait,
-                    status: 'alive',
-                    turnTaken: false,
-                    weapons: [],
-                    consumables: [],
-                    specialActions: []
                 });
+            });
+        }
+
+        function addQuickTeamModel(modelData, factionName) {
+            if (!currentSession || !currentPlayer) return;
+            
+            const teamId = currentPlayer.replace(/\s/g, '_');
+            const charId = 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            database.ref(`sessions/${currentSession}/teams/${teamId}/characters/${charId}`).set({
+                name: modelData.name,
+                role: modelData.type,
+                maxHealth: modelData.health,
+                currentHealth: modelData.health,
+                speed: modelData.speed,
+                shoot: modelData.shoot,
+                fight: modelData.fight,
+                nerve: modelData.nerve,
+                portrait: modelData.portrait,
+                status: 'alive',
+                turnTaken: false,
+                weapons: [],
+                consumables: [],
+                specialActions: [],
+                owner: currentPlayer
             });
         }
 
@@ -4318,7 +4436,7 @@ teamHTML += `
             content.innerHTML = `
                 <div style="text-align: center; margin-bottom: 30px;">
                     <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
-                    <button onclick="showMyTeams()" class="btn btn-secondary">📚 My Teams</button>
+                    <button onclick="showMyTeams()" class="btn btn-secondary"> My Teams</button>
                 </div>
                 <h3 style="color: #FF9500; text-align: center; margin-bottom: 30px;">Choose Your Faction</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto;">
@@ -4386,7 +4504,7 @@ teamHTML += `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <button onclick="showFactionSelector()" class="btn btn-secondary">← Change Faction</button>
                         <h2 style="color: ${faction.primaryColor};">Building ${currentTeam.faction} Team</h2>
-                        <button onclick="saveCurrentTeam()" class="btn btn-primary">💾 Save Team</button>
+                        <button onclick="saveCurrentTeam()" class="btn btn-primary"> Save Team</button>
                     </div>
                     
                     <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
@@ -4491,7 +4609,7 @@ teamHTML += `
                                 ${model.type} | HP: ${model.health}
                             </div>
                         </div>
-                        <button onclick="removeModelFromTeam(${model.id})" class="btn btn-danger" style="padding: 5px 10px;">×</button>
+                        <button onclick="removeModelFromTeam(${model.id})" class="btn btn-danger" style="padding: 5px 10px;">Remove</button>
                     </div>
                 </div>
             `).join('');
@@ -4547,7 +4665,7 @@ teamHTML += `
             
             content.innerHTML = `
                 <div style="max-width: 600px; margin: 60px auto; text-align: center;">
-                    <div style="font-size: 4em; margin-bottom: 20px;">✅</div>
+                    <div style="font-size: 4em; margin-bottom: 20px;"></div>
                     <h2 style="color: ${faction.primaryColor}; margin-bottom: 20px;">Team Saved Successfully!</h2>
                     <div style="background: rgba(${hexToRgb(faction.primaryColor)}, 0.1); padding: 30px; border-radius: 10px; border: 2px solid ${faction.primaryColor}; margin-bottom: 30px;">
                         <h3 style="color: ${faction.primaryColor}; margin-bottom: 10px;">"${teamName}"</h3>
@@ -4560,19 +4678,19 @@ teamHTML += `
                     
                     <div style="display: grid; gap: 15px; margin-top: 30px;">
                         <button onclick="prepareToJoinWithTeam('${teamName}')" class="btn btn-primary" style="padding: 20px; font-size: 1.1em;">
-                            🎮 Join a Session with This Team
+                             Join a Session with This Team
                         </button>
                         
                         <button onclick="showMyTeams()" class="btn btn-secondary" style="padding: 15px;">
-                            📚 View My Saved Teams
+                             View My Saved Teams
                         </button>
                         
                         <button onclick="showTeamBuilder()" class="btn btn-secondary" style="padding: 15px;">
-                            ⚔️ Build Another Team
+                            Attack Build Another Team
                         </button>
                         
                         <button onclick="returnToLanding()" class="btn btn-secondary" style="padding: 15px;">
-                            🏠 Back to Main Menu
+                             Back to Main Menu
                         </button>
                     </div>
                 </div>
@@ -4600,7 +4718,7 @@ teamHTML += `
                 hint.className = 'team-ready-hint';
                 hint.style.cssText = 'background: rgba(76, 175, 80, 0.1); padding: 20px; border-radius: 10px; border: 1px solid #4CAF50; margin-bottom: 20px; text-align: center;';
                 hint.innerHTML = `
-                    <h3 style="color: #4CAF50; margin-bottom: 10px;">✅ Team "${teamName}" Ready!</h3>
+                    <h3 style="color: #4CAF50; margin-bottom: 10px;"> Team "${teamName}" Ready!</h3>
                     <p style="color: #ccc;">Enter a session name below to create or join a game with your team.</p>
                 `;
                 joinTab.querySelector('.session-controls').insertBefore(hint, joinTab.querySelector('.session-controls').firstChild);
@@ -4641,7 +4759,7 @@ teamHTML += `
                 <div style="max-width: 1200px; margin: 0 auto;">
                     <div style="text-align: center; margin-bottom: 30px;">
                         <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
-                        <button onclick="showTeamBuilder()" class="btn btn-primary">⚔️ Build New Team</button>
+                        <button onclick="showTeamBuilder()" class="btn btn-primary">Attack Build New Team</button>
                     </div>
                     
                     ${teamsList.length === 0 ? `
@@ -4661,8 +4779,8 @@ teamHTML += `
                                             <div>${team.points} points • ${team.models.length} models</div>
                                         </div>
                                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                            <button onclick="editTeam('${teamId}')" class="btn btn-secondary" style="flex: 1;">✏️ Edit</button>
-                                            <button onclick="deleteTeamConfirm('${teamId}', '${team.name}')" class="btn btn-danger" style="flex: 1;">🗑️ Delete</button>
+                                            <button onclick="editTeam('${teamId}')" class="btn btn-secondary" style="flex: 1;"> Edit</button>
+                                            <button onclick="deleteTeamConfirm('${teamId}', '${team.name}')" class="btn btn-danger" style="flex: 1;"> Delete</button>
                                         </div>
                                     </div>
                                 `;
@@ -4690,6 +4808,107 @@ teamHTML += `
                     loadPlayerTeams();
                 });
             }
+        }
+
+        // Load Team into Session Functions
+        function showLoadTeamModal() {
+            if (!currentSession) {
+                alert('Please join a session first!');
+                return;
+            }
+            if (!currentPlayer) {
+                alert('Player name not set!');
+                return;
+            }
+            
+            // Load player's teams
+            database.ref(`players/${currentPlayer}/teams`).once('value', snapshot => {
+                const teams = snapshot.val();
+                const teamsList = document.getElementById('loadTeamList');
+                
+                if (!teams || Object.keys(teams).length === 0) {
+                    teamsList.innerHTML = '<div style="text-align: center; color: #888; padding: 40px;">No saved teams found. Build a team first in the Team Builder!</div>';
+                } else {
+                    teamsList.innerHTML = Object.entries(teams).map(([teamId, team]) => {
+                        const faction = gameData.factions.find(f => f.name === team.faction);
+                        return `
+                            <div onclick="loadTeamIntoSession('${teamId}')" style="background: rgba(${hexToRgb(faction.primaryColor)}, 0.1); padding: 20px; border-radius: 10px; border: 2px solid ${faction.primaryColor}; cursor: pointer; transition: all 0.3s;"
+                                 onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 5px 15px rgba(${hexToRgb(faction.primaryColor)}, 0.3)';"
+                                 onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                                <h3 style="color: ${faction.primaryColor}; margin-bottom: 10px;">${team.name}</h3>
+                                <div style="color: #9CAF88;">
+                                    <div><strong>${team.faction}</strong></div>
+                                    <div>${team.points} points • ${team.models.length} models</div>
+                                </div>
+                                <div style="color: #ccc; font-size: 0.9em; margin-top: 10px;">
+                                    ${team.models.map(m => m.name).join(', ')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+                
+                document.getElementById('loadTeamModal').classList.add('active');
+            });
+        }
+
+        function closeLoadTeamModal() {
+            document.getElementById('loadTeamModal').classList.remove('active');
+        }
+
+        function loadTeamIntoSession(teamId) {
+            database.ref(`players/${currentPlayer}/teams/${teamId}`).once('value', snapshot => {
+                const team = snapshot.val();
+                if (!team) {
+                    alert('Team not found!');
+                    return;
+                }
+                
+                if (!confirm(`Load "${team.name}" into session? This will replace your current characters.`)) {
+                    return;
+                }
+                
+                const teamSessionId = currentPlayer.replace(/\s/g, '_');
+                const teamRef = database.ref(`sessions/${currentSession}/teams/${teamSessionId}`);
+                
+                // Clear existing characters first
+                teamRef.child('characters').remove().then(() => {
+                    // Set team with faction
+                    teamRef.update({
+                        owner: currentPlayer,
+                        faction: team.faction
+                    }).then(() => {
+                        // Add each model
+                        team.models.forEach((model, index) => {
+                            setTimeout(() => {
+                                const charId = 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                                teamRef.child(`characters/${charId}`).set({
+                                    name: model.name,
+                                    role: model.role || model.type || 'Warrior',
+                                    maxHealth: model.health || 15,
+                                    currentHealth: model.health || 15,
+                                    speed: model.speed || '6"',
+                                    shoot: model.shoot || '4+',
+                                    fight: model.fight || '4+',
+                                    nerve: model.nerve || '4+',
+                                    portrait: model.portrait || '',
+                                    status: 'alive',
+                                    turnTaken: false,
+                                    weapons: model.weapons || [],
+                                    consumables: model.consumables || [],
+                                    specialActions: model.specialActions || [],
+                                    inventory: model.inventory || [],
+                                    notes: model.notes || '',
+                                    owner: currentPlayer
+                                });
+                            }, index * 100);
+                        });
+                        
+                        closeLoadTeamModal();
+                        alert(`Team "${team.name}" loaded successfully!`);
+                    });
+                });
+            });
         }
 
         // Lore Functions
@@ -4741,20 +4960,34 @@ teamHTML += `
 
     <!-- Team Builder Tab -->
     <div id="teamBuilderTab" class="tab-content" style="display: none;">
-        <h2 style="color: #FF9500; text-align: center;">⚔️ Team Builder</h2>
+        <h2 style="color: #FF9500; text-align: center;">Attack Team Builder</h2>
         <div id="teamBuilderContent"></div>
     </div>
 
     <!-- My Teams Tab -->
     <div id="myTeamsTab" class="tab-content" style="display: none;">
-        <h2 style="color: #FF9500; text-align: center;">📚 My Teams</h2>
+        <h2 style="color: #FF9500; text-align: center;"> My Teams</h2>
         <div id="myTeamsContent"></div>
     </div>
 
     <!-- Lore Tab -->
     <div id="loreTab" class="tab-content" style="display: none;">
-        <h2 style="color: #FF9500; text-align: center;">📖 The Lore of Space Ops 3030</h2>
+        <h2 style="color: #FF9500; text-align: center;"> The Lore of Space Ops 3030</h2>
         <div id="loreContent"></div>
+    </div>
+
+    <!-- Load Team Modal -->
+    <div id="loadTeamModal" class="modal">
+        <div class="modal-content">
+            <h2>Load Saved Team into Session</h2>
+            <p style="color: #aaa; margin-bottom: 20px;">Select a team to load into the current session. This will replace your current characters.</p>
+            <div id="loadTeamList" style="display: grid; gap: 15px; max-height: 400px; overflow-y: auto;">
+                <!-- Teams will be loaded here -->
+            </div>
+            <div class="form-actions" style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeLoadTeamModal()">Cancel</button>
+            </div>
+        </div>
     </div>
 
 </body>
