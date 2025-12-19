@@ -5,6 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tabletop Character Tracker Pro</title>
     <style>
+        /* Starfield Animation */
+        .starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Landing Page */
+        .landing-page {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .landing-logo {
+            max-width: 600px;
+            width: 90%;
+            margin-bottom: 60px;
+            filter: drop-shadow(0 0 20px rgba(255, 149, 0, 0.5));
+        }
+
+        .landing-menu {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .menu-button {
+            background: rgba(255, 149, 0, 0.1);
+            border: 2px solid #FF9500;
+            color: #FF9500;
+            font-size: 1.3em;
+            font-weight: bold;
+            padding: 40px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .menu-button:hover {
+            background: #FF9500;
+            color: #000000;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(255, 149, 0, 0.4);
+        }
+
+        .menu-button .icon {
+            font-size: 2em;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .landing-menu {
+                grid-template-columns: 1fr;
+            }
+            
+            .menu-button {
+                padding: 30px 20px;
+                font-size: 1.1em;
+            }
+        }
+
         @keyframes damageFlash {
             0% {
                 box-shadow: 0 0 0 0 rgba(255, 68, 68, 0);
@@ -533,6 +622,43 @@
 
         .model-card.compact {
             padding: 10px;
+        }
+
+        /* Ultra-Compact View */
+        .model-card.ultra-compact {
+            width: 100px;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .model-card.ultra-compact .model-portrait-new {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 5px auto;
+        }
+
+        .model-card.ultra-compact .model-name-new {
+            font-size: 0.75em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 3px;
+        }
+
+        .model-card.ultra-compact .ultra-hp {
+            font-size: 0.7em;
+            color: #9CAF88;
+        }
+
+        .model-card.ultra-compact .ultra-turn {
+            font-size: 1.2em;
+            margin-top: 3px;
+        }
+
+        .team-container.ultra-compact {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
         }
 
         .model-card.dead {
@@ -1442,6 +1568,35 @@
     </style>
 </head>
 <body>
+    <!-- Starfield Background -->
+    <div class="starfield" id="starfield"></div>
+
+    <!-- Landing Page -->
+    <div class="landing-page" id="landingPage">
+        <img src="https://spaceops3030.com/cdn/shop/files/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png?v=1740979952" alt="Space Ops 3030" class="landing-logo" />
+        
+        <div class="landing-menu">
+            <button class="menu-button" onclick="selectMode('quickplay')">
+                <span class="icon">🚀</span>
+                Quick Play
+            </button>
+            <button class="menu-button" onclick="selectMode('teambuilder')">
+                <span class="icon">⚔️</span>
+                Build Team
+            </button>
+            <button class="menu-button" onclick="selectMode('joinsession')">
+                <span class="icon">🌐</span>
+                Join Session
+            </button>
+            <button class="menu-button" onclick="selectMode('lore')">
+                <span class="icon">📚</span>
+                Lore
+            </button>
+        </div>
+    </div>
+
+    <!-- App Interface (hidden initially) -->
+    <div id="appInterface" style="display: none;">
     <div class="logo-header">
         <img src="https://spaceops3030.com/cdn/shop/files/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png?v=1740979952" alt="Space Ops 3030" />
     </div>
@@ -1785,11 +1940,110 @@
         let consumableFields = [];
         let specialActionFields = [];
         let transferData = null;
-        let currentView = 'expanded'; // or 'compact'
+        let currentView = 'expanded'; // or 'compact' or 'ultra-compact'
         let currentTurn = 0;
         let statusEffectTarget = null;
+        let currentMode = null; // 'quickplay', 'teambuilder', 'joinsession', 'lore'
 
-        // Preset Items Library
+        // Game Data (Hardcoded for v12, will sync from Google Sheets in v13)
+        const gameData = {
+            factions: [
+                {
+                    name: 'Arc Rangers',
+                    loreShort: 'Elite operatives defending The Reach with mobility and precision',
+                    loreFull: `Arc Rangers are the elite defense force of The Reach, specializing in rapid response and precision strikes. Equipped with advanced mobility gear including jet packs and grappling systems, they excel at hit-and-run tactics. Known for their strict code of honor and unwavering dedication to protecting civilian populations against the Space-Wyrm threat and other dangers lurking in the dark corners of space.`,
+                    primaryColor: '#FF9500',
+                    accentColor: '#9CAF88'
+                },
+                {
+                    name: 'Space-Wyrm',
+                    loreShort: 'Ancient lunar zealots serving the Sun God, powered by solar tech',
+                    loreFull: `The Space-Wyrm are an ancient bipedal lizard species from beneath the Moon's surface. Zealously devoted to their Sun God Ajj (the Ajarem - people of Ajj), they view humanity as their wayward creation that must be re-subjugated. Their technology is entirely solar-powered, making them vulnerable to overheating but deadly in sustained combat. The Sun God is cruel and unforgiving, demanding total devotion. Every Space-Wyrm passes through The Garden, a genetic mutation gate that determines their role in society. Different denominations create internal conflict even as they unite against humanity. Their battle cry: "The Sun God provides!"`,
+                    primaryColor: '#FFD700',
+                    accentColor: '#8B0000'
+                },
+                {
+                    name: 'Kippin',
+                    loreShort: 'Genetically engineered rebels with tech expertise and fearless tactics',
+                    loreFull: `The Kippin were created by the Bazzle-Johson Corporation-State as a compliant workforce - bipedal Mustelidae (otter-like) with weasel and wolverine traits. But the "Trainables" proved anything but compliant. After learning to communicate across the Reach, they declared war on their corporate masters in 2608, reducing BazzleCorp to ash. Now free, the Kippin run extensive underground networks across 90% of space colonies. They're tech-savvy engineers and bold warriors with inherently low risk-assessment - allies must remind them to wear body armor! Known for experimental "custom" weapons, Kip-Cant sign language, and being banned from ESports for being too good. They operate successful drone pilot co-ops and street samurai gangs in Neo-Osaka. Rumor speaks of The Beach - a hidden resort using a stolen Space-Wyrm lens to create a warm sea on an ice asteroid.`,
+                    primaryColor: '#10B981',
+                    accentColor: '#374151'
+                },
+                {
+                    name: 'Malegeist',
+                    loreShort: 'Returned colonists corrupted by parasitic infection from deep space',
+                    loreFull: `The Daedelus Expedition left Earth 300 years ago on a one-way trip to establish humanity's first exoplanet colony. They returned in 3022 as something else. The Malegeist encountered a parasitic organism in deep space that grants extended life and psionic abilities - but at a terrible cost. They can only survive by processing other organics into genetic material for sustenance. Gaunt, mutated, clad in gothic hard suits, the Malegeist infiltrate every level of corporate life in the Reach. Their philosophy: "Food has no rights." They operate in semi-autonomous fleet-pods, planning with the patience of those who have extended lifespans. The rarest Malegeist become Space Liches - neither living nor dead, neither human nor organism, shrouded in mystery and terror. Survivors of Lich encounters can never be fully trusted - are they witnesses or unwitting agents?`,
+                    primaryColor: '#9333EA',
+                    accentColor: '#1F2937'
+                },
+                {
+                    name: 'Grave Kings',
+                    loreShort: 'Undead remnants rising from Earth\'s blasted surface',
+                    loreFull: `[Lore coming soon] The Grave Kings are necromantic forces emerging from the Blasted Earth, wielding dark powers and commanding legions of the undead.`,
+                    primaryColor: '#6B7280',
+                    accentColor: '#111827'
+                },
+                {
+                    name: 'Forsaken',
+                    loreShort: 'Mutated survivors struggling to endure in the wasteland',
+                    loreFull: `[Lore coming soon] The Forsaken are mutated humans who survived Earth's collapse, adapting to the harsh wasteland through both biology and desperate ingenuity.`,
+                    primaryColor: '#DC2626',
+                    accentColor: '#450A0A'
+                }
+            ],
+            models: [
+                // Arc Rangers
+                { name: 'Veteran Captain', faction: 'Arc Rangers', type: 'Captain', speed: 8, shoot: '3+', fight: '4+', nerve: '3+', health: 20, points: 40, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Experienced leader with tactical expertise' },
+                { name: 'Arc Ranger', faction: 'Arc Rangers', type: 'Trooper', speed: 8, shoot: '4+', fight: '5+', nerve: '4+', health: 15, points: 15, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Standard operative with balanced capabilities' },
+                { name: 'Scout Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 10, shoot: '4+', fight: '5+', nerve: '3+', health: 12, points: 18, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Fast reconnaissance specialist' },
+                { name: 'Heavy Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 6, shoot: '3+', fight: '5+', nerve: '4+', health: 18, points: 22, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Armored fire support unit' },
+                { name: 'Tech Specialist', faction: 'Arc Rangers', type: 'Specialist', speed: 7, shoot: '4+', fight: '5+', nerve: '4+', health: 14, points: 20, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Technical expert with scanner abilities' },
+                { name: 'Medic Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 7, shoot: '5+', fight: '5+', nerve: '4+', health: 14, points: 16, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Field medic with healing capabilities' },
+                // Space-Wyrm
+                { name: 'Solar Priest', faction: 'Space-Wyrm', type: 'Leader', speed: 5, shoot: '4+', fight: '3+', nerve: '2+', health: 22, points: 45, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Priest', description: 'High-ranking religious commander' },
+                { name: 'Wyrm Zealot', faction: 'Space-Wyrm', type: 'Warrior', speed: 6, shoot: '4+', fight: '3+', nerve: '2+', health: 18, points: 20, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Zealot', description: 'Fanatical Sun God devotee' },
+                { name: 'Wyrm Hatchling', faction: 'Space-Wyrm', type: 'Trooper', speed: 7, shoot: '5+', fight: '4+', nerve: '3+', health: 10, points: 12, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Hatchling', description: 'Young warrior from The Garden' },
+                { name: 'Wyrm Hunter', faction: 'Space-Wyrm', type: 'Specialist', speed: 8, shoot: '3+', fight: '4+', nerve: '3+', health: 15, points: 18, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Hunter', description: 'Swift ambush predator' },
+                { name: 'Wyrm Brute', faction: 'Space-Wyrm', type: 'Warrior', speed: 5, shoot: '5+', fight: '2+', nerve: '2+', health: 24, points: 25, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Brute', description: 'Heavily mutated warrior' },
+                { name: 'Solar Cultist', faction: 'Space-Wyrm', type: 'Trooper', speed: 6, shoot: '4+', fight: '4+', nerve: '3+', health: 12, points: 14, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Cultist', description: 'Devoted follower with basic solar weapons' }
+            ],
+            weapons: [
+                // Arc Rangers
+                { name: 'Plasma Carbine', faction: 'Arc Rangers', type: 'Ranged', attacks: 2, power: 4, damage: 2, effects: 'Rapid Fire', description: 'Standard issue energy carbine' },
+                { name: 'Arc Blade', faction: 'Arc Rangers', type: 'Melee', attacks: 2, power: 3, damage: 1, effects: 'Precise', description: 'Close combat energy blade' },
+                { name: 'Heavy Plasma Cannon', faction: 'Arc Rangers', type: 'Ranged', attacks: 3, power: 5, damage: 3, effects: 'Unwieldy', description: 'High-powered suppression weapon' },
+                { name: 'Grapple Gun', faction: 'Arc Rangers', type: 'Equipment', attacks: 0, power: 0, damage: 0, effects: 'Mobility', description: 'Vertical movement tool' },
+                { name: 'Shock Baton', faction: 'Arc Rangers', type: 'Melee', attacks: 3, power: 2, damage: 1, effects: 'Stun', description: 'Non-lethal enforcement tool' },
+                { name: 'Sniper Rifle', faction: 'Arc Rangers', type: 'Ranged', attacks: 1, power: 5, damage: 3, effects: 'Long Range', description: 'Precision elimination weapon' },
+                { name: 'Medkit', faction: 'Arc Rangers', type: 'Equipment', attacks: 0, power: 0, damage: 0, effects: 'Healing', description: 'Field medical equipment' },
+                // Space-Wyrm
+                { name: 'Thermal Lance', faction: 'Space-Wyrm', type: 'Melee', attacks: 3, power: 5, damage: 3, effects: 'Overheating', description: 'Solar-powered melee weapon' },
+                { name: 'Sun Cannon', faction: 'Space-Wyrm', type: 'Ranged', attacks: 2, power: 6, damage: 4, effects: 'Blast, Overheating', description: 'Devastating solar energy weapon' },
+                { name: 'Claw Gauntlets', faction: 'Space-Wyrm', type: 'Melee', attacks: 4, power: 3, damage: 1, effects: 'Rending', description: 'Enhanced natural weapons' },
+                { name: 'Solar Shield', faction: 'Space-Wyrm', type: 'Equipment', attacks: 0, power: 0, damage: 0, effects: 'Defense +1', description: 'Energy shield from solar cells' },
+                { name: 'Fusion Rifle', faction: 'Space-Wyrm', type: 'Ranged', attacks: 2, power: 4, damage: 2, effects: 'Solar Charge', description: 'Standard solar ranged weapon' },
+                { name: 'Burning Blade', faction: 'Space-Wyrm', type: 'Melee', attacks: 2, power: 4, damage: 2, effects: 'Ignite', description: 'Superheated blade weapon' },
+                { name: 'Prayer Beads', faction: 'Space-Wyrm', type: 'Equipment', attacks: 0, power: 0, damage: 0, effects: 'Faith', description: 'Religious icon for morale' }
+            ],
+            specialActions: [
+                // Arc Rangers
+                { name: 'Jump Boost', faction: 'Arc Rangers', description: 'Uses jet pack to boost 6 inches. Ignores terrain.', effects: 'Dangerous terrain test required', maxUses: 1, type: 'Movement' },
+                { name: 'Tactical Scanner', faction: 'Arc Rangers', description: 'Reveal enemy positions and weaknesses.', effects: 'Squad +1 to hit this turn', maxUses: 2, type: 'Support' },
+                { name: 'Suppressing Fire', faction: 'Arc Rangers', description: 'Pin enemy units with sustained fire.', effects: 'Enemy -1 movement this turn', maxUses: 3, type: 'Combat' },
+                { name: 'Emergency Evac', faction: 'Arc Rangers', description: 'Rapid extraction from danger zone.', effects: 'Remove from danger', maxUses: 1, type: 'Movement' },
+                { name: 'Overwatch Protocol', faction: 'Arc Rangers', description: 'Enhanced defensive reaction fire.', effects: 'Free interrupt shot', maxUses: 2, type: 'Defense' },
+                { name: 'Medic Stabilize', faction: 'Arc Rangers', description: 'Advanced field medicine.', effects: 'Restore D3 health to ally', maxUses: 2, type: 'Support' },
+                // Space-Wyrm
+                { name: 'Solar Frenzy', faction: 'Space-Wyrm', description: 'Channel Sun God wrath for extra attacks.', effects: '+2 attacks, risk Overheating', maxUses: 2, type: 'Combat' },
+                { name: 'Divine Vision', faction: 'Space-Wyrm', description: 'Heat-induced prophetic guidance.', effects: 'Re-roll one failed test', maxUses: 1, type: 'Support' },
+                { name: 'Hatchery Rage', faction: 'Space-Wyrm', description: 'Primal berserker fury from hatchery memories.', effects: '+3 attacks, -1 defense for 2 turns', maxUses: 1, type: 'Combat' },
+                { name: 'Solar Surge', faction: 'Space-Wyrm', description: 'Overload solar cells for power boost.', effects: '+1 to all solar weapons this turn', maxUses: 2, type: 'Combat' },
+                { name: 'Zealot\'s Prayer', faction: 'Space-Wyrm', description: 'Invoke Sun God protection.', effects: 'Ignore next wound on Nerve test', maxUses: 2, type: 'Defense' },
+                { name: 'Thermal Vent', faction: 'Space-Wyrm', description: 'Emergency heat dissipation.', effects: 'Remove Overheating status', maxUses: 3, type: 'Support' }
+            ]
+        };
+
+        // Preset Items Library (keeping for backwards compatibility)
         const presetWeapons = [
             { name: 'Plasma Pistol', type: 'Ranged', attacks: 2, power: 3, damage: 2 },
             { name: 'Bolter', type: 'Ranged', attacks: 3, power: 2, damage: 1 },
@@ -3248,15 +3502,14 @@
                 const teamDiv = document.createElement('div');
                 teamDiv.className = 'team';
 
-                const isCompact = currentView === 'compact';
-
                 let teamHTML = `
                     <div class="team-header">
                         <h2>🎯 ${team.owner}'s Team</h2>
                         <div class="team-controls">
                             <div class="view-toggle">
-                                <button class="btn ${!isCompact ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='expanded'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">📋 Expanded</button>
-                                <button class="btn ${isCompact ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">📄 Compact</button>
+                                <button class="btn ${currentView === 'expanded' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='expanded'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">📋 Expanded</button>
+                                <button class="btn ${currentView === 'compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">📄 Compact</button>
+                                <button class="btn ${currentView === 'ultra-compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='ultra-compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">📌 Ultra</button>
                             </div>
                             <button class="btn btn-warning" onclick="resetTeamTurns('${teamId}')">🔄 Reset All Turns</button>
                             ${team.owner === currentPlayer ? `
@@ -3265,7 +3518,7 @@
                             ` : ''}
                         </div>
                     </div>
-                    <div class="characters-grid ${isCompact ? 'compact' : ''}">
+                    <div class="characters-grid ${currentView === 'ultra-compact' ? 'ultra-compact' : currentView === 'compact' ? 'compact' : ''}">
                 `;
 
                 if (team.characters) {
@@ -3278,8 +3531,23 @@
                             .map(target => `<option value="${target.teamId}:${target.charId}">${target.owner} - ${target.name}</option>`)
                             .join('');
 
+// ULTRA-COMPACT VIEW
+if (currentView === 'ultra-compact') {
+    teamHTML += `
+        <div class="model-card ultra-compact ${char.status === 'dead' ? 'dead' : ''}" id="model-card-${teamId}-${charId}">
+            <img src="${char.portrait || 'https://via.placeholder.com/40?text=' + char.name[0]}" 
+                 alt="${char.name}" 
+                 class="model-portrait-new"
+                 onerror="this.src='https://via.placeholder.com/40?text=${char.name[0]}'">
+            <div class="model-name-new" title="${char.name}">${char.name}</div>
+            <div class="ultra-hp">${char.currentHealth}/${char.maxHealth}</div>
+            <div class="ultra-turn">${char.turnTaken ? '✓' : '⏸'}</div>
+        </div>
+    `;
+} else {
+// NORMAL/COMPACT VIEW
 teamHTML += `
-    <div class="model-card ${char.status === 'dead' ? 'dead' : ''} ${isCompact ? 'compact' : ''}" id="model-card-${teamId}-${charId}">
+    <div class="model-card ${char.status === 'dead' ? 'dead' : ''} ${currentView === 'compact' ? 'compact' : ''}" id="model-card-${teamId}-${charId}">
         
         <!-- SECTION 1: Header - Portrait, Name, Stats, Effects -->
         <div class="model-section-1">
@@ -3412,7 +3680,7 @@ teamHTML += `
                 </div>
             </div>
             
-            ${team.owner === currentPlayer && !isCompact ? `
+            ${team.owner === currentPlayer && currentView === 'expanded' ? `
                 <div style="margin-top: 15px; display: flex; gap: 5px; flex-wrap: wrap;">
                     <button class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="openEditModal('${teamId}', '${charId}')">✏️ Edit</button>
                     <button class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="deleteCharacter('${teamId}', '${charId}')">🗑️ Delete</button>
@@ -3421,6 +3689,7 @@ teamHTML += `
         </div>
     </div>
 `;
+} // End ultra-compact else
 
                     });
                 }
@@ -3645,7 +3914,436 @@ teamHTML += `
             // Show section
             document.getElementById('missionSection').style.display = 'block';
         }
+
+        // ==================== V12 NEW FUNCTIONS ====================
+
+        // Generate Starfield
+        function generateStarfield() {
+            const starfield = document.getElementById('starfield');
+            const starCount = 100;
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                const size = Math.random() * 2 + 1;
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+                star.style.animationDelay = Math.random() * 3 + 's';
+                starfield.appendChild(star);
+            }
+        }
+
+        // Mode Selection from Landing Page
+        function selectMode(mode) {
+            currentMode = mode;
+            document.getElementById('landingPage').style.display = 'none';
+            document.getElementById('appInterface').style.display = 'block';
+            
+            if (mode === 'quickplay' || mode === 'joinsession') {
+                // Show game tabs
+                switchTab('join');
+            } else if (mode === 'teambuilder') {
+                // Show team builder
+                showTeamBuilder();
+            } else if (mode === 'lore') {
+                // Show lore
+                showLore();
+            }
+        }
+
+        // Return to Landing Page
+        function returnToLanding() {
+            document.getElementById('landingPage').style.display = 'flex';
+            document.getElementById('appInterface').style.display = 'none';
+            document.getElementById('teamBuilderTab').style.display = 'none';
+            document.getElementById('myTeamsTab').style.display = 'none';
+            document.getElementById('loreTab').style.display = 'none';
+            currentMode = null;
+        }
+
+        // Team Builder Functions
+        function showTeamBuilder() {
+            document.getElementById('teamBuilderTab').style.display = 'block';
+            document.getElementById('myTeamsTab').style.display = 'none';
+            document.getElementById('loreTab').style.display = 'none';
+            
+            // Show faction selection
+            showFactionSelector();
+        }
+
+        function showFactionSelector() {
+            const content = document.getElementById('teamBuilderContent');
+            content.innerHTML = `
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                    <button onclick="showMyTeams()" class="btn btn-secondary">📚 My Teams</button>
+                </div>
+                <h3 style="color: #FF9500; text-align: center; margin-bottom: 30px;">Choose Your Faction</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto;">
+                    ${gameData.factions.map(faction => `
+                        <div class="faction-card" style="background: rgba(${hexToRgb(faction.primaryColor)}, 0.1); border: 2px solid ${faction.primaryColor}; border-radius: 10px; padding: 20px; cursor: pointer; transition: all 0.3s;" 
+                             onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 10px 30px rgba(${hexToRgb(faction.primaryColor)}, 0.3)';"
+                             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                            <h3 style="color: ${faction.primaryColor}; text-align: center; margin-bottom: 15px;">${faction.name}</h3>
+                            <p style="color: #ccc; text-align: center; margin-bottom: 20px; font-size: 0.9em;">${faction.loreShort}</p>
+                            <div style="display: flex; gap: 10px; justify-content: center;">
+                                <button onclick="selectFaction('${faction.name}')" class="btn btn-primary">Select</button>
+                                <button onclick="showFactionLore('${faction.name}')" class="btn btn-secondary">Lore</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 149, 0';
+        }
+
+        function showFactionLore(factionName) {
+            const faction = gameData.factions.find(f => f.name === factionName);
+            if (!faction) return;
+            
+            const content = document.getElementById('teamBuilderContent');
+            content.innerHTML = `
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <button onclick="showFactionSelector()" class="btn btn-secondary" style="margin-bottom: 20px;">← Back to Factions</button>
+                    <h2 style="color: ${faction.primaryColor}; text-align: center; margin-bottom: 20px;">${faction.name}</h2>
+                    <div style="background: rgba(255, 255, 255, 0.05); padding: 30px; border-radius: 10px; border: 1px solid ${faction.primaryColor};">
+                        <p style="color: #ccc; line-height: 1.8; white-space: pre-wrap;">${faction.loreFull}</p>
+                    </div>
+                    <div style="text-align: center; margin-top: 30px;">
+                        <button onclick="selectFaction('${faction.name}')" class="btn btn-primary" style="padding: 15px 40px; font-size: 1.2em;">Build ${faction.name} Team</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        let currentTeam = {
+            name: '',
+            faction: '',
+            models: [],
+            points: 0
+        };
+
+        function selectFaction(factionName) {
+            currentTeam.faction = factionName;
+            currentTeam.models = [];
+            currentTeam.points = 0;
+            showTeamBuildingInterface();
+        }
+
+        function showTeamBuildingInterface() {
+            const faction = gameData.factions.find(f => f.name === currentTeam.faction);
+            const factionModels = gameData.models.filter(m => m.faction === currentTeam.faction);
+            
+            const content = document.getElementById('teamBuilderContent');
+            content.innerHTML = `
+                <div style="max-width: 1400px; margin: 0 auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <button onclick="showFactionSelector()" class="btn btn-secondary">← Change Faction</button>
+                        <h2 style="color: ${faction.primaryColor};">Building ${currentTeam.faction} Team</h2>
+                        <button onclick="saveCurrentTeam()" class="btn btn-primary">💾 Save Team</button>
+                    </div>
+                    
+                    <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <label style="color: #FF9500; font-weight: bold;">Team Name:</label>
+                        <input type="text" id="teamNameInput" placeholder="e.g., Alpha Squad" value="${currentTeam.name}" 
+                               onchange="currentTeam.name = this.value"
+                               style="width: 100%; padding: 10px; margin-top: 5px; background: rgba(0,0,0,0.5); border: 1px solid #FF9500; color: white; border-radius: 5px;">
+                        <div style="margin-top: 10px; color: #9CAF88; font-size: 1.2em;">
+                            <strong>Total Points:</strong> <span id="teamPoints">${currentTeam.points}</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                        <!-- Model Presets -->
+                        <div>
+                            <h3 style="color: #FF9500; margin-bottom: 15px;">Available Models</h3>
+                            <div style="display: grid; gap: 10px; max-height: 600px; overflow-y: auto;">
+                                ${factionModels.map(model => `
+                                    <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; border: 1px solid ${faction.primaryColor};">
+                                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                                            <div>
+                                                <strong style="color: ${faction.primaryColor};">${model.name}</strong>
+                                                <span style="color: #9CAF88; margin-left: 10px;">${model.points} pts</span>
+                                                <div style="color: #888; font-size: 0.85em; margin-top: 5px;">
+                                                    ${model.type} | Spd:${model.speed} | Sht:${model.shoot} | Fgt:${model.fight} | Nrv:${model.nerve} | HP:${model.health}
+                                                </div>
+                                                <div style="color: #666; font-size: 0.8em; margin-top: 5px;">${model.description}</div>
+                                            </div>
+                                            <button onclick="addModelToTeam('${model.name}')" class="btn btn-success" style="padding: 8px 15px;">+</button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <!-- Current Team -->
+                        <div>
+                            <h3 style="color: #FF9500; margin-bottom: 15px;">Your Team (<span id="teamModelCount">${currentTeam.models.length}</span> models)</h3>
+                            <div id="currentTeamRoster" style="display: grid; gap: 10px; max-height: 600px; overflow-y: auto;">
+                                ${currentTeam.models.length === 0 ? '<div style="color: #666; text-align: center; padding: 40px;">No models yet. Add models from the left!</div>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            renderCurrentTeam();
+        }
+
+        function addModelToTeam(modelName) {
+            const modelData = gameData.models.find(m => m.name === modelName);
+            if (!modelData) return;
+            
+            // Create model instance
+            const modelInstance = {
+                ...modelData,
+                id: Date.now() + Math.random(),
+                currentHealth: modelData.health,
+                status: 'alive',
+                weapons: [],
+                specialActions: [],
+                inventory: []
+            };
+            
+            currentTeam.models.push(modelInstance);
+            currentTeam.points += modelData.points;
+            
+            renderCurrentTeam();
+            updateTeamPoints();
+        }
+
+        function removeModelFromTeam(modelId) {
+            const index = currentTeam.models.findIndex(m => m.id === modelId);
+            if (index === -1) return;
+            
+            const model = currentTeam.models[index];
+            currentTeam.points -= model.points;
+            currentTeam.models.splice(index, 1);
+            
+            renderCurrentTeam();
+            updateTeamPoints();
+        }
+
+        function renderCurrentTeam() {
+            const container = document.getElementById('currentTeamRoster');
+            if (!container) return;
+            
+            const faction = gameData.factions.find(f => f.name === currentTeam.faction);
+            
+            if (currentTeam.models.length === 0) {
+                container.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">No models yet. Add models from the left!</div>';
+                return;
+            }
+            
+            container.innerHTML = currentTeam.models.map(model => `
+                <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; border: 1px solid ${faction.primaryColor};">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <strong style="color: ${faction.primaryColor};">${model.name}</strong>
+                            <span style="color: #9CAF88; margin-left: 10px;">${model.points} pts</span>
+                            <div style="color: #888; font-size: 0.85em; margin-top: 5px;">
+                                ${model.type} | HP: ${model.health}
+                            </div>
+                        </div>
+                        <button onclick="removeModelFromTeam(${model.id})" class="btn btn-danger" style="padding: 5px 10px;">×</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('teamModelCount').textContent = currentTeam.models.length;
+        }
+
+        function updateTeamPoints() {
+            document.getElementById('teamPoints').textContent = currentTeam.points;
+        }
+
+        function saveCurrentTeam() {
+            if (!currentPlayer) {
+                alert('Please enter your player name first (in Join/Create tab)');
+                return;
+            }
+            
+            if (!currentTeam.name) {
+                alert('Please enter a team name!');
+                return;
+            }
+            
+            if (currentTeam.models.length === 0) {
+                alert('Please add at least one model to your team!');
+                return;
+            }
+            
+            const teamId = 'team_' + Date.now();
+            const teamData = {
+                ...currentTeam,
+                created: Date.now(),
+                modified: Date.now(),
+                owner: currentPlayer
+            };
+            
+            database.ref(`players/${currentPlayer}/teams/${teamId}`).set(teamData).then(() => {
+                alert(`Team "${currentTeam.name}" saved successfully!`);
+                showMyTeams();
+            }).catch(error => {
+                alert('Error saving team: ' + error.message);
+            });
+        }
+
+        // My Teams Functions
+        function showMyTeams() {
+            document.getElementById('teamBuilderTab').style.display = 'none';
+            document.getElementById('myTeamsTab').style.display = 'block';
+            document.getElementById('loreTab').style.display = 'none';
+            
+            if (!currentPlayer) {
+                document.getElementById('myTeamsContent').innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <p style="color: #666;">Please enter your player name first in the Join/Create tab.</p>
+                        <button onclick="returnToLanding()" class="btn btn-primary">← Back to Menu</button>
+                    </div>
+                `;
+                return;
+            }
+            
+            loadPlayerTeams();
+        }
+
+        function loadPlayerTeams() {
+            database.ref(`players/${currentPlayer}/teams`).once('value', snapshot => {
+                const teams = snapshot.val() || {};
+                displayTeamLibrary(teams);
+            });
+        }
+
+        function displayTeamLibrary(teams) {
+            const content = document.getElementById('myTeamsContent');
+            const teamsList = Object.entries(teams);
+            
+            content.innerHTML = `
+                <div style="max-width: 1200px; margin: 0 auto;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                        <button onclick="showTeamBuilder()" class="btn btn-primary">⚔️ Build New Team</button>
+                    </div>
+                    
+                    ${teamsList.length === 0 ? `
+                        <div style="text-align: center; padding: 60px; color: #666;">
+                            <h3>No teams yet!</h3>
+                            <p>Click "Build New Team" to create your first squad.</p>
+                        </div>
+                    ` : `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+                            ${teamsList.map(([teamId, team]) => {
+                                const faction = gameData.factions.find(f => f.name === team.faction);
+                                return `
+                                    <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 10px; border: 2px solid ${faction ? faction.primaryColor : '#FF9500'};">
+                                        <h3 style="color: ${faction ? faction.primaryColor : '#FF9500'}; margin-bottom: 10px;">${team.name}</h3>
+                                        <div style="color: #9CAF88; margin-bottom: 15px;">
+                                            <div>${team.faction}</div>
+                                            <div>${team.points} points • ${team.models.length} models</div>
+                                        </div>
+                                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                            <button onclick="editTeam('${teamId}')" class="btn btn-secondary" style="flex: 1;">✏️ Edit</button>
+                                            <button onclick="deleteTeamConfirm('${teamId}', '${team.name}')" class="btn btn-danger" style="flex: 1;">🗑️ Delete</button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        function editTeam(teamId) {
+            database.ref(`players/${currentPlayer}/teams/${teamId}`).once('value', snapshot => {
+                const team = snapshot.val();
+                if (team) {
+                    currentTeam = { ...team };
+                    showTeamBuildingInterface();
+                }
+            });
+        }
+
+        function deleteTeamConfirm(teamId, teamName) {
+            if (confirm(`Are you sure you want to delete "${teamName}"?`)) {
+                database.ref(`players/${currentPlayer}/teams/${teamId}`).remove().then(() => {
+                    alert('Team deleted successfully!');
+                    loadPlayerTeams();
+                });
+            }
+        }
+
+        // Lore Functions
+        function showLore() {
+            document.getElementById('teamBuilderTab').style.display = 'none';
+            document.getElementById('myTeamsTab').style.display = 'none';
+            document.getElementById('loreTab').style.display = 'block';
+            
+            displayLoreContent();
+        }
+
+        function displayLoreContent() {
+            const content = document.getElementById('loreContent');
+            content.innerHTML = `
+                <div style="max-width: 900px; margin: 0 auto;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                    </div>
+                    
+                    <div style="margin-bottom: 40px; padding: 30px; background: rgba(255, 149, 0, 0.1); border-radius: 10px; border: 1px solid #FF9500;">
+                        <h2 style="color: #FF9500; text-align: center; margin-bottom: 20px;">Welcome to The Reach</h2>
+                        <p style="color: #ccc; line-height: 1.8;">
+                            In the year 3030, humanity has spread across The Reach - a vast network of space colonies orbiting Earth. 
+                            But The Reach is beset by threats from all sides: ancient enemies awakened, genetic rebellions, 
+                            parasitic infections from deep space, and the horrors of Earth's blasted surface rising up.
+                        </p>
+                    </div>
+                    
+                    <h3 style="color: #FF9500; margin-top: 40px; margin-bottom: 20px;">Factions of The Reach</h3>
+                    
+                    ${gameData.factions.map(faction => `
+                        <div style="margin-bottom: 30px; padding: 25px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid ${faction.primaryColor};">
+                            <h3 style="color: ${faction.primaryColor}; margin-bottom: 15px;">${faction.name}</h3>
+                            <p style="color: #aaa; font-style: italic; margin-bottom: 15px;">${faction.loreShort}</p>
+                            <p style="color: #ccc; line-height: 1.8; white-space: pre-wrap;">${faction.loreFull}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            generateStarfield();
+        });
     </script>
     </div> <!-- end main-content -->
+    </div> <!-- end appInterface -->
+
+    <!-- Team Builder Tab -->
+    <div id="teamBuilderTab" class="tab-content" style="display: none;">
+        <h2 style="color: #FF9500; text-align: center;">⚔️ Team Builder</h2>
+        <div id="teamBuilderContent"></div>
+    </div>
+
+    <!-- My Teams Tab -->
+    <div id="myTeamsTab" class="tab-content" style="display: none;">
+        <h2 style="color: #FF9500; text-align: center;">📚 My Teams</h2>
+        <div id="myTeamsContent"></div>
+    </div>
+
+    <!-- Lore Tab -->
+    <div id="loreTab" class="tab-content" style="display: none;">
+        <h2 style="color: #FF9500; text-align: center;">📖 The Lore of Space Ops 3030</h2>
+        <div id="loreContent"></div>
+    </div>
+
 </body>
 </html>
