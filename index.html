@@ -1577,19 +1577,15 @@
         
         <div class="landing-menu">
             <button class="menu-button" onclick="selectMode('quickplay')">
-                <span class="icon">🚀</span>
                 Quick Play
             </button>
             <button class="menu-button" onclick="selectMode('teambuilder')">
-                <span class="icon">⚔️</span>
                 Build Team
             </button>
             <button class="menu-button" onclick="selectMode('joinsession')">
-                <span class="icon">🌐</span>
                 Join Session
             </button>
             <button class="menu-button" onclick="selectMode('lore')">
-                <span class="icon">📚</span>
                 Lore
             </button>
         </div>
@@ -1622,7 +1618,7 @@
             <button class="tab" onclick="switchTab('sessions')">Sessions</button>
             <button class="tab" id="gameTabBtn" onclick="switchTab('game')" style="display: none;">Game</button>
             <button class="tab" id="toolsTabBtn" onclick="switchTab('tools')" style="display: none;">Tools</button>
-            <button class="tab" onclick="switchTab('templates')">Templates</button>
+            <button class="tab" id="templatesTabBtn" onclick="switchTab('templates')" style="display: none;">Templates</button>
         </div>
 
         <!-- Join/Create Tab -->
@@ -1893,7 +1889,7 @@
                     <button type="button" class="btn btn-success" onclick="addConsumableField()">+ Add Consumable</button>
                 </div>
 
-                <h3 style="color: #FF9500; margin: 20px 0 10px 0;">⚡ Special Actions</h3>
+                <h3 style="color: #FF9500; margin: 20px 0 10px 0;">Special Actions</h3>
                 <div class="consumables-form-section">
                     <div id="specialActionsFormList"></div>
                     <button type="button" class="btn btn-success" onclick="addSpecialActionField()">+ Add Special Action</button>
@@ -2829,6 +2825,7 @@
                 document.getElementById('currentPlayer').textContent = playerName;
                 document.getElementById('gameTabBtn').style.display = 'block';
                 document.getElementById('toolsTabBtn').style.display = 'block';
+                document.getElementById('templatesTabBtn').style.display = 'block';
                 document.getElementById('gameArea').style.display = 'block';
 
                 // Load mission and objectives
@@ -3138,7 +3135,32 @@
             const container = document.getElementById('specialActionsFormList');
             if (!container) return; // In case the element doesn't exist yet
             
-            container.innerHTML = specialActionFields.map((action, index) => `
+            // Get faction-specific special actions
+            let availableActions = [];
+            if (currentSession && currentPlayer) {
+                const teamRef = database.ref(`sessions/${currentSession}/teams/${currentPlayer.replace(/\s/g, '_')}`);
+                teamRef.once('value', (snapshot) => {
+                    const team = snapshot.val();
+                    if (team && team.faction) {
+                        availableActions = gameData.specialActions.filter(a => a.faction === team.faction);
+                    }
+                });
+            }
+            
+            const presetDropdown = availableActions.length > 0 ? `
+                <div style="margin-bottom: 15px; padding: 10px; background: rgba(255, 149, 0, 0.1); border-radius: 5px;">
+                    <label style="color: #FF9500; margin-bottom: 5px; display: block;">Add Preset Action:</label>
+                    <select id="presetActionSelect" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid #FF9500; color: white; border-radius: 5px;">
+                        <option value="">-- Select Preset --</option>
+                        ${availableActions.map(action => `
+                            <option value="${action.name}">${action.name} (${action.maxUses} uses)</option>
+                        `).join('')}
+                    </select>
+                    <button type="button" class="btn btn-success" onclick="addPresetSpecialAction()" style="margin-top: 10px; width: 100%;">Add Selected Preset</button>
+                </div>
+            ` : '';
+            
+            container.innerHTML = presetDropdown + specialActionFields.map((action, index) => `
                 <div class="consumable-entry" style="flex-wrap: wrap;">
                     <input type="text" placeholder="Action name" value="${action.name}" onchange="specialActionFields[${index}].name = this.value" style="min-width: 150px;" />
                     <input type="text" placeholder="Description" value="${action.description}" onchange="specialActionFields[${index}].description = this.value" style="min-width: 200px; flex: 1;" />
@@ -3147,6 +3169,21 @@
                     <button type="button" class="btn btn-danger" onclick="removeSpecialActionField(${index})">×</button>
                 </div>
             `).join('');
+        }
+        
+        function addPresetSpecialAction() {
+            const select = document.getElementById('presetActionSelect');
+            const actionName = select.value;
+            if (!actionName) {
+                alert('Please select a preset action');
+                return;
+            }
+            
+            const preset = gameData.specialActions.find(a => a.name === actionName);
+            if (preset) {
+                addSpecialActionField(preset.name, preset.description, preset.effects, preset.maxUses);
+                select.value = ''; // Reset dropdown
+            }
         }
 
         function openEditModal(teamId, charId, character) {
@@ -3236,8 +3273,26 @@
                 })),
                 owner: currentPlayer
             };
-
-            if (editingCharacter) {
+            
+            // Auto-add Jump Boost for Arc Rangers if not already present
+            const checkTeamRef = database.ref(`sessions/${currentSession}/teams/${currentPlayer.replace(/\s/g, '_')}`);
+            checkTeamRef.once('value', (teamSnapshot) => {
+                const team = teamSnapshot.val();
+                if (team && team.faction === 'Arc Rangers') {
+                    const hasJumpBoost = character.specialActions.some(a => a.name === 'Jump Boost');
+                    if (!hasJumpBoost) {
+                        character.specialActions.unshift({
+                            name: 'Jump Boost',
+                            description: 'Uses jet pack to boost 6 inches. Ignores terrain.',
+                            effects: 'Dangerous terrain test required',
+                            maxUses: 1,
+                            uses: 1
+                        });
+                    }
+                }
+                
+                // Now save the character
+                if (editingCharacter) {
                 const charRef = database.ref(`sessions/${currentSession}/teams/${editingCharacter.teamId}/characters/${editingCharacter.charId}`);
                 charRef.once('value', (snapshot) => {
                     const existing = snapshot.val();
@@ -3273,8 +3328,9 @@
                     }
                 });
             }
-
+            
             closeCharacterModal();
+            }); // End teamSnapshot callback
         });
 
         function updateHealth(teamId, charId, change) {
@@ -3504,14 +3560,17 @@
 
                 let teamHTML = `
                     <div class="team-header">
-                        <h2>🎯 ${team.owner}'s Team</h2>
+                        <div>
+                            <h2>${team.owner}'s Team</h2>
+                            ${team.faction ? `<div style="color: #9CAF88; font-size: 1.1em; margin-top: 5px;">Faction: ${team.faction}</div>` : ''}
+                        </div>
                         <div class="team-controls">
                             <div class="view-toggle">
-                                <button class="btn ${currentView === 'expanded' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='expanded'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">📋 Expanded</button>
-                                <button class="btn ${currentView === 'compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">📄 Compact</button>
-                                <button class="btn ${currentView === 'ultra-compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='ultra-compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">📌 Ultra</button>
+                                <button class="btn ${currentView === 'expanded' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='expanded'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Expanded</button>
+                                <button class="btn ${currentView === 'compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Compact</button>
+                                <button class="btn ${currentView === 'ultra-compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='ultra-compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Ultra</button>
                             </div>
-                            <button class="btn btn-warning" onclick="resetTeamTurns('${teamId}')">🔄 Reset All Turns</button>
+                            <button class="btn btn-warning" onclick="resetTeamTurns('${teamId}')">Reset All Turns</button>
                             ${team.owner === currentPlayer ? `
                                 <button class="btn btn-success" onclick="openAddTeamModal()">+ Add Model</button>
                                 <button class="btn btn-danger" onclick="deleteTeam('${teamId}')">Delete Team</button>
@@ -3541,7 +3600,7 @@ if (currentView === 'ultra-compact') {
                  onerror="this.src='https://via.placeholder.com/40?text=${char.name[0]}'">
             <div class="model-name-new" title="${char.name}">${char.name}</div>
             <div class="ultra-hp">${char.currentHealth}/${char.maxHealth}</div>
-            <div class="ultra-turn">${char.turnTaken ? '✓' : '⏸'}</div>
+            <div class="ultra-turn" style="font-size: 0.7em; color: ${char.turnTaken ? '#4CAF50' : '#FFA500'};">${char.turnTaken ? 'Done' : 'Ready'}</div>
         </div>
     `;
 } else {
@@ -3626,7 +3685,7 @@ teamHTML += `
         
         <!-- SECTION 2: Special Actions -->
         <div class="model-section-2">
-            <div class="section-title">⚡ Special Actions</div>
+            <div class="section-title">Special Actions</div>
             ${char.specialActions && char.specialActions.length > 0 ? char.specialActions.map((action, idx) => `
                 <div class="special-action-item">
                     <div class="special-action-header">
@@ -3641,7 +3700,7 @@ teamHTML += `
         
         <!-- SECTION 3: Equipment -->
         <div class="model-section-3">
-            <div class="section-title">🎯 Equipment</div>
+            <div class="section-title">Equipment</div>
             <div class="equipment-grid">
                 <!-- Weapon Slot 1 -->
                 <div class="equipment-slot ${!char.weapons || !char.weapons[0] ? 'empty' : ''}">
@@ -3680,10 +3739,18 @@ teamHTML += `
                 </div>
             </div>
             
+            <!-- Notes Display -->
+            ${char.notes ? `
+                <div style="margin-top: 15px; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 5px; border-left: 3px solid #9CAF88;">
+                    <div style="color: #9CAF88; font-weight: bold; margin-bottom: 5px;">Notes:</div>
+                    <div style="color: #ccc; font-size: 0.9em; white-space: pre-wrap;">${char.notes}</div>
+                </div>
+            ` : ''}
+            
             ${team.owner === currentPlayer && currentView === 'expanded' ? `
                 <div style="margin-top: 15px; display: flex; gap: 5px; flex-wrap: wrap;">
-                    <button class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="openEditModal('${teamId}', '${charId}')">✏️ Edit</button>
-                    <button class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="deleteCharacter('${teamId}', '${charId}')">🗑️ Delete</button>
+                    <button class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="openEditModal('${teamId}', '${charId}')">Edit</button>
+                    <button class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="deleteCharacter('${teamId}', '${charId}')">Delete</button>
                 </div>
             ` : ''}
         </div>
@@ -3939,10 +4006,13 @@ teamHTML += `
         function selectMode(mode) {
             currentMode = mode;
             document.getElementById('landingPage').style.display = 'none';
-            document.getElementById('appInterface').style.display = 'block';
             
-            if (mode === 'quickplay' || mode === 'joinsession') {
-                // Show game tabs
+            if (mode === 'quickplay') {
+                // Show Quick Play menu
+                showQuickPlayMenu();
+            } else if (mode === 'joinsession') {
+                // Show join session interface
+                document.getElementById('appInterface').style.display = 'block';
                 switchTab('join');
             } else if (mode === 'teambuilder') {
                 // Show team builder
@@ -3953,6 +4023,270 @@ teamHTML += `
             }
         }
 
+        // Quick Play Menu
+        function showQuickPlayMenu() {
+            document.getElementById('teamBuilderTab').style.display = 'none';
+            document.getElementById('myTeamsTab').style.display = 'none';
+            document.getElementById('loreTab').style.display = 'none';
+            document.getElementById('appInterface').style.display = 'none';
+            
+            // Create Quick Play menu
+            const quickPlayMenu = document.createElement('div');
+            quickPlayMenu.id = 'quickPlayMenu';
+            quickPlayMenu.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; position: relative; z-index: 1;';
+            
+            quickPlayMenu.innerHTML = `
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                </div>
+                
+                <h2 style="color: #FF9500; text-align: center; margin-bottom: 40px; font-size: 2em;">Quick Play Options</h2>
+                
+                <div style="display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 500px; width: 100%;">
+                    <button class="menu-button" onclick="showCreateSession()" style="padding: 30px 20px;">
+                        Create New Session
+                        <div style="font-size: 0.7em; margin-top: 10px; opacity: 0.8; font-weight: normal;">Start a fresh game and build your team</div>
+                    </button>
+                    
+                    <button class="menu-button" onclick="showJoinSession()" style="padding: 30px 20px;">
+                        Join Existing Session
+                        <div style="font-size: 0.7em; margin-top: 10px; opacity: 0.8; font-weight: normal;">Enter a session code to join friends</div>
+                    </button>
+                    
+                    <button class="menu-button" onclick="showQuickBuild()" style="padding: 30px 20px;">
+                        Quick Build
+                        <div style="font-size: 0.7em; margin-top: 10px; opacity: 0.8; font-weight: normal;">Auto-generate a team and jump right in</div>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(quickPlayMenu);
+        }
+
+        // Show Create Session
+        function showCreateSession() {
+            removeQuickPlayMenu();
+            document.getElementById('appInterface').style.display = 'block';
+            switchTab('join');
+        }
+
+        // Show Join Session
+        function showJoinSession() {
+            removeQuickPlayMenu();
+            document.getElementById('appInterface').style.display = 'block';
+            switchTab('join');
+        }
+
+        // Show Quick Build
+        function showQuickBuild() {
+            removeQuickPlayMenu();
+            showQuickBuildInterface();
+        }
+
+        function removeQuickPlayMenu() {
+            const menu = document.getElementById('quickPlayMenu');
+            if (menu) menu.remove();
+        }
+
+        // Quick Build Interface
+        function showQuickBuildInterface() {
+            document.getElementById('teamBuilderTab').style.display = 'block';
+            document.getElementById('myTeamsTab').style.display = 'none';
+            document.getElementById('loreTab').style.display = 'none';
+            
+            const content = document.getElementById('teamBuilderContent');
+            content.innerHTML = `
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <button onclick="showQuickPlayMenu()" class="btn btn-secondary">← Back to Quick Play</button>
+                </div>
+                
+                <h2 style="color: #FF9500; text-align: center; margin-bottom: 20px;">⚡ Quick Build - Auto-Generate Team</h2>
+                <p style="text-align: center; color: #aaa; margin-bottom: 40px;">Choose a faction and we'll build a balanced 150-point team for you!</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto;">
+                    ${gameData.factions.filter(f => f.name === 'Arc Rangers' || f.name === 'Space-Wyrm').map(faction => `
+                        <div class="faction-card" style="background: rgba(${hexToRgb(faction.primaryColor)}, 0.1); border: 2px solid ${faction.primaryColor}; border-radius: 10px; padding: 30px; cursor: pointer; transition: all 0.3s; text-align: center;" 
+                             onclick="generateQuickTeam('${faction.name}')"
+                             onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 10px 30px rgba(${hexToRgb(faction.primaryColor)}, 0.3)';"
+                             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                            <h3 style="color: ${faction.primaryColor}; margin-bottom: 15px; font-size: 1.5em;">${faction.name}</h3>
+                            <p style="color: #ccc; margin-bottom: 20px; font-size: 0.9em;">${faction.loreShort}</p>
+                            <button class="btn btn-primary" style="width: 100%; padding: 15px;">Generate Team</button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Generate Quick Team
+        function generateQuickTeam(factionName) {
+            const faction = gameData.factions.find(f => f.name === factionName);
+            const factionModels = gameData.models.filter(m => m.faction === factionName);
+            
+            // Auto-generate a balanced team
+            let autoTeam = [];
+            let totalPoints = 0;
+            const targetPoints = 150;
+            
+            // Add one leader/captain
+            const leader = factionModels.find(m => m.type === 'Captain' || m.type === 'Leader');
+            if (leader) {
+                autoTeam.push({...leader, id: Date.now() + Math.random(), currentHealth: leader.health, status: 'alive', weapons: [], specialActions: [], inventory: []});
+                totalPoints += leader.points;
+            }
+            
+            // Add specialists and troopers to reach ~150pts
+            const specialists = factionModels.filter(m => m.type === 'Specialist');
+            const troopers = factionModels.filter(m => m.type === 'Trooper' || m.type === 'Warrior');
+            
+            // Add 2 specialists
+            for (let i = 0; i < 2 && specialists.length > 0; i++) {
+                const spec = specialists[i % specialists.length];
+                if (totalPoints + spec.points <= targetPoints) {
+                    autoTeam.push({...spec, id: Date.now() + Math.random() + i, currentHealth: spec.health, status: 'alive', weapons: [], specialActions: [], inventory: []});
+                    totalPoints += spec.points;
+                }
+            }
+            
+            // Fill rest with troopers
+            let trooperIndex = 0;
+            while (totalPoints < targetPoints - 20 && troopers.length > 0) {
+                const trooper = troopers[trooperIndex % troopers.length];
+                if (totalPoints + trooper.points <= targetPoints) {
+                    autoTeam.push({...trooper, id: Date.now() + Math.random() + trooperIndex, currentHealth: trooper.health, status: 'alive', weapons: [], specialActions: [], inventory: []});
+                    totalPoints += trooper.points;
+                    trooperIndex++;
+                } else {
+                    break;
+                }
+            }
+            
+            // Show preview
+            showQuickTeamPreview(factionName, autoTeam, totalPoints);
+        }
+
+        function showQuickTeamPreview(factionName, team, points) {
+            const faction = gameData.factions.find(f => f.name === factionName);
+            const content = document.getElementById('teamBuilderContent');
+            
+            content.innerHTML = `
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <button onclick="showQuickBuildInterface()" class="btn btn-secondary">← Choose Different Faction</button>
+                    </div>
+                    
+                    <h2 style="color: ${faction.primaryColor}; text-align: center; margin-bottom: 10px;">Your ${factionName} Team</h2>
+                    <div style="text-align: center; color: #9CAF88; font-size: 1.3em; margin-bottom: 30px;">
+                        <strong>${points} Points</strong> • ${team.length} Models
+                    </div>
+                    
+                    <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 10px; border: 1px solid ${faction.primaryColor}; margin-bottom: 30px;">
+                        <h3 style="color: #FF9500; margin-bottom: 15px;">Team Roster:</h3>
+                        ${team.map(model => `
+                            <div style="padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="color: ${faction.primaryColor};">${model.name}</strong>
+                                    <span style="color: #888; margin-left: 10px; font-size: 0.9em;">${model.type}</span>
+                                </div>
+                                <span style="color: #9CAF88;">${model.points} pts</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div style="background: rgba(255, 149, 0, 0.1); padding: 20px; border-radius: 10px; border: 1px solid #FF9500; margin-bottom: 30px;">
+                        <h3 style="color: #FF9500; margin-bottom: 10px;">Ready to Play?</h3>
+                        <p style="color: #ccc;">Enter a session name and your player name to start playing!</p>
+                        <div style="margin-top: 15px; display: grid; gap: 10px;">
+                            <input type="text" id="quickSessionName" placeholder="Session Name (e.g., QuickGame-${factionName})" 
+                                   style="width: 100%; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid #FF9500; color: white; border-radius: 5px;">
+                            <input type="text" id="quickPlayerName" placeholder="Your Player Name" 
+                                   style="width: 100%; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid #FF9500; color: white; border-radius: 5px;">
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <button onclick="startQuickGame('${factionName}', ${JSON.stringify(team).replace(/"/g, '&quot;')})" class="btn btn-primary" style="padding: 20px 60px; font-size: 1.3em;">🚀 Start Playing!</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function startQuickGame(factionName, team) {
+            const sessionName = document.getElementById('quickSessionName').value.trim();
+            const playerName = document.getElementById('quickPlayerName').value.trim();
+            
+            if (!sessionName) {
+                alert('Please enter a session name!');
+                return;
+            }
+            if (!playerName) {
+                alert('Please enter your player name!');
+                return;
+            }
+            
+            // Store for later use
+            currentPlayer = playerName;
+            
+            // Join/create session
+            currentSession = sessionName;
+            
+            // Hide team builder
+            document.getElementById('teamBuilderTab').style.display = 'none';
+            
+            // Show app interface
+            document.getElementById('appInterface').style.display = 'block';
+            
+            // Set player name in interface
+            document.getElementById('playerName').value = playerName;
+            document.getElementById('sessionName').value = sessionName;
+            
+            // Call join session
+            joinSession();
+            
+            // Add the team models to the session
+            setTimeout(() => {
+                team.forEach(model => {
+                    addQuickTeamModel(model);
+                });
+            }, 1000);
+        }
+
+        function addQuickTeamModel(modelData) {
+            if (!currentSession || !currentPlayer) return;
+            
+            const teamRef = database.ref(`sessions/${currentSession}/teams/${currentPlayer}`);
+            
+            // Create team if doesn't exist
+            teamRef.once('value', snapshot => {
+                if (!snapshot.exists()) {
+                    teamRef.set({
+                        owner: currentPlayer,
+                        faction: modelData.faction,
+                        characters: {}
+                    });
+                }
+                
+                // Add character
+                const charId = 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                teamRef.child(`characters/${charId}`).set({
+                    name: modelData.name,
+                    role: modelData.type,
+                    maxHealth: modelData.health,
+                    currentHealth: modelData.health,
+                    speed: modelData.speed,
+                    shoot: modelData.shoot,
+                    fight: modelData.fight,
+                    nerve: modelData.nerve,
+                    portrait: modelData.portrait,
+                    status: 'alive',
+                    turnTaken: false,
+                    weapons: [],
+                    consumables: [],
+                    specialActions: []
+                });
+            });
+        }
+
         // Return to Landing Page
         function returnToLanding() {
             document.getElementById('landingPage').style.display = 'flex';
@@ -3960,7 +4294,13 @@ teamHTML += `
             document.getElementById('teamBuilderTab').style.display = 'none';
             document.getElementById('myTeamsTab').style.display = 'none';
             document.getElementById('loreTab').style.display = 'none';
+            removeQuickPlayMenu();
             currentMode = null;
+            
+            // Hide tabs
+            document.getElementById('gameTabBtn').style.display = 'none';
+            document.getElementById('toolsTabBtn').style.display = 'none';
+            document.getElementById('templatesTabBtn').style.display = 'none';
         }
 
         // Team Builder Functions
@@ -4165,12 +4505,18 @@ teamHTML += `
 
         function saveCurrentTeam() {
             if (!currentPlayer) {
-                alert('Please enter your player name first (in Join/Create tab)');
-                return;
+                // Need to get player name first
+                const playerNamePrompt = prompt('Please enter your player name to save this team:');
+                if (!playerNamePrompt || !playerNamePrompt.trim()) {
+                    alert('Player name required to save team!');
+                    return;
+                }
+                currentPlayer = playerNamePrompt.trim();
             }
             
             if (!currentTeam.name) {
                 alert('Please enter a team name!');
+                document.getElementById('teamNameInput').focus();
                 return;
             }
             
@@ -4188,11 +4534,77 @@ teamHTML += `
             };
             
             database.ref(`players/${currentPlayer}/teams/${teamId}`).set(teamData).then(() => {
-                alert(`Team "${currentTeam.name}" saved successfully!`);
-                showMyTeams();
+                // Show success message with next steps
+                showTeamSavedDialog(teamData.name);
             }).catch(error => {
                 alert('Error saving team: ' + error.message);
             });
+        }
+
+        function showTeamSavedDialog(teamName) {
+            const faction = gameData.factions.find(f => f.name === currentTeam.faction);
+            const content = document.getElementById('teamBuilderContent');
+            
+            content.innerHTML = `
+                <div style="max-width: 600px; margin: 60px auto; text-align: center;">
+                    <div style="font-size: 4em; margin-bottom: 20px;">✅</div>
+                    <h2 style="color: ${faction.primaryColor}; margin-bottom: 20px;">Team Saved Successfully!</h2>
+                    <div style="background: rgba(${hexToRgb(faction.primaryColor)}, 0.1); padding: 30px; border-radius: 10px; border: 2px solid ${faction.primaryColor}; margin-bottom: 30px;">
+                        <h3 style="color: ${faction.primaryColor}; margin-bottom: 10px;">"${teamName}"</h3>
+                        <div style="color: #9CAF88; font-size: 1.1em;">
+                            ${currentTeam.faction} • ${currentTeam.points} pts • ${currentTeam.models.length} models
+                        </div>
+                    </div>
+                    
+                    <h3 style="color: #FF9500; margin-bottom: 20px;">What would you like to do next?</h3>
+                    
+                    <div style="display: grid; gap: 15px; margin-top: 30px;">
+                        <button onclick="prepareToJoinWithTeam('${teamName}')" class="btn btn-primary" style="padding: 20px; font-size: 1.1em;">
+                            🎮 Join a Session with This Team
+                        </button>
+                        
+                        <button onclick="showMyTeams()" class="btn btn-secondary" style="padding: 15px;">
+                            📚 View My Saved Teams
+                        </button>
+                        
+                        <button onclick="showTeamBuilder()" class="btn btn-secondary" style="padding: 15px;">
+                            ⚔️ Build Another Team
+                        </button>
+                        
+                        <button onclick="returnToLanding()" class="btn btn-secondary" style="padding: 15px;">
+                            🏠 Back to Main Menu
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function prepareToJoinWithTeam(teamName) {
+            // Show join session interface
+            document.getElementById('teamBuilderTab').style.display = 'none';
+            document.getElementById('appInterface').style.display = 'block';
+            
+            // Pre-fill player name
+            if (currentPlayer) {
+                document.getElementById('playerName').value = currentPlayer;
+            }
+            
+            // Switch to join tab
+            switchTab('join');
+            
+            // Show helpful message
+            const joinTab = document.getElementById('joinTab');
+            const existingHint = joinTab.querySelector('.team-ready-hint');
+            if (!existingHint) {
+                const hint = document.createElement('div');
+                hint.className = 'team-ready-hint';
+                hint.style.cssText = 'background: rgba(76, 175, 80, 0.1); padding: 20px; border-radius: 10px; border: 1px solid #4CAF50; margin-bottom: 20px; text-align: center;';
+                hint.innerHTML = `
+                    <h3 style="color: #4CAF50; margin-bottom: 10px;">✅ Team "${teamName}" Ready!</h3>
+                    <p style="color: #ccc;">Enter a session name below to create or join a game with your team.</p>
+                `;
+                joinTab.querySelector('.session-controls').insertBefore(hint, joinTab.querySelector('.session-controls').firstChild);
+            }
         }
 
         // My Teams Functions
