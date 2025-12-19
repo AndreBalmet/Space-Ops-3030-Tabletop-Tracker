@@ -1596,7 +1596,7 @@
 
     <!-- Landing Page -->
     <div class="landing-page" id="landingPage">
-        <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/images/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" alt="Space Ops 3030" class="landing-logo" />
+        <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" alt="Space Ops 3030" class="landing-logo" />
         
         <div class="landing-menu">
             <button class="menu-button" onclick="selectMode('quickplay')">
@@ -1615,14 +1615,14 @@
         
         <!-- Credit -->
         <div style="position: absolute; bottom: 20px; left: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            Brought to you by Triggertype LLC
+            Triggertype LLC
         </div>
     </div>
 
     <!-- App Interface (hidden initially) -->
     <div id="appInterface" style="display: none;">
     <div class="logo-header">
-        <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/images/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" alt="Space Ops 3030" />
+        <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" alt="Space Ops 3030" />
     </div>
 
     <div class="main-content">
@@ -3317,10 +3317,11 @@
                 const myTeam = myTeamId ? sessionTeams[myTeamId] : null;
                 const teamFaction = myTeam ? myTeam.faction : null;
                 
-                // If no team and no faction selected, prompt to choose
-                if (!myTeam && !teamFaction) {
+                // If no team exists yet, check if faction is selected
+                if (!myTeam) {
                     const factionSelect = document.getElementById('myTeamFactionSelect');
-                    if (factionSelect && !factionSelect.value) {
+                    // Only check if the selector exists and is visible (no team yet)
+                    if (factionSelect && factionSelect.offsetParent !== null && !factionSelect.value) {
                         alert('Please choose a faction first in the "My Team" section above!');
                         factionSelect.focus();
                         return;
@@ -3343,6 +3344,7 @@
                 // Auto-select faction if team has one
                 if (teamFaction) {
                     document.getElementById('presetFactionSelect').value = teamFaction;
+                    document.getElementById('charFaction').value = teamFaction;
                     updatePresetModels();
                     document.getElementById('presetModelGroup').style.display = 'block';
                 } else {
@@ -3402,8 +3404,19 @@
             const model = gameData.models.find(m => m.name === modelName && m.faction === factionName);
             if (!model) return;
             
-            // Fill form fields
-            document.getElementById('charName').value = model.name;
+            // Fill form fields with auto-generated random name based on faction
+            let randomName = '';
+            if (factionName === 'Arc Rangers') {
+                randomName = generateArcRangerName();
+            } else if (factionName === 'Space-Wyrm') {
+                randomName = generateSpaceWyrmName();
+            } else if (factionName === 'Kippin') {
+                randomName = generateKippinName();
+            } else {
+                randomName = generateArcRangerName(); // Default to human-ish names
+            }
+            
+            document.getElementById('charName').value = randomName; // Auto-generated name!
             document.getElementById('charRole').value = model.type;
             document.getElementById('charPortrait').value = model.portrait;
             document.getElementById('charSpeed').value = model.speed;
@@ -4493,9 +4506,19 @@ teamHTML += `
         // ==================== RANDOM NAME GENERATORS ====================
         
         function generateRandomName() {
-            // Get current faction from the modal
-            const factionSelect = document.getElementById('charFaction');
-            const faction = factionSelect ? factionSelect.value : 'Arc Rangers';
+            // Get current faction from the modal - try multiple sources
+            let faction = '';
+            
+            // Check preset faction selector first (used in Add Model)
+            const presetFactionSelect = document.getElementById('presetFactionSelect');
+            if (presetFactionSelect && presetFactionSelect.value) {
+                faction = presetFactionSelect.value;
+            }
+            
+            // Fallback to Arc Rangers if no faction found
+            if (!faction) {
+                faction = 'Arc Rangers';
+            }
             
             let name = '';
             
