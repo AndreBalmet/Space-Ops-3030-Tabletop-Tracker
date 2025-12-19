@@ -1659,17 +1659,6 @@
             </div>
         </div>
         
-        <!-- Mission/Objectives Section (OLD - keeping for backwards compatibility)-->
-        <div id="missionSection" class="mission-section" style="display: none;">
-            <div class="mission-header">
-                <div class="mission-name editable" id="missionName" onclick="editMissionName()">Click to set mission name...</div>
-                <button class="btn btn-secondary" onclick="toggleObjectives()">Objectives</button>
-            </div>
-            <div id="objectivesContainer" style="display: none;">
-                <div class="objectives-list" id="objectivesList-old"></div>
-                <button class="btn btn-success" style="margin-top: 10px;" onclick="addObjective()">+ Add Objective</button>
-            </div>
-        </div>
         
         <div class="tabs">
             <button class="tab active" onclick="switchTab('join')">Join/Create</button>
@@ -3319,6 +3308,21 @@
                     return;
                 }
                 
+                // Check if user has selected a faction or has a team with faction
+                const myTeamId = currentSession ? Object.keys(sessionTeams || {}).find(id => sessionTeams[id].owner === currentPlayer) : null;
+                const myTeam = myTeamId ? sessionTeams[myTeamId] : null;
+                const teamFaction = myTeam ? myTeam.faction : null;
+                
+                // If no team and no faction selected, prompt to choose
+                if (!myTeam && !teamFaction) {
+                    const factionSelect = document.getElementById('myTeamFactionSelect');
+                    if (factionSelect && !factionSelect.value) {
+                        alert('Please choose a faction first in the "My Team" section above!');
+                        factionSelect.focus();
+                        return;
+                    }
+                }
+                
                 editingCharacter = null;
                 document.getElementById('modalTitle').textContent = 'Add Model';
                 document.getElementById('characterForm').reset();
@@ -3332,10 +3336,17 @@
                 addConsumableField();
                 addSpecialActionField();
                 
-                // Reset preset selectors
-                document.getElementById('presetFactionSelect').value = '';
-                document.getElementById('presetModelGroup').style.display = 'none';
-                document.getElementById('presetModelSelect').innerHTML = '<option value="">-- Select Model --</option>';
+                // Auto-select faction if team has one
+                if (teamFaction) {
+                    document.getElementById('presetFactionSelect').value = teamFaction;
+                    updatePresetModels();
+                    document.getElementById('presetModelGroup').style.display = 'block';
+                } else {
+                    // Reset preset selectors
+                    document.getElementById('presetFactionSelect').value = '';
+                    document.getElementById('presetModelGroup').style.display = 'none';
+                    document.getElementById('presetModelSelect').innerHTML = '<option value="">-- Select Model --</option>';
+                }
                 
                 // Set random color
                 const randomColor = generateRandomColor();
@@ -3931,8 +3942,46 @@
                 toggleEl.textContent = ' Show More';
             }
         }
+        
+        // Session teams cache for faction checking
+        let sessionTeams = {};
+        
+        // Set faction for current player's team
+        function setMyTeamFaction(factionName) {
+            if (!currentSession || !currentPlayer) {
+                alert('Please join a session first!');
+                return;
+            }
+            
+            if (!factionName) return;
+            
+            // Check if player already has a team
+            const teamId = Object.keys(sessionTeams).find(id => sessionTeams[id].owner === currentPlayer);
+            
+            if (teamId) {
+                // Update existing team's faction
+                database.ref(`sessions/${currentSession}/teams/${teamId}/faction`).set(factionName);
+            } else {
+                // Create new team with this faction
+                const newTeamId = 'team_' + Date.now();
+                database.ref(`sessions/${currentSession}/teams/${newTeamId}`).set({
+                    owner: currentPlayer,
+                    faction: factionName,
+                    characters: {}
+                });
+            }
+            
+            // Give feedback
+            const faction = gameData.factions.find(f => f.name === factionName);
+            if (faction) {
+                alert(`✅ Faction set to ${factionName}! Now you can add models from this faction.`);
+            }
+        }
 
         function renderTeams(teams) {
+            // Cache teams for faction checking
+            sessionTeams = teams;
+            
             const container = document.getElementById('teamsContainer');
             const summaryContainer = document.getElementById('teamsSummary');
             const summaryContent = document.getElementById('teamsSummaryContent');
@@ -4021,14 +4070,21 @@
             
             myTeamSection.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                    <div>
-                        <h3 style="color: #9CAF88; margin: 0 0 5px 0;">My Team</h3>
+                    <div style="flex: 1; min-width: 200px;">
+                        <h3 style="color: #9CAF88; margin: 0 0 8px 0;">My Team</h3>
                         ${myTeam ? `
                             <div style="color: #ccc; font-size: 0.95em;">
                                 ${myTeam.faction || 'No Faction'} • ${myTeam.characters ? Object.keys(myTeam.characters).length : 0} models
                             </div>
                         ` : `
-                            <div style="color: #888; font-size: 0.9em;">No team loaded</div>
+                            <div style="color: #888; font-size: 0.9em; margin-bottom: 8px;">No team loaded - Choose faction to start</div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <label style="color: #9CAF88; font-size: 0.9em;">Faction:</label>
+                                <select id="myTeamFactionSelect" onchange="setMyTeamFaction(this.value)" style="padding: 6px 10px; background: rgba(0,0,0,0.5); border: 1px solid #9CAF88; color: white; border-radius: 5px; font-size: 0.9em;">
+                                    <option value="">-- Choose Faction --</option>
+                                    ${gameData.factions.map(f => `<option value="${f.name}">${f.name}</option>`).join('')}
+                                </select>
+                            </div>
                         `}
                     </div>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -4456,37 +4512,8 @@ teamHTML += `
         }
 
         function loadMissionObjectives() {
-            if (!currentSession) return;
-            
-            // Load mission name
-            database.ref(`sessions/${currentSession}/missionName`).on('value', snapshot => {
-                const name = snapshot.val() || 'Click to set mission name...';
-                document.getElementById('missionName').textContent = name;
-                document.getElementById('missionName').style.color = snapshot.val() ? '#FF9500' : '#666';
-            });
-            
-            // Load objectives
-            database.ref(`sessions/${currentSession}/objectives`).on('value', snapshot => {
-                const objectives = snapshot.val() || {};
-                const container = document.getElementById('objectivesList');
-                
-                if (Object.keys(objectives).length === 0) {
-                    container.innerHTML = '<div style="color: #666; text-align: center; padding: 10px;">No objectives yet. Click "Add Objective" to create one.</div>';
-                } else {
-                    container.innerHTML = Object.entries(objectives).map(([id, obj]) => `
-                        <div class="objective-item ${obj.completed ? 'completed' : ''}">
-                            <input type="checkbox" class="objective-checkbox" 
-                                   ${obj.completed ? 'checked' : ''} 
-                                   onchange="toggleObjective('${id}')">
-                            <span class="objective-text">${obj.text}</span>
-                            <button onclick="deleteObjective('${id}')" style="background: none; border: none; color: #ff4444; cursor: pointer; margin-left: auto;">Remove</button>
-                        </div>
-                    `).join('');
-                }
-            });
-            
-            // Show section
-            document.getElementById('missionSection').style.display = 'block';
+            // Deprecated - now using campaign system instead
+            return;
         }
 
         // ==================== V12 NEW FUNCTIONS ====================
