@@ -3122,30 +3122,44 @@
 
         // Character Management
         function openAddTeamModal() {
-            editingCharacter = null;
-            document.getElementById('modalTitle').textContent = 'Add Model';
-            document.getElementById('characterForm').reset();
-            weaponFields = [];
-            consumableFields = [];
-            specialActionFields = [];
-            renderWeaponFields();
-            renderConsumableFields();
-            renderSpecialActionFields();
-            addWeaponField();
-            addConsumableField();
-            addSpecialActionField();
-            
-            // Reset preset selectors
-            document.getElementById('presetFactionSelect').value = '';
-            document.getElementById('presetModelGroup').style.display = 'none';
-            document.getElementById('presetModelSelect').innerHTML = '<option value="">-- Select Model --</option>';
-            
-            // Set random color
-            const randomColor = generateRandomColor();
-            document.getElementById('charColor').value = randomColor;
-            updateColorPreview();
-            
-            document.getElementById('characterModal').classList.add('active');
+            try {
+                console.log('Opening Add Model modal...');
+                
+                // Ensure we're in a session
+                if (!currentSession) {
+                    alert('Please join a session first!');
+                    return;
+                }
+                
+                editingCharacter = null;
+                document.getElementById('modalTitle').textContent = 'Add Model';
+                document.getElementById('characterForm').reset();
+                weaponFields = [];
+                consumableFields = [];
+                specialActionFields = [];
+                renderWeaponFields();
+                renderConsumableFields();
+                renderSpecialActionFields();
+                addWeaponField();
+                addConsumableField();
+                addSpecialActionField();
+                
+                // Reset preset selectors
+                document.getElementById('presetFactionSelect').value = '';
+                document.getElementById('presetModelGroup').style.display = 'none';
+                document.getElementById('presetModelSelect').innerHTML = '<option value="">-- Select Model --</option>';
+                
+                // Set random color
+                const randomColor = generateRandomColor();
+                document.getElementById('charColor').value = randomColor;
+                updateColorPreview();
+                
+                document.getElementById('characterModal').classList.add('active');
+                console.log('Modal opened successfully!');
+            } catch (error) {
+                console.error('Error opening modal:', error);
+                alert('Error opening modal: ' + error.message);
+            }
         }
         
         function updateColorPreview() {
@@ -3209,6 +3223,35 @@
                     effects: weapon.effects || ''
                 };
                 renderWeaponFields();
+            }
+            
+            // Auto-fill Jet Pack for all Arc Rangers
+            if (factionName === 'Arc Rangers') {
+                // Check if jet pack already exists
+                const hasJetPack = consumableFields.some(c => c.name && c.name.toLowerCase().includes('jet pack'));
+                if (!hasJetPack) {
+                    // Add jet pack if empty field exists
+                    const emptyIndex = consumableFields.findIndex(c => !c.name);
+                    if (emptyIndex >= 0) {
+                        consumableFields[emptyIndex] = {
+                            name: 'Jet Pack',
+                            effect: 'Mobility: Can fly over terrain and enemies',
+                            amount: 3,
+                            maxUses: 3,
+                            targetType: 'Self'
+                        };
+                    } else {
+                        // Add new field
+                        consumableFields.push({
+                            name: 'Jet Pack',
+                            effect: 'Mobility: Can fly over terrain and enemies',
+                            amount: 3,
+                            maxUses: 3,
+                            targetType: 'Self'
+                        });
+                    }
+                    renderConsumableFields();
+                }
             }
             
             // Scroll to top of form
@@ -3861,12 +3904,14 @@ if (currentView === 'tiny') {
             ` : `
                 <div class="model-portrait-new" style="background: ${char.portraitColor || char.color || '#FF9500'}; border: 3px solid ${char.color || '#FF9500'}; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: white;">${char.name[0]}</div>
             `}
-            <div style="text-align: center; margin: 3px 0;">
-                <span class="status-indicator status-${char.status}" style="font-size: 0.65em; padding: 2px 6px;">${char.status}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 3px 0; gap: 3px;">
+                <span class="status-indicator status-${char.status}" style="font-size: 0.6em; padding: 2px 4px; flex: 1; text-align: center;">${char.status}</span>
+                <button class="btn ${char.turnTaken ? 'btn-secondary' : 'btn-primary'}" style="padding: 2px 6px; font-size: 0.6em; flex: 1;" onclick="toggleTurnStatus('${teamId}', '${charId}')">
+                    ${char.turnTaken ? 'Done' : 'Ready'}
+                </button>
             </div>
             <div class="model-name-new" title="${char.name}">${char.name}</div>
             <div class="ultra-hp">${char.currentHealth}/${char.maxHealth}</div>
-            <div class="ultra-turn" style="font-size: 0.7em; color: ${char.turnTaken ? '#4CAF50' : '#FFA500'};">${char.turnTaken ? 'Done' : 'Ready'}</div>
         </div>
     `;
 } else {
@@ -3874,9 +3919,12 @@ if (currentView === 'tiny') {
 teamHTML += `
     <div class="model-card ${char.status === 'dead' ? 'dead' : ''} ${currentView === 'compact' ? 'compact' : ''}" id="model-card-${teamId}-${charId}">
         
-        <!-- Status at Top Center -->
-        <div style="text-align: center; margin-bottom: 8px;">
-            <span class="status-indicator status-${char.status}">${char.status}</span>
+        <!-- Status and Ready/Done at Top -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px;">
+            <span class="status-indicator status-${char.status}" style="flex: 0 0 auto;">${char.status}</span>
+            <button class="btn ${char.turnTaken ? 'btn-secondary' : 'btn-primary'}" style="flex: 0 0 auto; padding: 4px 12px; font-size: 0.85em;" onclick="toggleTurnStatus('${teamId}', '${charId}')">
+                ${char.turnTaken ? 'Done' : 'Ready'}
+            </button>
         </div>
         
         <!-- SECTION 1: Header - Portrait, Name, Stats, Effects -->
@@ -3952,11 +4000,6 @@ teamHTML += `
                         'none'}
                 </div>
             </div>
-            
-            <!-- Turn Status Button -->
-            <button class="btn ${char.turnTaken ? 'btn-secondary' : 'btn-primary'} turn-status-btn" style="margin-top: 10px;" onclick="toggleTurnStatus('${teamId}', '${charId}')">
-                ${char.turnTaken ? 'Done' : 'Ready'}
-            </button>
         </div>
         
         <!-- SECTION 2: Special Actions -->
