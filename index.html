@@ -1765,12 +1765,16 @@
                 <input type="text" id="newSessionName" placeholder="e.g., SpaceOps-Dec18" />
             </div>
             <div class="form-group">
+                <label>Your Player Name*</label>
+                <input type="text" id="newSessionPlayerName" placeholder="Your name" />
+            </div>
+            <div class="form-group">
                 <label>Description (optional)</label>
                 <textarea id="newSessionDescription" placeholder="Brief description of this session..."></textarea>
             </div>
             <div class="form-actions">
-                <button class="btn btn-primary" onclick="createSession()">Create & Join</button>
-                <button class="btn btn-secondary" onclick="closeCreateSessionModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createSession()">Create & Join</button>
+                <button type="button" class="btn btn-secondary" onclick="closeCreateSessionModal()">Cancel</button>
             </div>
         </div>
     </div>
@@ -1900,6 +1904,15 @@
                 <div class="form-group">
                     <label>Health*</label>
                     <input type="number" id="charHealth" required min="1" value="15" />
+                </div>
+                
+                <div class="form-group">
+                    <label>Model Color</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="color" id="charColor" value="#FF6B6B" onchange="updateColorPreview()" style="width: 60px; height: 40px; border: none; border-radius: 5px; cursor: pointer;" />
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('charColor').value = generateRandomColor(); updateColorPreview();" style="padding: 8px 15px;">Random Color</button>
+                        <div id="colorPreview" style="width: 40px; height: 40px; border-radius: 50%; background: #FF6B6B; border: 2px solid #fff;"></div>
+                    </div>
                 </div>
 
                 <h3 style="color: #ff6b35; margin: 20px 0 10px 0;">Weapons</h3>
@@ -2457,12 +2470,21 @@
                 Object.entries(templates).forEach(([key, template]) => {
                     const card = document.createElement('div');
                     card.className = 'template-card';
+                    card.style.position = 'relative';
                     card.innerHTML = `
-                        <h4>${template.templateName || template.name}</h4>
+                        ${template.portrait ? `
+                            <div style="width: 100%; height: 150px; background-image: url('${template.portrait}'); background-size: cover; background-position: center; border-radius: 8px 8px 0 0; margin: -15px -15px 15px -15px;"></div>
+                        ` : ''}
+                        <button onclick="event.stopPropagation(); deleteTemplate('${key}', '${template.templateName || template.name}');" 
+                                style="position: absolute; top: 10px; right: 10px; background: rgba(220, 38, 38, 0.9); color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; z-index: 10;"
+                                title="Delete Template">×</button>
+                        <h4 style="margin-top: ${template.portrait ? '0' : '0'};">${template.templateName || template.name}</h4>
                         <div class="template-meta">
                             Role: ${template.role || 'N/A'}<br>
                             Health: ${template.maxHealth}<br>
                             ${template.speed ? `Speed: ${template.speed}<br>` : ''}
+                            ${template.shoot ? `Shoot: ${template.shoot}<br>` : ''}
+                            ${template.fight ? `Fight: ${template.fight}<br>` : ''}
                             By: ${template.creator}
                         </div>
                     `;
@@ -2470,6 +2492,16 @@
                     container.appendChild(card);
                 });
             });
+        }
+        
+        function deleteTemplate(key, name) {
+            if (confirm(`Delete template "${name}"? This cannot be undone.`)) {
+                database.ref(`templates/${key}`).remove().then(() => {
+                    alert('Template deleted successfully!');
+                }).catch(error => {
+                    alert('Error deleting template: ' + error.message);
+                });
+            }
         }
         
         function useTemplate(key, template) {
@@ -2786,7 +2818,7 @@
         function createSession() {
             const sessionName = document.getElementById('newSessionName').value.trim();
             const description = document.getElementById('newSessionDescription').value.trim();
-            const playerName = document.getElementById('playerName').value.trim();
+            const playerName = document.getElementById('newSessionPlayerName').value.trim();
 
             if (!sessionName) {
                 alert('Please enter a session name');
@@ -2815,7 +2847,10 @@
                     combatLog: {},
                     initiative: {}
                 }).then(() => {
+                    // Set values in main interface
                     document.getElementById('sessionName').value = sessionName;
+                    document.getElementById('playerName').value = playerName;
+                    
                     closeCreateSessionModal();
                     joinSession();
                 });
@@ -3074,7 +3109,17 @@
             document.getElementById('presetModelGroup').style.display = 'none';
             document.getElementById('presetModelSelect').innerHTML = '<option value="">-- Select Model --</option>';
             
+            // Set random color
+            const randomColor = generateRandomColor();
+            document.getElementById('charColor').value = randomColor;
+            updateColorPreview();
+            
             document.getElementById('characterModal').classList.add('active');
+        }
+        
+        function updateColorPreview() {
+            const color = document.getElementById('charColor').value;
+            document.getElementById('colorPreview').style.background = color;
         }
 
         function updateModelPresets() {
@@ -3307,6 +3352,8 @@
             document.getElementById('charFight').value = character.fight || '';
             document.getElementById('charNerve').value = character.nerve || '';
             document.getElementById('charHealth').value = character.maxHealth || 15;
+            document.getElementById('charColor').value = character.color || generateRandomColor();
+            updateColorPreview();
             document.getElementById('charInventory').value = character.inventory ? character.inventory.join(', ') : '';
             document.getElementById('charNotes').value = character.notes || '';
 
@@ -3343,6 +3390,7 @@
                 nerve: document.getElementById('charNerve').value.trim(),
                 maxHealth: parseInt(document.getElementById('charHealth').value),
                 currentHealth: parseInt(document.getElementById('charHealth').value),
+                color: document.getElementById('charColor').value,
                 weapons: weaponFields.filter(w => w.name && w.attacks && w.power && w.damage),
                 consumables: consumableFields.filter(c => c.name && c.amount && c.maxUses).map(c => ({
                     name: c.name,
@@ -3647,7 +3695,14 @@
 
             container.innerHTML = '';
 
-            Object.entries(teams).forEach(([teamId, team]) => {
+            // Sort teams: current player's team first, then others
+            const sortedTeams = Object.entries(teams).sort(([idA, teamA], [idB, teamB]) => {
+                if (teamA.owner === currentPlayer) return -1;
+                if (teamB.owner === currentPlayer) return 1;
+                return 0;
+            });
+
+            sortedTeams.forEach(([teamId, team]) => {
                 const teamDiv = document.createElement('div');
                 teamDiv.className = 'team';
 
@@ -3690,6 +3745,7 @@ if (currentView === 'ultra-compact') {
             <img src="${char.portrait || 'https://via.placeholder.com/40?text=' + char.name[0]}" 
                  alt="${char.name}" 
                  class="model-portrait-new"
+                 style="border: 3px solid ${char.color || '#FF9500'};"
                  onerror="this.src='https://via.placeholder.com/40?text=${char.name[0]}'">
             <div class="model-name-new" title="${char.name}">${char.name}</div>
             <div class="ultra-hp">${char.currentHealth}/${char.maxHealth}</div>
@@ -3707,6 +3763,7 @@ teamHTML += `
                 <img src="${char.portrait || 'https://via.placeholder.com/100?text=' + char.name[0]}" 
                      alt="${char.name}" 
                      class="model-portrait-new"
+                     style="border: 4px solid ${char.color || '#FF9500'};"
                      onclick="editPortrait('${teamId}', '${charId}')"
                      onerror="this.src='https://via.placeholder.com/100?text=${char.name[0]}'"
                      title="Click to change portrait">
@@ -3772,7 +3829,7 @@ teamHTML += `
             
             <!-- Turn Status Button -->
             <button class="btn ${char.turnTaken ? 'btn-secondary' : 'btn-primary'} turn-status-btn" style="margin-top: 10px;" onclick="toggleTurnStatus('${teamId}', '${charId}')">
-                ${char.turnTaken ? 'Done Turn Taken' : 'Ready Waiting for Turn'}
+                ${char.turnTaken ? 'Done' : 'Ready'}
             </button>
         </div>
         
@@ -4356,6 +4413,11 @@ teamHTML += `
                     loadMissionObjectives();
                     syncTimer();
                     
+                    // Set up teams listener
+                    sessionRef.child('teams').on('value', (snapshot) => {
+                        renderTeams(snapshot.val() || {});
+                    });
+                    
                     // Create team with faction
                     const teamId = currentPlayer.replace(/\s/g, '_');
                     const teamRef = database.ref(`sessions/${sessionName}/teams/${teamId}`);
@@ -4408,6 +4470,17 @@ teamHTML += `
         // Return to Landing Page
         function returnToLanding() {
             document.getElementById('landingPage').style.display = 'flex';
+            
+        // Random Color Generator
+        function generateRandomColor() {
+            const colors = [
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+                '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52B788',
+                '#FF9AA2', '#FFB7B2', '#FFDAC1', '#E2F0CB', '#B5EAD7',
+                '#C7CEEA', '#FFB347', '#77DD77', '#AEC6CF', '#CFCFC4'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
             document.getElementById('appInterface').style.display = 'none';
             document.getElementById('teamBuilderTab').style.display = 'none';
             document.getElementById('myTeamsTab').style.display = 'none';
