@@ -3338,7 +3338,7 @@
                 
                 // Ensure we're in a session
                 if (!currentSession) {
-                    alert('⚠️ Please join a session first!\n\nClick "Join/Create" to create or join a session.');
+                    alert('Please join a session first!');
                     return;
                 }
                 
@@ -3363,31 +3363,16 @@
                 
                 // Auto-select faction if team has one
                 if (teamFaction) {
-                    console.log('Auto-selecting faction:', teamFaction);
                     document.getElementById('presetFactionSelect').value = teamFaction;
                     updatePresetModels();
                     document.getElementById('presetModelGroup').style.display = 'block';
                 } else {
-                    // Reset preset selectors - user can select faction in modal
-                    console.log('No team faction, showing all factions');
+                    // Reset preset selectors
                     document.getElementById('presetFactionSelect').value = '';
                     document.getElementById('presetModelGroup').style.display = 'none';
                     document.getElementById('presetModelSelect').innerHTML = '<option value="">-- Select Model --</option>';
                 }
                 
-                // Set random color
-                const randomColor = generateRandomColor();
-                document.getElementById('charColor').value = randomColor;
-                updateColorPreview();
-                
-                // Open the modal
-                document.getElementById('characterModal').classList.add('active');
-                console.log('Modal opened successfully!');
-            } catch (error) {
-                console.error('Error opening modal:', error);
-                alert('⚠️ Error opening Add Model modal\n\nError: ' + error.message + '\n\nPlease refresh the page and try again.');
-            }
-        }
                 // Set random color
                 const randomColor = generateRandomColor();
                 document.getElementById('charColor').value = randomColor;
@@ -3777,25 +3762,22 @@
                     charRef.update(character);
                 });
             } else {
-                // Adding new character
                 const teamId = currentPlayer.replace(/\s/g, '_');
                 const charId = 'char_' + Date.now();
                 const teamRef = database.ref(`sessions/${currentSession}/teams/${teamId}`);
                 
                 teamRef.once('value', (snapshot) => {
                     if (snapshot.exists()) {
-                        // Team exists, just add character
                         teamRef.child('characters/' + charId).set(character);
                     } else {
-                        // Creating new team - need to get faction
+                        // Creating new team - get faction from modal
                         const selectedFaction = document.getElementById('presetFactionSelect').value;
                         
                         if (!selectedFaction) {
-                            alert('⚠️ Please select a faction first!\n\nChoose a faction from the dropdown in the Add Model form.');
+                            alert('Please select a faction first!\n\nChoose a faction from the dropdown in the Add Model form.');
                             return;
                         }
                         
-                        // Create team with faction
                         teamRef.set({
                             owner: currentPlayer,
                             faction: selectedFaction,
