@@ -5561,6 +5561,15 @@ teamHTML += `
                         <div style="margin-bottom: 30px; padding: 25px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid ${faction.primaryColor};">
                             <h3 style="color: ${faction.primaryColor}; margin-bottom: 15px;">${faction.name}</h3>
                             <p style="color: #aaa; font-style: italic; margin-bottom: 15px;">${faction.loreShort}</p>
+                            
+                            ${faction.name === 'Arc Rangers' ? `
+                                <div style="text-align: center; margin: 20px 0;">
+                                    <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/images/AR-with-Carbines_wide.jpg" 
+                                         alt="Arc Rangers" 
+                                         style="max-width: 600px; width: 70%; border-radius: 8px; border: 2px solid ${faction.primaryColor}; box-shadow: 0 4px 20px rgba(156, 175, 136, 0.3);" />
+                                </div>
+                            ` : ''}
+                            
                             <p style="color: #ccc; line-height: 1.8; white-space: pre-wrap;">${faction.loreFull}</p>
                         </div>
                     `).join('')}
