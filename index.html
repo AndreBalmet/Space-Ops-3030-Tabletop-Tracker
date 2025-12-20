@@ -3338,26 +3338,16 @@
                 
                 // Ensure we're in a session
                 if (!currentSession) {
-                    alert('Please join a session first!');
+                    alert('⚠️ Please join a session first!\n\nClick "Join/Create" to create or join a session.');
                     return;
                 }
                 
-                // Check if user has selected a faction or has a team with faction
+                // Get user's team if it exists
                 const myTeamId = currentSession ? Object.keys(sessionTeams || {}).find(id => sessionTeams[id].owner === currentPlayer) : null;
                 const myTeam = myTeamId ? sessionTeams[myTeamId] : null;
                 const teamFaction = myTeam ? myTeam.faction : null;
                 
-                // If no team exists yet, check if faction is selected
-                if (!myTeam) {
-                    const factionSelect = document.getElementById('myTeamFactionSelect');
-                    // Only check if the selector exists and is visible (no team yet)
-                    if (factionSelect && factionSelect.offsetParent !== null && !factionSelect.value) {
-                        alert('Please choose a faction first in the "My Team" section above!');
-                        factionSelect.focus();
-                        return;
-                    }
-                }
-                
+                // Reset modal
                 editingCharacter = null;
                 document.getElementById('modalTitle').textContent = 'Add Model';
                 document.getElementById('characterForm').reset();
@@ -3373,16 +3363,31 @@
                 
                 // Auto-select faction if team has one
                 if (teamFaction) {
+                    console.log('Auto-selecting faction:', teamFaction);
                     document.getElementById('presetFactionSelect').value = teamFaction;
                     updatePresetModels();
                     document.getElementById('presetModelGroup').style.display = 'block';
                 } else {
-                    // Reset preset selectors
+                    // Reset preset selectors - user can select faction in modal
+                    console.log('No team faction, showing all factions');
                     document.getElementById('presetFactionSelect').value = '';
                     document.getElementById('presetModelGroup').style.display = 'none';
                     document.getElementById('presetModelSelect').innerHTML = '<option value="">-- Select Model --</option>';
                 }
                 
+                // Set random color
+                const randomColor = generateRandomColor();
+                document.getElementById('charColor').value = randomColor;
+                updateColorPreview();
+                
+                // Open the modal
+                document.getElementById('characterModal').classList.add('active');
+                console.log('Modal opened successfully!');
+            } catch (error) {
+                console.error('Error opening modal:', error);
+                alert('⚠️ Error opening Add Model modal\n\nError: ' + error.message + '\n\nPlease refresh the page and try again.');
+            }
+        }
                 // Set random color
                 const randomColor = generateRandomColor();
                 document.getElementById('charColor').value = randomColor;
@@ -3772,16 +3777,28 @@
                     charRef.update(character);
                 });
             } else {
+                // Adding new character
                 const teamId = currentPlayer.replace(/\s/g, '_');
                 const charId = 'char_' + Date.now();
                 const teamRef = database.ref(`sessions/${currentSession}/teams/${teamId}`);
                 
                 teamRef.once('value', (snapshot) => {
                     if (snapshot.exists()) {
+                        // Team exists, just add character
                         teamRef.child('characters/' + charId).set(character);
                     } else {
+                        // Creating new team - need to get faction
+                        const selectedFaction = document.getElementById('presetFactionSelect').value;
+                        
+                        if (!selectedFaction) {
+                            alert('⚠️ Please select a faction first!\n\nChoose a faction from the dropdown in the Add Model form.');
+                            return;
+                        }
+                        
+                        // Create team with faction
                         teamRef.set({
                             owner: currentPlayer,
+                            faction: selectedFaction,
                             characters: {
                                 [charId]: character
                             }
