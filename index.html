@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tabletop Character Tracker Pro</title>
+    <title>Space-Ops 3030 Tracker</title>
     <style>
         /* Starfield Animation */
         .starfield {
@@ -1615,6 +1615,7 @@
             z-index: 9999;
             transition: all 0.4s ease;
             animation: pulse 2s infinite;
+            display: none;
         }
 
         @keyframes pulse {
@@ -1692,6 +1693,7 @@
             animation: bounce 1s infinite;
             text-shadow: 0 0 10px rgba(255, 149, 0, 0.8);
             pointer-events: none;
+            display: none;
         }
 
         @keyframes bounce {
@@ -1848,7 +1850,7 @@
         <!-- Tutorial Button -->
         <div style="margin-top: 30px; text-align: center;">
             <button onclick="showTutorial()" class="btn btn-secondary" style="padding: 12px 30px; font-size: 1em; border: 2px solid #9CAF88;">
-                📚 New Player? Start Tutorial
+                New Player? Start Tutorial
             </button>
         </div>
         
@@ -1909,6 +1911,9 @@
 
         <!-- Join/Create Tab -->
         <div id="joinTab" class="tab-content active">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+            </div>
             <div class="session-controls">
                 <input type="text" id="sessionName" placeholder="Session Name (e.g., SpaceOps-Dec18)" />
                 <input type="text" id="playerName" placeholder="Your Player Name" />
@@ -6110,7 +6115,7 @@ teamHTML += `
                             
                             ${faction.name === 'Arc Rangers' ? `
                                 <div style="text-align: center; margin: 20px 0;">
-                                    <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/images/AR-with-Carbines_wide.jpg" 
+                                    <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/AR-with-Carbines_wide.jpg" 
                                          alt="Arc Rangers" 
                                          style="max-width: 600px; width: 70%; border-radius: 8px; border: 2px solid ${faction.primaryColor}; box-shadow: 0 4px 20px rgba(156, 175, 136, 0.3);" />
                                 </div>
