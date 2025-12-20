@@ -3180,10 +3180,12 @@
                     return;
                 }
 
-                sessionsList.forEach(([sessionName, session]) => {
+                sessionsList.forEach(([sessionKey, session]) => {
                     const card = document.createElement('div');
                     card.className = 'session-card' + (session.archived ? ' archived' : '');
                     
+                    // Use session.name for display (original with spaces), sessionKey for operations (sanitized)
+                    const displayName = session.name || sessionKey;
                     const created = session.created ? new Date(session.created).toLocaleDateString() : 'Unknown';
                     const teamCount = session.teams ? Object.keys(session.teams).length : 0;
                     const charCount = session.teams ? Object.values(session.teams).reduce((sum, team) => {
@@ -3191,16 +3193,16 @@
                     }, 0) : 0;
 
                     card.innerHTML = `
-                        <h3>${sessionName} ${session.archived ? '<span class="archived-badge">ARCHIVED</span>' : ''}</h3>
+                        <h3>${displayName} ${session.archived ? '<span class="archived-badge">ARCHIVED</span>' : ''}</h3>
                         <div class="session-meta">
                              Created: ${created}<br>
                              ${teamCount} team(s), ${charCount} character(s)<br>
                             ${session.description ? ` ${session.description}` : ''}
                         </div>
                         <div class="session-actions">
-                            <button class="btn btn-primary" onclick="joinSessionByName('${sessionName}')">Join</button>
-                            <button class="btn btn-warning" onclick="cloneSessionByName('${sessionName}')">Clone</button>
-                            <button class="btn btn-danger" onclick="deleteSessionByName('${sessionName}')">Delete</button>
+                            <button class="btn btn-primary" onclick="joinSessionByName('${sessionKey}')">Join</button>
+                            <button class="btn btn-warning" onclick="cloneSessionByName('${sessionKey}')">Clone</button>
+                            <button class="btn btn-danger" onclick="deleteSessionByName('${sessionKey}')">Delete</button>
                         </div>
                     `;
                     
@@ -4889,20 +4891,33 @@ teamHTML += `
                 return;
             }
             
+            // Sanitize session name for Firebase
+            const sanitizedSessionName = sanitizeSessionName(sessionName);
+            
+            if (!sanitizedSessionName) {
+                alert('Session name contains only invalid characters. Please use letters and numbers.');
+                return;
+            }
+            
             // Store for later use
             currentPlayer = playerName;
-            currentSession = sessionName;
+            currentSession = sanitizedSessionName;  // Use sanitized name
             
             // Create session first
-            const sessionRef = database.ref('sessions/' + sessionName);
+            const sessionRef = database.ref('sessions/' + sanitizedSessionName);
             sessionRef.once('value', (snapshot) => {
                 const sessionPromise = snapshot.exists() ? 
                     Promise.resolve() : 
                     sessionRef.set({
-                        name: sessionName,
+                        name: sessionName,  // Store original name for display
                         description: `Quick Build - ${factionName}`,
                         created: firebase.database.ServerValue.TIMESTAMP,
                         archived: false,
+                        campaign: {
+                            name: 'Campaign Name',
+                            description: 'Click to add campaign description...',
+                            objectives: []
+                        },
                         teams: {},
                         actionHistory: {},
                         combatLog: {},
@@ -4916,16 +4931,19 @@ teamHTML += `
                     // Show app interface
                     document.getElementById('appInterface').style.display = 'block';
                     
-                    // Set values in interface
+                    // Set values in interface (display original name)
                     document.getElementById('currentSession').textContent = sessionName;
                     document.getElementById('currentPlayer').textContent = playerName;
                     document.getElementById('gameTabBtn').style.display = 'block';
                     document.getElementById('toolsTabBtn').style.display = 'block';
-                    // Templates tab removed in v12.11
-                    // document.getElementById('templatesTabBtn').style.display = 'block';
                     document.getElementById('gameArea').style.display = 'block';
                     
-                    // Load mission/objectives
+                    // Show session info bar and campaign section
+                    document.getElementById('sessionInfoBar').style.display = 'block';
+                    document.getElementById('campaignSection').style.display = 'block';
+                    
+                    // Load campaign info and objectives
+                    loadCampaignInfo();
                     loadMissionObjectives();
                     syncTimer();
                     
@@ -4936,7 +4954,7 @@ teamHTML += `
                     
                     // Create team with faction
                     const teamId = currentPlayer.replace(/\s/g, '_');
-                    const teamRef = database.ref(`sessions/${sessionName}/teams/${teamId}`);
+                    const teamRef = database.ref(`sessions/${sanitizedSessionName}/teams/${teamId}`);
                     teamRef.set({
                         owner: currentPlayer,
                         faction: factionName,
