@@ -3051,20 +3051,32 @@
 
                 // Convert Firebase session characters to team format
                 const characters = Object.values(teamData.characters);
-                const models = characters.map(char => ({
-                    name: char.name,
-                    type: char.role,
-                    role: char.role,
-                    speed: char.speed,
-                    shoot: char.shoot,
-                    fight: char.fight,
-                    nerve: char.nerve,
-                    health: char.maxHealth,
-                    currentHealth: char.currentHealth,
-                    weapons: char.weapons || [],
-                    notes: char.notes || '',
-                    points: 15 // Default points per model
-                }));
+                const models = characters.map(char => {
+                    // Handle weapons in various formats (array, object, string, etc.)
+                    let weaponsArray = [];
+                    if (Array.isArray(char.weapons)) {
+                        weaponsArray = char.weapons;
+                    } else if (char.weapons && typeof char.weapons === 'object') {
+                        weaponsArray = Object.values(char.weapons);
+                    } else if (typeof char.weapons === 'string') {
+                        weaponsArray = char.weapons ? [{name: char.weapons}] : [];
+                    }
+                    
+                    return {
+                        name: char.name,
+                        type: char.role,
+                        role: char.role,
+                        speed: char.speed,
+                        shoot: char.shoot,
+                        fight: char.fight,
+                        nerve: char.nerve,
+                        health: char.maxHealth,
+                        currentHealth: char.currentHealth,
+                        weapons: weaponsArray,
+                        notes: char.notes || '',
+                        points: 15 // Default points per model
+                    };
+                });
 
                 // Create team object
                 const team = {
