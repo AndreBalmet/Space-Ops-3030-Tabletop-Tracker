@@ -94,6 +94,85 @@
             }
         }
 
+        /* Settings Button */
+        .settings-corner-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 149, 0, 0.2);
+            border: 2px solid #FF9500;
+            color: #FF9500;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 100;
+            font-weight: bold;
+        }
+
+        .settings-corner-btn:hover {
+            background: #FF9500;
+            color: #000000;
+        }
+
+        /* Settings Modal Styles */
+        .settings-section {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 149, 0, 0.3);
+        }
+
+        .settings-section h3 {
+            color: #FF9500;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .connection-status.connected {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            color: #4CAF50;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(255, 68, 68, 0.2);
+            border: 1px solid #FF4444;
+            color: #FF4444;
+        }
+
+        .connection-status.testing {
+            background: rgba(255, 165, 0, 0.2);
+            border: 1px solid #FFA500;
+            color: #FFA500;
+        }
+
+        .help-text {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .help-text a {
+            color: #9CAF88;
+            text-decoration: none;
+        }
+
+        .help-text a:hover {
+            color: #FF9500;
+            text-decoration: underline;
+        }
+
         @keyframes damageFlash {
             0% {
                 box-shadow: 0 0 0 0 rgba(255, 68, 68, 0);
@@ -1830,6 +1909,8 @@
 
     <!-- Landing Page -->
     <div class="landing-page" id="landingPage">
+        <button class="settings-corner-btn" onclick="showSettings()">⚙️ Settings</button>
+        
         <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" alt="Space Ops 3030" class="landing-logo" />
         
         <div class="landing-menu">
@@ -2723,6 +2804,221 @@
             console.error("Firebase initialization error:", error);
             alert("Firebase initialization failed. Please check the console.");
         }
+
+        // ========================================
+        // v14: GOOGLE SHEETS INTEGRATION
+        // ========================================
+
+        let googleSheetsEnabled = false;
+        let googleSheetsUrl = '';
+
+        // Initialize Google Sheets from localStorage
+        function initGoogleSheets() {
+            const savedUrl = localStorage.getItem('googleSheetsUrl');
+            if (savedUrl) {
+                googleSheetsUrl = savedUrl;
+                if (document.getElementById('googleSheetUrl')) {
+                    document.getElementById('googleSheetUrl').value = savedUrl;
+                }
+                googleSheetsEnabled = true;
+                console.log('✅ Google Sheets initialized:', savedUrl);
+            } else {
+                console.log('ℹ️ Google Sheets not configured (using Firebase only)');
+            }
+        }
+
+        // Settings functions
+        function showSettings() {
+            document.getElementById('settingsModal').classList.add('active');
+            initGoogleSheets();
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('active');
+        }
+
+        function saveGoogleSheetsUrl() {
+            const url = document.getElementById('googleSheetUrl').value.trim();
+            if (url) {
+                localStorage.setItem('googleSheetsUrl', url);
+                googleSheetsUrl = url;
+                googleSheetsEnabled = true;
+                alert('✅ Google Sheets URL saved!\n\nTeams will now auto-save to your Google Sheet when you click "Save Team".');
+            }
+        }
+
+        function clearGoogleSheetsUrl() {
+            if (confirm('Clear Google Sheets integration?\n\nTeams will still be saved to Firebase for sessions.')) {
+                localStorage.removeItem('googleSheetsUrl');
+                googleSheetsUrl = '';
+                googleSheetsEnabled = false;
+                document.getElementById('googleSheetUrl').value = '';
+                document.getElementById('connectionStatus').innerHTML = '';
+                alert('Google Sheets integration cleared. Tracker will use Firebase only.');
+            }
+        }
+
+        async function testGoogleSheetsConnection() {
+            const url = document.getElementById('googleSheetUrl').value.trim();
+            if (!url) {
+                alert('Please enter a Web App URL first!');
+                return;
+            }
+
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.innerHTML = '<div class="connection-status testing">🔄 Testing connection...</div>';
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success !== undefined) {
+                    const teamCount = data.teams ? data.teams.length : 0;
+                    statusDiv.innerHTML = `
+                        <div class="connection-status connected">
+                            ✅ Connected successfully!<br>
+                            <small>Found ${teamCount} team${teamCount !== 1 ? 's' : ''} in your Google Sheet.</small>
+                        </div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = '<div class="connection-status disconnected">❌ Unexpected response format</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="connection-status disconnected">
+                        ❌ Connection failed: ${error.message}<br>
+                        <small class="help-text">
+                            Make sure your Web App is deployed as "Anyone" can access.
+                        </small>
+                    </div>
+                `;
+            }
+        }
+
+        async function saveTeamToGoogleSheets(team) {
+            if (!googleSheetsEnabled || !googleSheetsUrl) {
+                console.log('ℹ️ Google Sheets not configured, skipping Google Sheets save');
+                return { success: true, skipped: true };
+            }
+
+            try {
+                console.log('💾 Saving team to Google Sheets:', team.name);
+                
+                const characters = team.models.map(model => ({
+                    name: model.name,
+                    role: model.type || model.role || 'Warrior',
+                    speed: model.speed || '6"',
+                    shoot: model.shoot || '4+',
+                    fight: model.fight || '4+',
+                    nerve: model.nerve || '4+',
+                    maxHealth: model.health || 15,
+                    currentHealth: model.currentHealth || model.health || 15,
+                    weapons: Array.isArray(model.weapons) ? model.weapons.map(w => w.name || w).join(', ') : '',
+                    notes: model.notes || ''
+                }));
+
+                const teamData = {
+                    name: team.name,
+                    faction: team.faction,
+                    dateCreated: team.created || Date.now(),
+                    lastPlayed: Date.now(),
+                    characters: characters
+                };
+
+                const response = await fetch(googleSheetsUrl, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: JSON.stringify({
+                        action: 'saveTeam',
+                        team: teamData
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Team saved to Google Sheets successfully');
+                } else {
+                    console.warn('⚠️ Google Sheets save failed:', result.error || result.message);
+                }
+                
+                return result;
+            } catch (error) {
+                console.error('❌ Error saving to Google Sheets:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function loadTeamsFromGoogleSheets() {
+            if (!googleSheetsEnabled || !googleSheetsUrl) {
+                return null;
+            }
+
+            try {
+                console.log('📥 Loading teams from Google Sheets...');
+                
+                const response = await fetch(googleSheetsUrl, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success && data.teams) {
+                    console.log(`✅ Loaded ${data.teams.length} teams from Google Sheets`);
+                    
+                    return data.teams.map(team => ({
+                        name: team.name,
+                        faction: team.faction,
+                        created: team.dateCreated || Date.now(),
+                        modified: team.lastPlayed || Date.now(),
+                        models: team.characters.map(char => ({
+                            name: char.name,
+                            type: char.role,
+                            role: char.role,
+                            speed: char.speed,
+                            shoot: char.shoot,
+                            fight: char.fight,
+                            nerve: char.nerve,
+                            health: char.maxHealth,
+                            currentHealth: char.currentHealth,
+                            weapons: char.weapons ? char.weapons.split(',').map(w => ({name: w.trim()})) : [],
+                            notes: char.notes || ''
+                        })),
+                        points: team.characters.reduce((sum, char) => sum + (char.points || 15), 0)
+                    }));
+                }
+
+                return null;
+            } catch (error) {
+                console.error('❌ Error loading from Google Sheets:', error);
+                return null;
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            initGoogleSheets();
+        });
 
         // Dice Roller
         let diceHistory = [];
@@ -5793,27 +6089,46 @@ teamHTML += `
                 owner: currentPlayer
             };
             
-            database.ref(`players/${currentPlayer}/teams/${teamId}`).set(teamData).then(() => {
-                // Show success message with next steps
-                showTeamSavedDialog(teamData.name);
+            // Save to Firebase (always)
+            database.ref(`players/${currentPlayer}/teams/${teamId}`).set(teamData).then(async () => {
+                console.log('✅ Team saved to Firebase');
+                
+                // ALSO save to Google Sheets if enabled (v14)
+                if (googleSheetsEnabled) {
+                    const sheetsResult = await saveTeamToGoogleSheets(teamData);
+                    if (sheetsResult && sheetsResult.success && !sheetsResult.skipped) {
+                        showTeamSavedDialog(teamData.name, true); // true = Google Sheets success
+                    } else {
+                        showTeamSavedDialog(teamData.name, false); // Firebase only
+                    }
+                } else {
+                    showTeamSavedDialog(teamData.name, false); // Firebase only
+                }
             }).catch(error => {
                 alert('Error saving team: ' + error.message);
             });
         }
 
-        function showTeamSavedDialog(teamName) {
+        function showTeamSavedDialog(teamName, savedToSheets) {
             const faction = gameData.factions.find(f => f.name === currentTeam.faction);
             const content = document.getElementById('teamBuilderContent');
             
+            const sheetsMessage = savedToSheets 
+                ? '<div style="color: #4CAF50; margin-top: 10px;">✅ Also saved to Google Sheets!</div>'
+                : googleSheetsEnabled 
+                    ? '<div style="color: #FFA500; margin-top: 10px;">⚠️ Saved to Firebase (Google Sheets failed)</div>'
+                    : '<div style="color: #9CAF88; margin-top: 10px;">💾 Saved to Firebase</div>';
+            
             content.innerHTML = `
                 <div style="max-width: 600px; margin: 60px auto; text-align: center;">
-                    <div style="font-size: 4em; margin-bottom: 20px;"></div>
+                    <div style="font-size: 4em; margin-bottom: 20px;">✅</div>
                     <h2 style="color: ${faction.primaryColor}; margin-bottom: 20px;">Team Saved Successfully!</h2>
                     <div style="background: rgba(${hexToRgb(faction.primaryColor)}, 0.1); padding: 30px; border-radius: 10px; border: 2px solid ${faction.primaryColor}; margin-bottom: 30px;">
                         <h3 style="color: ${faction.primaryColor}; margin-bottom: 10px;">"${teamName}"</h3>
                         <div style="color: #9CAF88; font-size: 1.1em;">
                             ${currentTeam.faction} • ${currentTeam.points} pts • ${currentTeam.models.length} models
                         </div>
+                        ${sheetsMessage}
                     </div>
                     
                     <h3 style="color: #FF9500; margin-bottom: 20px;">What would you like to do next?</h3>
@@ -6170,6 +6485,53 @@ teamHTML += `
             </div>
             <div class="form-actions" style="margin-top: 20px;">
                 <button class="btn btn-secondary" onclick="closeLoadTeamModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal (v14) -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <h2>⚙️ Settings</h2>
+            
+            <div class="settings-section">
+                <h3>🔗 Google Sheets Integration</h3>
+                <p class="help-text">
+                    Save teams permanently to Google Sheets. Teams auto-save whenever you click "Save Team". 
+                    Need help? Your Web App URL is ready - just paste it below!
+                </p>
+                
+                <div class="form-group" style="margin-top: 15px;">
+                    <label for="googleSheetUrl">Google Apps Script Web App URL:</label>
+                    <input type="text" 
+                           id="googleSheetUrl" 
+                           placeholder="https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec"
+                           value="">
+                    <p class="help-text">Paste your deployed Web App URL here. Leave blank to use Firebase only.</p>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="testGoogleSheetsConnection()">Test Connection</button>
+                    <button class="btn btn-secondary" onclick="saveGoogleSheetsUrl()">Save URL</button>
+                    <button class="btn btn-secondary" onclick="clearGoogleSheetsUrl()">Clear</button>
+                </div>
+                
+                <div id="connectionStatus"></div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>ℹ️ About v14</h3>
+                <p class="help-text">
+                    <strong>New in v14:</strong> Google Sheets integration!<br><br>
+                    • Teams save to <strong>both</strong> Firebase (sessions) and Google Sheets (permanent)<br>
+                    • Google Sheets is <strong>optional</strong> - tracker works great without it<br>
+                    • Real-time sessions unchanged - works exactly like v13<br>
+                    • Set up once, never lose teams again!
+                </p>
+            </div>
+            
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeSettings()">Close</button>
             </div>
         </div>
     </div>
