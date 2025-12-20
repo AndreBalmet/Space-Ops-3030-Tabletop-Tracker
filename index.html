@@ -2505,13 +2505,13 @@
 
         const tutorialSteps = [
             {
-                title: "👋 Welcome to Space Ops 3030!",
+                title: "Welcome to Space Ops 3030!",
                 text: "Let's get you ready to command your first squad! This quick tour takes just 2 minutes. Ready?",
                 spotlight: null,
                 arrow: null
             },
             {
-                title: "🚀 Choose Quick Play",
+                title: "Choose Quick Play",
                 text: "The fastest way to start playing! Click the Quick Play button to create a game with a pre-built team.",
                 spotlight: "landingPage",
                 arrow: "↓",
@@ -2550,7 +2550,7 @@
             
             // Update next button
             const nextBtn = document.getElementById('tutorialNextBtn');
-            nextBtn.textContent = step === tutorialSteps.length - 1 ? 'Finish! 🎉' : 'Next →';
+            nextBtn.textContent = step === tutorialSteps.length - 1 ? 'Finish!' : 'Next →';
         }
 
         function nextTutorialStep() {
@@ -2572,7 +2572,7 @@
             localStorage.setItem('tutorialCompleted', 'true');
             tutorialState.completed = true;
             closeTutorial();
-            alert("🎉 Tutorial Complete!\n\nYou're ready to command your squad! Good luck in The Reach, Commander!");
+            alert("Tutorial Complete!\n\nYou're ready to command your squad! Good luck in The Reach, Commander!");
         }
 
         function closeTutorial() {
@@ -2590,7 +2590,7 @@
             }
 
             if (squad.models.length === 0) {
-                alert('⚠️ This faction is coming soon!\n\nKippin units are currently in development. Try Arc Rangers or Space-Wyrm squads instead!');
+                alert('This faction is coming soon!\n\nKippin units are currently in development. Try Arc Rangers or Space-Wyrm squads instead!');
                 return;
             }
 
@@ -2677,7 +2677,7 @@
                         
                         setTimeout(() => {
                             switchTab('game');
-                            alert(`🎉 ${factionName} squad loaded!\n\nYour team is ready. Check the Game tab to see your models!`);
+                            alert(`${factionName} squad loaded!\n\nYour team is ready. Check the Game tab to see your models!`);
                         }, team.length * 100 + 500);
                     });
                 });
@@ -3894,7 +3894,7 @@
                 // Auto-select faction if team has one
                 if (teamFaction) {
                     document.getElementById('presetFactionSelect').value = teamFaction;
-                    updatePresetModels();
+                    updateModelPresets();
                     document.getElementById('presetModelGroup').style.display = 'block';
                 } else {
                     // Reset preset selectors
@@ -4549,7 +4549,7 @@
             // Give feedback
             const faction = gameData.factions.find(f => f.name === factionName);
             if (faction) {
-                alert(`✅ Faction set to ${factionName}! Now you can add models from this faction.`);
+                alert(`Faction set to ${factionName}! Now you can add models from this faction.`);
             }
         }
 
