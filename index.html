@@ -1588,9 +1588,241 @@
                 padding: 8px 12px;
             }
         }
+
+        /* Tutorial Overlay System */
+        .tutorial-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 9998;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .tutorial-overlay.active {
+            display: block;
+        }
+
+        .tutorial-spotlight {
+            position: absolute;
+            border: 3px solid #FF9500;
+            border-radius: 8px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85), 0 0 30px rgba(255, 149, 0, 0.8);
+            pointer-events: none;
+            z-index: 9999;
+            transition: all 0.4s ease;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85), 0 0 30px rgba(255, 149, 0, 0.8); }
+            50% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85), 0 0 40px rgba(255, 149, 0, 1); }
+        }
+
+        .tutorial-modal {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 600px;
+            width: 90%;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            border: 2px solid #FF9500;
+            border-radius: 15px;
+            padding: 30px;
+            z-index: 10000;
+            box-shadow: 0 10px 50px rgba(255, 149, 0, 0.5);
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        .tutorial-modal h2 {
+            color: #FF9500;
+            margin: 0 0 15px 0;
+            font-size: 1.8em;
+            text-align: center;
+        }
+
+        .tutorial-modal p {
+            color: #ccc;
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin: 0 0 20px 0;
+        }
+
+        .tutorial-progress {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 20px 0;
+        }
+
+        .tutorial-progress-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 149, 0, 0.3);
+            transition: all 0.3s;
+        }
+
+        .tutorial-progress-dot.active {
+            background: #FF9500;
+            transform: scale(1.3);
+        }
+
+        .tutorial-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .tutorial-arrow {
+            position: absolute;
+            font-size: 3em;
+            color: #FF9500;
+            z-index: 10001;
+            animation: bounce 1s infinite;
+            text-shadow: 0 0 10px rgba(255, 149, 0, 0.8);
+            pointer-events: none;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Help System */
+        .help-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            border: 1px solid #FF9500;
+            border-radius: 8px;
+            padding: 12px 15px;
+            color: #ccc;
+            font-size: 0.9em;
+            max-width: 250px;
+            z-index: 10002;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .help-tooltip.show {
+            opacity: 1;
+        }
+
+        .help-tooltip::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 8px solid #FF9500;
+        }
+
+        .help-icon {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            background: #FF9500;
+            color: #000;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 18px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: help;
+            margin-left: 5px;
+        }
+
+        /* Starter Squad Cards */
+        .starter-squad-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .starter-squad-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #FF9500;
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .starter-squad-card:hover {
+            background: rgba(255, 149, 0, 0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(255, 149, 0, 0.3);
+        }
+
+        .starter-squad-card h3 {
+            color: #FF9500;
+            margin: 0 0 10px 0;
+        }
+
+        .starter-squad-difficulty {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .difficulty-easy {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+        }
+
+        .difficulty-medium {
+            background: rgba(255, 193, 7, 0.3);
+            color: #FFC107;
+            border: 1px solid #FFC107;
+        }
+
+        .difficulty-hard {
+            background: rgba(244, 67, 54, 0.3);
+            color: #F44336;
+            border: 1px solid #F44336;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
     </style>
 </head>
 <body>
+    <!-- Tutorial Overlay System -->
+    <div class="tutorial-overlay" id="tutorialOverlay"></div>
+    <div class="tutorial-spotlight" id="tutorialSpotlight"></div>
+    <div class="tutorial-arrow" id="tutorialArrow"></div>
+    <div class="tutorial-modal" id="tutorialModal" style="display: none;">
+        <h2 id="tutorialTitle">Welcome!</h2>
+        <p id="tutorialText">Let's get you started with Space Ops 3030!</p>
+        <div class="tutorial-progress" id="tutorialProgress"></div>
+        <div class="tutorial-buttons">
+            <button class="btn btn-secondary" onclick="skipTutorial()">Skip Tutorial</button>
+            <button class="btn btn-primary" onclick="nextTutorialStep()" id="tutorialNextBtn">Next →</button>
+        </div>
+    </div>
+    <div class="help-tooltip" id="helpTooltip"></div>
+
     <!-- Starfield Background -->
     <div class="starfield" id="starfield"></div>
 
@@ -1610,6 +1842,13 @@
             </button>
             <button class="menu-button" onclick="selectMode('lore')">
                 Lore
+            </button>
+        </div>
+        
+        <!-- Tutorial Button -->
+        <div style="margin-top: 30px; text-align: center;">
+            <button onclick="showTutorial()" class="btn btn-secondary" style="padding: 12px 30px; font-size: 1em; border: 2px solid #9CAF88;">
+                📚 New Player? Start Tutorial
             </button>
         </div>
         
@@ -2151,8 +2390,294 @@
                 { name: 'Solar Surge', faction: 'Space-Wyrm', description: 'Overload solar cells for power boost.', effects: '+1 to all solar weapons this turn', maxUses: 2, type: 'Combat' },
                 { name: 'Zealot\'s Prayer', faction: 'Space-Wyrm', description: 'Invoke Sun God protection.', effects: 'Ignore next wound on Nerve test', maxUses: 2, type: 'Defense' },
                 { name: 'Thermal Vent', faction: 'Space-Wyrm', description: 'Emergency heat dissipation.', effects: 'Remove Overheating status', maxUses: 3, type: 'Support' }
+            ],
+            starterSquads: [
+                // Arc Rangers Squads
+                {
+                    name: 'Arc Rangers - Quick Strike',
+                    faction: 'Arc Rangers',
+                    difficulty: 'easy',
+                    points: 30,
+                    description: 'Fast 2-model team perfect for learning the basics of mobility and shooting.',
+                    models: [
+                        { preset: 'Arc Ranger', count: 2 }
+                    ]
+                },
+                {
+                    name: 'Arc Rangers - Balanced Force',
+                    faction: 'Arc Rangers',
+                    difficulty: 'medium',
+                    points: 60,
+                    description: 'Well-rounded 3-model squad with a leader and support troops.',
+                    models: [
+                        { preset: 'Veteran Captain', count: 1 },
+                        { preset: 'Arc Ranger', count: 2 }
+                    ]
+                },
+                {
+                    name: 'Arc Rangers - Full Squad',
+                    faction: 'Arc Rangers',
+                    difficulty: 'hard',
+                    points: 100,
+                    description: 'Elite 5-model tactical team with specialized roles.',
+                    models: [
+                        { preset: 'Veteran Captain', count: 1 },
+                        { preset: 'Arc Ranger', count: 2 },
+                        { preset: 'Scout Ranger', count: 1 },
+                        { preset: 'Medic Ranger', count: 1 }
+                    ]
+                },
+                // Space-Wyrm Squads
+                {
+                    name: 'Space-Wyrm - Raiding Party',
+                    faction: 'Space-Wyrm',
+                    difficulty: 'easy',
+                    points: 32,
+                    description: 'Aggressive 2-model melee-focused starter team.',
+                    models: [
+                        { preset: 'Wyrm Zealot', count: 1 },
+                        { preset: 'Wyrm Hatchling', count: 1 }
+                    ]
+                },
+                {
+                    name: 'Space-Wyrm - Sun Hunters',
+                    faction: 'Space-Wyrm',
+                    difficulty: 'medium',
+                    points: 65,
+                    description: 'Zealot war band with priest leadership and devotees.',
+                    models: [
+                        { preset: 'Solar Priest', count: 1 },
+                        { preset: 'Wyrm Zealot', count: 1 }
+                    ]
+                },
+                {
+                    name: 'Space-Wyrm - Temple Warband',
+                    faction: 'Space-Wyrm',
+                    difficulty: 'hard',
+                    points: 105,
+                    description: 'Full religious war party with mixed tactics.',
+                    models: [
+                        { preset: 'Solar Priest', count: 1 },
+                        { preset: 'Wyrm Zealot', count: 1 },
+                        { preset: 'Wyrm Brute', count: 1 },
+                        { preset: 'Wyrm Hunter', count: 1 }
+                    ]
+                },
+                // Kippin Squads (Coming in future update - placeholders for now)
+                {
+                    name: 'Kippin - Scout Duo',
+                    faction: 'Kippin',
+                    difficulty: 'easy',
+                    points: 30,
+                    description: 'Fast-moving infiltration team. (Full rules coming soon)',
+                    models: [] // Will be populated when Kippin models are added
+                },
+                {
+                    name: 'Kippin - Tech Raiders',
+                    faction: 'Kippin',
+                    difficulty: 'medium',
+                    points: 60,
+                    description: 'Engineering specialists with custom weapons. (Full rules coming soon)',
+                    models: []
+                },
+                {
+                    name: 'Kippin - Underground Cell',
+                    faction: 'Kippin',
+                    difficulty: 'hard',
+                    points: 100,
+                    description: 'Complete rebel squad with varied tactics. (Full rules coming soon)',
+                    models: []
+                }
             ]
         };
+
+        // Tutorial System State
+        let tutorialState = {
+            active: false,
+            currentStep: 0,
+            completed: localStorage.getItem('tutorialCompleted') === 'true'
+        };
+
+        const tutorialSteps = [
+            {
+                title: "👋 Welcome to Space Ops 3030!",
+                text: "Let's get you ready to command your first squad! This quick tour takes just 2 minutes. Ready?",
+                spotlight: null,
+                arrow: null
+            },
+            {
+                title: "🚀 Choose Quick Play",
+                text: "The fastest way to start playing! Click the Quick Play button to create a game with a pre-built team.",
+                spotlight: "landingPage",
+                arrow: "↓",
+                highlight: ".menu-button"
+            }
+        ];
+
+        function showTutorial() {
+            if (tutorialState.completed) {
+                const restart = confirm("You've completed the tutorial before. Would you like to see it again?");
+                if (!restart) return;
+            }
+            
+            tutorialState.active = true;
+            tutorialState.currentStep = 0;
+            document.getElementById('tutorialOverlay').classList.add('active');
+            document.getElementById('tutorialModal').style.display = 'block';
+            showTutorialStep(0);
+        }
+
+        function showTutorialStep(step) {
+            const stepData = tutorialSteps[step];
+            if (!stepData) {
+                completeTutorial();
+                return;
+            }
+
+            document.getElementById('tutorialTitle').textContent = stepData.title;
+            document.getElementById('tutorialText').textContent = stepData.text;
+            
+            // Update progress dots
+            const progressHTML = tutorialSteps.map((_, i) => 
+                `<div class="tutorial-progress-dot ${i === step ? 'active' : ''}"></div>`
+            ).join('');
+            document.getElementById('tutorialProgress').innerHTML = progressHTML;
+            
+            // Update next button
+            const nextBtn = document.getElementById('tutorialNextBtn');
+            nextBtn.textContent = step === tutorialSteps.length - 1 ? 'Finish! 🎉' : 'Next →';
+        }
+
+        function nextTutorialStep() {
+            tutorialState.currentStep++;
+            if (tutorialState.currentStep >= tutorialSteps.length) {
+                completeTutorial();
+            } else {
+                showTutorialStep(tutorialState.currentStep);
+            }
+        }
+
+        function skipTutorial() {
+            if (confirm("Skip the tutorial? You can restart it anytime from the menu!")) {
+                closeTutorial();
+            }
+        }
+
+        function completeTutorial() {
+            localStorage.setItem('tutorialCompleted', 'true');
+            tutorialState.completed = true;
+            closeTutorial();
+            alert("🎉 Tutorial Complete!\n\nYou're ready to command your squad! Good luck in The Reach, Commander!");
+        }
+
+        function closeTutorial() {
+            tutorialState.active = false;
+            document.getElementById('tutorialOverlay').classList.remove('active');
+            document.getElementById('tutorialModal').style.display = 'none';
+        }
+
+        // Starter Squad Loader
+        function loadStarterSquad(squadName) {
+            const squad = gameData.starterSquads.find(s => s.name === squadName);
+            if (!squad) {
+                alert('Starter squad not found!');
+                return;
+            }
+
+            if (squad.models.length === 0) {
+                alert('⚠️ This faction is coming soon!\n\nKippin units are currently in development. Try Arc Rangers or Space-Wyrm squads instead!');
+                return;
+            }
+
+            // Create session name
+            const sessionName = `${squad.name.replace(/\s/g, '-')}-${Date.now()}`;
+            const playerName = prompt("Enter your player name:", localStorage.getItem('lastPlayerName') || 'Commander');
+            
+            if (!playerName) return;
+
+            // Build team from squad
+            const team = [];
+            squad.models.forEach(modelSpec => {
+                const modelData = gameData.models.find(m => m.name === modelSpec.preset);
+                if (modelData) {
+                    for (let i = 0; i < modelSpec.count; i++) {
+                        team.push(modelData);
+                    }
+                }
+            });
+
+            // Use existing Quick Build flow with the starter squad
+            startQuickGameWithSquad(squad.faction, team, sessionName, playerName);
+        }
+
+        function startQuickGameWithSquad(factionName, team, sessionName, playerName) {
+            const sanitizedSessionName = sanitizeSessionName(sessionName);
+            
+            currentPlayer = playerName;
+            currentSession = sanitizedSessionName;
+            
+            const sessionRef = database.ref('sessions/' + sanitizedSessionName);
+            sessionRef.once('value', (snapshot) => {
+                const sessionPromise = snapshot.exists() ? 
+                    Promise.resolve() : 
+                    sessionRef.set({
+                        name: sessionName,
+                        description: `Starter Squad - ${factionName}`,
+                        created: firebase.database.ServerValue.TIMESTAMP,
+                        archived: false,
+                        campaign: {
+                            name: 'First Mission',
+                            description: 'Your first deployment in The Reach!',
+                            objectives: ['Survive the mission', 'Complete your objective']
+                        },
+                        teams: {},
+                        actionHistory: {},
+                        combatLog: {},
+                        initiative: {}
+                    });
+                
+                sessionPromise.then(() => {
+                    document.getElementById('landingPage').style.display = 'none';
+                    document.getElementById('appInterface').style.display = 'block';
+                    
+                    document.getElementById('currentSession').textContent = sessionName;
+                    document.getElementById('currentPlayer').textContent = playerName;
+                    document.getElementById('gameTabBtn').style.display = 'block';
+                    document.getElementById('toolsTabBtn').style.display = 'block';
+                    document.getElementById('gameArea').style.display = 'block';
+                    
+                    document.getElementById('sessionInfoBar').style.display = 'block';
+                    document.getElementById('campaignSection').style.display = 'block';
+                    
+                    loadCampaignInfo();
+                    loadMissionObjectives();
+                    syncTimer();
+                    
+                    sessionRef.child('teams').on('value', (snapshot) => {
+                        renderTeams(snapshot.val() || {});
+                    });
+                    
+                    const teamId = currentPlayer.replace(/\s/g, '_');
+                    const teamRef = database.ref(`sessions/${sanitizedSessionName}/teams/${teamId}`);
+                    teamRef.set({
+                        owner: currentPlayer,
+                        faction: factionName,
+                        characters: {}
+                    }).then(() => {
+                        team.forEach((model, index) => {
+                            setTimeout(() => {
+                                addQuickTeamModel(model, factionName);
+                            }, index * 100);
+                        });
+                        
+                        setTimeout(() => {
+                            switchTab('game');
+                            alert(`🎉 ${factionName} squad loaded!\n\nYour team is ready. Check the Game tab to see your models!`);
+                        }, team.length * 100 + 500);
+                    });
+                });
+            });
+        }
 
         // Preset Items Library (keeping for backwards compatibility)
         const presetWeapons = [
@@ -4706,22 +5231,26 @@ teamHTML += `
                     <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
                 </div>
                 
-                <h2 style="color: #FF9500; text-align: center; margin-bottom: 40px; font-size: 2em;">Quick Play Options</h2>
+                <h2 style="color: #FF9500; text-align: center; margin-bottom: 20px; font-size: 2em;">Quick Play - Choose Your Squad</h2>
+                <p style="color: #ccc; text-align: center; max-width: 600px; margin: 0 auto 40px;">Pick a pre-built starter squad and jump right into the action! Perfect for new players or quick games.</p>
                 
-                <div style="display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 500px; width: 100%;">
-                    <button class="menu-button" onclick="showCreateSession()" style="padding: 30px 20px;">
-                        Create New Session
-                        <div style="font-size: 0.7em; margin-top: 10px; opacity: 0.8; font-weight: normal;">Start a fresh game and build your team</div>
-                    </button>
-                    
-                    <button class="menu-button" onclick="showJoinSession()" style="padding: 30px 20px;">
-                        Join Existing Session
-                        <div style="font-size: 0.7em; margin-top: 10px; opacity: 0.8; font-weight: normal;">Enter a session code to join friends</div>
-                    </button>
-                    
-                    <button class="menu-button" onclick="showQuickBuild()" style="padding: 30px 20px;">
-                        Quick Build
-                        <div style="font-size: 0.7em; margin-top: 10px; opacity: 0.8; font-weight: normal;">Auto-generate a team and jump right in</div>
+                <div class="starter-squad-grid" style="max-width: 900px; width: 100%;">
+                    ${gameData.starterSquads.filter(squad => squad.models.length > 0).map(squad => `
+                        <div class="starter-squad-card" onclick="loadStarterSquad('${squad.name}')">
+                            <span class="starter-squad-difficulty difficulty-${squad.difficulty}">${squad.difficulty.toUpperCase()}</span>
+                            <h3>${squad.name}</h3>
+                            <p style="color: #888; font-size: 0.9em; margin: 10px 0;">${squad.points} points • ${squad.models.reduce((sum, m) => sum + m.count, 0)} models</p>
+                            <p style="color: #aaa; font-size: 0.95em; line-height: 1.5;">${squad.description}</p>
+                            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255, 149, 0, 0.3);">
+                                ${squad.models.map(m => `<div style="color: #9CAF88; font-size: 0.85em;">• ${m.count}x ${m.preset}</div>`).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div style="margin-top: 40px; text-align: center;">
+                    <button class="btn btn-secondary" onclick="showQuickBuild()" style="padding: 15px 30px;">
+                        Or Build Custom Team →
                     </button>
                 </div>
             `;
