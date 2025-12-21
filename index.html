@@ -1929,7 +1929,7 @@
         <!-- Tutorial Button -->
         <div style="margin-top: 30px; text-align: center;">
             <button onclick="showTutorial()" class="btn btn-secondary" style="padding: 12px 30px; font-size: 1em; border: 2px solid #9CAF88;">
-                New Player? Start Tutorial
+                Tutorial
             </button>
         </div>
         
@@ -1940,7 +1940,7 @@
         
         <!-- Version -->
         <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            v14.1
+            v14.5
         </div>
     </div>
 
@@ -6583,13 +6583,6 @@ teamHTML += `
             editingTeamId = null;
             document.getElementById('teamEditingArea').style.display = 'none';
             loadPlayerTeams();
-        }
-                const team = snapshot.val();
-                if (team) {
-                    currentTeam = { ...team };
-                    showTeamBuildingInterface();
-                }
-            });
         }
 
         function deleteTeamConfirm(teamId, teamName) {
