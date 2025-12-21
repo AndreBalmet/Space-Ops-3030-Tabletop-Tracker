@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space-Ops 3030 Tracker</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+    <title>❯ SPACE-OPS 3030</title>
+    <!-- No favicon -->
     <style>
         /* Landing Page */
         .landing-page {
@@ -22,7 +22,6 @@
             max-width: 600px;
             width: 90%;
             margin-bottom: 60px;
-            filter: drop-shadow(0 0 20px rgba(255, 149, 0, 0.5));
         }
 
         .landing-menu {
@@ -37,9 +36,9 @@
             background: rgba(255, 149, 0, 0.1);
             border: 2px solid #FF9500;
             color: #FF9500;
-            font-size: 1.3em;
+            font-size: 0.65em;
             font-weight: bold;
-            padding: 40px 20px;
+            padding: 20px 10px;
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.3s;
@@ -55,7 +54,7 @@
         }
 
         .menu-button .icon {
-            font-size: 2em;
+            font-size: 1em;
             display: block;
             margin-bottom: 10px;
         }
@@ -1176,9 +1175,6 @@
 
         .modal.active {
             display: flex !important;
-            /* DEBUG: Make it SUPER visible */
-            outline: 10px solid red !important;
-            background: rgba(255, 0, 0, 0.5) !important;
         }
 
         .modal-content {
@@ -1187,18 +1183,12 @@
             border-radius: 10px;
             max-width: 600px;
             width: 90%;
-            min-width: 400px; /* FORCE minimum width */
-            min-height: 200px; /* FORCE minimum height */
+            min-width: 400px;
+            min-height: 200px;
             max-height: 90vh;
             overflow-y: auto;
             border: 2px solid #FF9500;
             margin: 20px;
-        }
-        
-        /* DEBUG: Make modal-content ULTRA visible */
-        .modal.active .modal-content {
-            background: lime !important;
-            border: 10px solid blue !important;
         }
 
         .modal-content h2 {
@@ -1876,7 +1866,7 @@
         }
     </style>
 </head>
-<body>
+<body style="background-color: #000000; margin: 0; padding: 0;">
     <!-- Tutorial Overlay System -->
     <div class="tutorial-overlay" id="tutorialOverlay"></div>
     <div class="tutorial-spotlight" id="tutorialSpotlight"></div>
@@ -1914,7 +1904,7 @@
         
         <!-- Tutorial Button -->
         <div style="margin-top: 30px; text-align: center;">
-            <button onclick="showTutorial()" class="btn btn-secondary" style="padding: 12px 30px; font-size: 1em; border: 2px solid #9CAF88;">
+            <button onclick="showTutorial()" class="btn btn-secondary" style="padding: 12px 30px; font-size: 0.65em; border: 2px solid #9CAF88;">
                 Tutorial
             </button>
         </div>
@@ -1926,7 +1916,7 @@
         
         <!-- Version -->
         <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            v14.15-LIMEGREEN
+            v14.39
         </div>
     </div>
 
@@ -1982,7 +1972,7 @@
         <!-- Join/Create Tab -->
         <div id="joinTab" class="tab-content active">
             <div style="text-align: center; margin-bottom: 20px;">
-                <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                <button onclick="returnToLanding()" class="btn btn-secondary" style="margin-top: 30px;">← Back to Menu</button>
             </div>
             <div class="session-controls">
                 <input type="text" id="sessionName" placeholder="Session Name (e.g., SpaceOps-Dec18)" />
@@ -5636,8 +5626,14 @@ teamHTML += `
             quickPlayMenu.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; position: relative; z-index: 1;';
             
             quickPlayMenu.innerHTML = `
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" 
+                         alt="Space Ops 3030" 
+                         style="max-width: 500px; width: 100%; height: auto;" />
+                </div>
+                
                 <div style="text-align: center; margin-bottom: 40px;">
-                    <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                    <button onclick="returnToLanding()" class="btn btn-secondary" style="margin-top: 30px;">← Back to Menu</button>
                 </div>
                 
                 <h2 style="color: #FF9500; text-align: center; margin-bottom: 20px; font-size: 2em;">Quick Play - Choose Your Squad</h2>
@@ -5981,7 +5977,7 @@ teamHTML += `
             const content = document.getElementById('teamBuilderContent');
             content.innerHTML = `
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                    <button onclick="returnToLanding()" class="btn btn-secondary" style="margin-top: 30px;">← Back to Menu</button>
                     <button onclick="showMyTeams()" class="btn btn-secondary"> My Teams</button>
                 </div>
                 <h3 style="color: #FF9500; text-align: center; margin-bottom: 30px;">Choose Your Faction</h3>
@@ -6289,6 +6285,9 @@ teamHTML += `
                     currentPlayer = sanitizedName;
                     currentPlayerDisplay = savedPlayerName;
                 } else {
+                    // Hide player info header
+                    document.getElementById('currentPlayerInfo').style.display = 'none';
+                    
                     document.getElementById('myTeamsContent').innerHTML = `
                         <div style="text-align: center; padding: 40px;">
                             <p style="color: #aaa; margin-bottom: 20px;">Enter your player name to view your teams:</p>
@@ -6301,6 +6300,10 @@ teamHTML += `
                     return;
                 }
             }
+            
+            // Show player info header
+            document.getElementById('currentPlayerInfo').style.display = 'block';
+            document.getElementById('currentPlayerDisplay').textContent = currentPlayerDisplay || currentPlayer;
             
             loadPlayerTeams();
         }
@@ -6320,6 +6323,18 @@ teamHTML += `
             localStorage.setItem('lastPlayerName', name);
             showMyTeams();
         }
+        
+        function changePlayer() {
+            if (confirm('Switch to a different player? This will clear your current login.')) {
+                // Clear current player
+                currentPlayer = null;
+                currentPlayerDisplay = null;
+                localStorage.removeItem('lastPlayerName');
+                
+                // Refresh My Teams view
+                showMyTeams();
+            }
+        }
 
         function loadPlayerTeams() {
             database.ref(`players/${currentPlayer}/teams`).once('value', snapshot => {
@@ -6335,7 +6350,7 @@ teamHTML += `
             content.innerHTML = `
                 <div style="max-width: 1200px; margin: 0 auto;">
                     <div style="text-align: center; margin-bottom: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                        <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                        <button onclick="returnToLanding()" class="btn btn-secondary" style="margin-top: 30px;">← Back to Menu</button>
                         <button onclick="showTeamBuilder()" class="btn btn-primary">Build New Team</button>
                         <button onclick="exportTeamsToCSV()" class="btn btn-success">📥 Export to CSV</button>
                         <button onclick="document.getElementById('importCSV').click()" class="btn btn-secondary">📤 Import from CSV</button>
@@ -6529,6 +6544,16 @@ teamHTML += `
         }
 
         function addModelToTeam(teamId) {
+        try {
+            // HACK: Show appInterface invisibly so modal works
+            const appInterface = document.getElementById('appInterface');
+            if (appInterface && appInterface.style.display === 'none') {
+                appInterface.style.display = 'block';
+                appInterface.style.position = 'absolute';
+                appInterface.style.left = '-99999px';
+            }
+        } catch(e) { console.error('appInterface hack failed:', e); }
+
             try {
                 console.log('addModelToTeam starting, teamId:', teamId);
                 editingTeamId = teamId;
@@ -6605,6 +6630,24 @@ teamHTML += `
                         console.log('Modal position:', rect.top, rect.left);
                         console.log('Modal has active class:', modal.classList.contains('active'));
                         
+                        // NEW: Check modal-content element specifically
+                        const modalContent = modal.querySelector('.modal-content');
+                        if (modalContent) {
+                            const contentStyles = window.getComputedStyle(modalContent);
+                            const contentRect = modalContent.getBoundingClientRect();
+                            console.log('--- MODAL-CONTENT DEBUG ---');
+                            console.log('modal-content display:', contentStyles.display);
+                            console.log('modal-content width:', contentStyles.width);
+                            console.log('modal-content min-width:', contentStyles.minWidth);
+                            console.log('modal-content height:', contentStyles.height);
+                            console.log('modal-content min-height:', contentStyles.minHeight);
+                            console.log('modal-content dimensions:', contentRect.width, 'x', contentRect.height);
+                            console.log('modal-content background:', contentStyles.background);
+                            console.log('modal-content children count:', modalContent.children.length);
+                        } else {
+                            console.error('modal-content element NOT FOUND!');
+                        }
+                        
                         // Check if modal is actually in viewport
                         const isInViewport = (
                             rect.top >= 0 &&
@@ -6635,6 +6678,16 @@ teamHTML += `
         window.addModelToTeam = addModelToTeam;
 
         function editTeamModel(teamId, modelIndex) {
+        try {
+            // HACK: Show appInterface invisibly so modal works
+            const appInterface = document.getElementById('appInterface');
+            if (appInterface && appInterface.style.display === 'none') {
+                appInterface.style.display = 'block';
+                appInterface.style.position = 'absolute';
+                appInterface.style.left = '-99999px';
+            }
+        } catch(e) { console.error('appInterface hack failed:', e); }
+
             database.ref(`players/${currentPlayer}/teams/${teamId}`).once('value', snapshot => {
                 const team = snapshot.val();
                 if (team && team.models[modelIndex]) {
@@ -6838,7 +6891,7 @@ teamHTML += `
             content.innerHTML = `
                 <div style="max-width: 900px; margin: 0 auto;">
                     <div style="text-align: center; margin-bottom: 30px;">
-                        <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                        <button onclick="returnToLanding()" class="btn btn-secondary" style="margin-top: 30px;">← Back to Menu</button>
                     </div>
                     
                     <div style="margin-bottom: 40px; padding: 30px; background: rgba(255, 149, 0, 0.1); border-radius: 10px; border: 1px solid #FF9500;">
@@ -7002,18 +7055,40 @@ teamHTML += `
 
     <!-- Team Builder Tab -->
     <div id="teamBuilderTab" class="tab-content" style="display: none;">
-        <h2 style="color: #FF9500; text-align: center;">Team Builder</h2>
+        <div style="text-align: center; margin: 20px 0;">
+            <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" 
+                 alt="Space Ops 3030" 
+                 style="max-width: 500px; width: 100%; height: auto;" />
+        </div>
+        <h2 style="color: #FF9500; text-align: center; margin: 30px 0 20px 0;">Team Builder</h2>
         <div id="teamBuilderContent"></div>
     </div>
 
     <!-- My Teams Tab -->
     <div id="myTeamsTab" class="tab-content" style="display: none;">
-        <h2 style="color: #FF9500; text-align: center;"> My Teams</h2>
+        <h2 style="color: #FF9500; text-align: center; margin: 30px 0 20px 0;">My Teams</h2>
+        
+        <!-- Current Player Info -->
+        <div id="currentPlayerInfo" style="background: rgba(255, 149, 0, 0.1); padding: 12px 20px; border-radius: 8px; margin: 0 auto 20px auto; max-width: 600px; border: 1px solid #FF9500; display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="color: #9CAF88; font-size: 0.9em;">Current Player:</span>
+                    <strong id="currentPlayerDisplay" style="color: #FF9500; margin-left: 8px; font-size: 1.1em;"></strong>
+                </div>
+                <button onclick="changePlayer()" class="btn btn-secondary" style="padding: 6px 15px; font-size: 0.9em;">Change Player</button>
+            </div>
+        </div>
+        
         <div id="myTeamsContent"></div>
     </div>
 
     <!-- Lore Tab -->
     <div id="loreTab" class="tab-content" style="display: none;">
+        <div style="text-align: center; margin: 20px 0;">
+            <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" 
+                 alt="Space Ops 3030" 
+                 style="max-width: 500px; width: 100%; height: auto;" />
+        </div>
         <h2 style="color: #FF9500; text-align: center;"> The Lore of Space Ops 3030</h2>
         <div id="loreContent"></div>
     </div>
