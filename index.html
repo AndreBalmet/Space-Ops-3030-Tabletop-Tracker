@@ -2374,7 +2374,7 @@
         let consumableFields = [];
         let specialActionFields = [];
         let transferData = null;
-        let currentView = 'expanded'; // or 'compact' or 'tiny'
+        let currentView = 'compact'; // or 'tiny'
         let currentTurn = 0;
         let statusEffectTarget = null;
         let currentMode = null; // 'quickplay', 'teambuilder', 'joinsession', 'lore'
@@ -3831,8 +3831,81 @@
             });
         }
 
-        function leaveSession() {
-            if (currentSession) {
+        async function leaveSession() {
+            if (currentSession && currentPlayer) {
+                // Check if player has a team in session and in library
+                const sessionTeamSnapshot = await database.ref(`sessions/${currentSession}/teams/${currentPlayer.replace(/\s/g, '_')}`).once('value');
+                const sessionTeam = sessionTeamSnapshot.val();
+                
+                if (sessionTeam && sessionTeam.characters) {
+                    // Find matching team in library (by name or owner)
+                    const teamsSnapshot = await database.ref(`players/${currentPlayer}/teams`).once('value');
+                    const teams = teamsSnapshot.val();
+                    
+                    if (teams) {
+                        // Find team with matching owner/name
+                        const matchingTeamEntry = Object.entries(teams).find(([id, team]) => 
+                            team.owner === currentPlayer && team.faction === sessionTeam.faction
+                        );
+                        
+                        if (matchingTeamEntry) {
+                            const [teamId, savedTeam] = matchingTeamEntry;
+                            
+                            // Ask if they want to update
+                            const modelCount = Object.keys(sessionTeam.characters).length;
+                            const shouldUpdate = confirm(
+                                `🔄 Update Saved Team?\n\n` +
+                                `Your team has changed during this session.\n\n` +
+                                `Team: ${savedTeam.name}\n` +
+                                `Models: ${modelCount}\n\n` +
+                                `Update "${savedTeam.name}" in your team library with session changes?\n\n` +
+                                `(If you click OK, your CSV exports will include these changes)`
+                            );
+                            
+                            if (shouldUpdate) {
+                                // Convert session characters to team models format
+                                const characters = Object.values(sessionTeam.characters);
+                                const models = characters.map(char => {
+                                    // Handle weapons
+                                    let weaponsArray = [];
+                                    if (Array.isArray(char.weapons)) {
+                                        weaponsArray = char.weapons;
+                                    } else if (char.weapons && typeof char.weapons === 'object') {
+                                        weaponsArray = Object.values(char.weapons);
+                                    }
+                                    
+                                    return {
+                                        name: char.name,
+                                        type: char.role,
+                                        role: char.role,
+                                        speed: char.speed,
+                                        shoot: char.shoot,
+                                        fight: char.fight,
+                                        nerve: char.nerve,
+                                        health: char.maxHealth,
+                                        currentHealth: char.currentHealth,
+                                        weapons: weaponsArray,
+                                        notes: char.notes || '',
+                                        points: 15
+                                    };
+                                });
+                                
+                                // Update team in library
+                                const updatedTeam = {
+                                    ...savedTeam,
+                                    models: models,
+                                    modified: Date.now(),
+                                    points: models.length * 15
+                                };
+                                
+                                await database.ref(`players/${currentPlayer}/teams/${teamId}`).set(updatedTeam);
+                                console.log('✅ Team updated in library from session');
+                            }
+                        }
+                    }
+                }
+                
+                // Cleanup session listeners
                 const sessionRef = database.ref('sessions/' + currentSession + '/teams');
                 sessionRef.off();
                 const campaignRef = database.ref(`sessions/${currentSession}/campaign`);
@@ -4904,7 +4977,6 @@
             controlsDiv.innerHTML = `
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <span style="color: #FF9500; font-weight: bold; margin-right: 10px;">View Mode:</span>
-                    <button class="btn ${currentView === 'expanded' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='expanded'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Expanded</button>
                     <button class="btn ${currentView === 'compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Compact</button>
                     <button class="btn ${currentView === 'tiny' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='tiny'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Tiny</button>
                 </div>
@@ -5160,7 +5232,7 @@ teamHTML += `
                 </div>
             ` : ''}
             
-            ${team.owner === currentPlayer && currentView === 'expanded' ? `
+            ${team.owner === currentPlayer && currentView !== 'tiny' ? `
                 <div style="margin-top: 15px; display: flex; gap: 5px; flex-wrap: wrap;">
                     <button class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="openEditModal('${teamId}', '${charId}')">Edit</button>
                     <button class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="deleteCharacter('${teamId}', '${charId}')">Delete</button>
