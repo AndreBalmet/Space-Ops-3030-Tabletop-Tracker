@@ -1909,8 +1909,6 @@
 
     <!-- Landing Page -->
     <div class="landing-page" id="landingPage">
-        <button class="settings-corner-btn" onclick="showSettings()">⚙️ Settings</button>
-        
         <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" alt="Space Ops 3030" class="landing-logo" />
         
         <div class="landing-menu">
@@ -2115,7 +2113,6 @@
                 <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importSession(event)">
                 <button class="btn btn-warning" onclick="showCloneSessionModal()">Clone Session</button>
                 <button class="btn btn-secondary" onclick="toggleArchiveSession()"><span id="archiveButtonText">Archive Session</span></button>
-                <button class="btn btn-primary" onclick="saveSessionProgressToGoogleSheets()" id="saveProgressBtn" style="display: none;">💾 Save Progress to Sheets</button>
                 <button class="btn btn-danger" onclick="leaveSession()">Leave Session</button>
             </div>
         </div>
@@ -2807,325 +2804,200 @@
         }
 
         // ========================================
-        // v14: GOOGLE SHEETS INTEGRATION
+        // v14.1: CSV EXPORT/IMPORT FOR TEAMS
         // ========================================
 
-        let googleSheetsEnabled = false;
-        let googleSheetsUrl = '';
-
-        // Initialize Google Sheets from localStorage
-        function initGoogleSheets() {
-            const savedUrl = localStorage.getItem('googleSheetsUrl');
-            if (savedUrl) {
-                googleSheetsUrl = savedUrl;
-                if (document.getElementById('googleSheetUrl')) {
-                    document.getElementById('googleSheetUrl').value = savedUrl;
-                }
-                googleSheetsEnabled = true;
-                console.log('✅ Google Sheets initialized:', savedUrl);
-            } else {
-                console.log('ℹ️ Google Sheets not configured (using Firebase only)');
-            }
-            updateSaveProgressButton();
-        }
-
-        // Settings functions
-        function showSettings() {
-            document.getElementById('settingsModal').classList.add('active');
-            initGoogleSheets();
-        }
-
-        function closeSettings() {
-            document.getElementById('settingsModal').classList.remove('active');
-        }
-
-        function saveGoogleSheetsUrl() {
-            const url = document.getElementById('googleSheetUrl').value.trim();
-            if (url) {
-                localStorage.setItem('googleSheetsUrl', url);
-                googleSheetsUrl = url;
-                googleSheetsEnabled = true;
-                updateSaveProgressButton();
-                alert('✅ Google Sheets URL saved!\n\nTeams will now auto-save to your Google Sheet when you click "Save Team".');
-            }
-        }
-
-        function clearGoogleSheetsUrl() {
-            if (confirm('Clear Google Sheets integration?\n\nTeams will still be saved to Firebase for sessions.')) {
-                localStorage.removeItem('googleSheetsUrl');
-                googleSheetsUrl = '';
-                googleSheetsEnabled = false;
-                document.getElementById('googleSheetUrl').value = '';
-                document.getElementById('connectionStatus').innerHTML = '';
-                updateSaveProgressButton();
-                alert('Google Sheets integration cleared. Tracker will use Firebase only.');
-            }
-        }
-
-        async function testGoogleSheetsConnection() {
-            const url = document.getElementById('googleSheetUrl').value.trim();
-            if (!url) {
-                alert('Please enter a Web App URL first!');
+        function exportTeamsToCSV() {
+            if (!currentPlayer) {
+                alert('Please set player name first!');
                 return;
             }
-
-            const statusDiv = document.getElementById('connectionStatus');
-            statusDiv.innerHTML = '<div class="connection-status testing">🔄 Testing connection...</div>';
-
-            try {
-                const response = await fetch(url, {
-                    method: 'GET',
-                    mode: 'cors'
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-
-                if (data.success !== undefined) {
-                    const teamCount = data.teams ? data.teams.length : 0;
-                    statusDiv.innerHTML = `
-                        <div class="connection-status connected">
-                            ✅ Connected successfully!<br>
-                            <small>Found ${teamCount} team${teamCount !== 1 ? 's' : ''} in your Google Sheet.</small>
-                        </div>
-                    `;
-                } else {
-                    statusDiv.innerHTML = '<div class="connection-status disconnected">❌ Unexpected response format</div>';
-                }
-            } catch (error) {
-                statusDiv.innerHTML = `
-                    <div class="connection-status disconnected">
-                        ❌ Connection failed: ${error.message}<br>
-                        <small class="help-text">
-                            Make sure your Web App is deployed as "Anyone" can access.
-                        </small>
-                    </div>
-                `;
-            }
-        }
-
-        async function saveTeamToGoogleSheets(team) {
-            if (!googleSheetsEnabled || !googleSheetsUrl) {
-                console.log('ℹ️ Google Sheets not configured, skipping Google Sheets save');
-                return { success: true, skipped: true };
-            }
-
-            try {
-                console.log('💾 Saving team to Google Sheets:', team.name);
-                
-                const characters = team.models.map(model => ({
-                    name: model.name,
-                    role: model.type || model.role || 'Warrior',
-                    speed: model.speed || '6"',
-                    shoot: model.shoot || '4+',
-                    fight: model.fight || '4+',
-                    nerve: model.nerve || '4+',
-                    maxHealth: model.health || 15,
-                    currentHealth: model.currentHealth || model.health || 15,
-                    weapons: Array.isArray(model.weapons) ? model.weapons.map(w => w.name || w).join(', ') : '',
-                    notes: model.notes || ''
-                }));
-
-                const teamData = {
-                    name: team.name,
-                    faction: team.faction,
-                    dateCreated: team.created || Date.now(),
-                    lastPlayed: Date.now(),
-                    characters: characters
-                };
-
-                const response = await fetch(googleSheetsUrl, {
-                    method: 'POST',
-                    mode: 'cors',
-                    headers: {
-                        'Content-Type': 'text/plain'
-                    },
-                    body: JSON.stringify({
-                        action: 'saveTeam',
-                        team: teamData
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    console.log('✅ Team saved to Google Sheets successfully');
-                } else {
-                    console.warn('⚠️ Google Sheets save failed:', result.error || result.message);
-                }
-                
-                return result;
-            } catch (error) {
-                console.error('❌ Error saving to Google Sheets:', error);
-                return { success: false, error: error.message };
-            }
-        }
-
-        async function loadTeamsFromGoogleSheets() {
-            if (!googleSheetsEnabled || !googleSheetsUrl) {
-                return null;
-            }
-
-            try {
-                console.log('📥 Loading teams from Google Sheets...');
-                
-                const response = await fetch(googleSheetsUrl, {
-                    method: 'GET',
-                    mode: 'cors'
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                if (data.success && data.teams) {
-                    console.log(`✅ Loaded ${data.teams.length} teams from Google Sheets`);
-                    
-                    return data.teams.map(team => ({
-                        name: team.name,
-                        faction: team.faction,
-                        created: team.dateCreated || Date.now(),
-                        modified: team.lastPlayed || Date.now(),
-                        models: team.characters.map(char => ({
-                            name: char.name,
-                            type: char.role,
-                            role: char.role,
-                            speed: char.speed,
-                            shoot: char.shoot,
-                            fight: char.fight,
-                            nerve: char.nerve,
-                            health: char.maxHealth,
-                            currentHealth: char.currentHealth,
-                            weapons: char.weapons ? char.weapons.split(',').map(w => ({name: w.trim()})) : [],
-                            notes: char.notes || ''
-                        })),
-                        points: team.characters.reduce((sum, char) => sum + (char.points || 15), 0)
-                    }));
-                }
-
-                return null;
-            } catch (error) {
-                console.error('❌ Error loading from Google Sheets:', error);
-                return null;
-            }
-        }
-
-        // Save current session progress to Google Sheets
-        async function saveSessionProgressToGoogleSheets() {
-            if (!googleSheetsEnabled || !googleSheetsUrl) {
-                alert('Google Sheets not configured. Please set up in Settings first.');
-                return;
-            }
-
-            if (!currentSession || !currentPlayer) {
-                alert('No active session or player!');
-                return;
-            }
-
-            try {
-                // Show loading state
-                const btn = document.getElementById('saveProgressBtn');
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '⏳ Saving...';
-                btn.disabled = true;
-
-                // Get current team from Firebase session
-                const teamSnapshot = await database.ref(`sessions/${currentSession}/teams/${currentPlayer.replace(/\s/g, '_')}`).once('value');
-                const teamData = teamSnapshot.val();
-
-                if (!teamData || !teamData.characters) {
-                    alert('No team data found in session!');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
+            
+            database.ref(`players/${currentPlayer}/teams`).once('value', snapshot => {
+                const teams = snapshot.val();
+                if (!teams || Object.keys(teams).length === 0) {
+                    alert('No teams to export!');
                     return;
                 }
-
-                // Convert Firebase session characters to team format
-                const characters = Object.values(teamData.characters);
-                const models = characters.map(char => {
-                    // Handle weapons in various formats (array, object, string, etc.)
-                    let weaponsArray = [];
-                    if (Array.isArray(char.weapons)) {
-                        weaponsArray = char.weapons;
-                    } else if (char.weapons && typeof char.weapons === 'object') {
-                        weaponsArray = Object.values(char.weapons);
-                    } else if (typeof char.weapons === 'string') {
-                        weaponsArray = char.weapons ? [{name: char.weapons}] : [];
+                
+                // Build CSV content
+                let csv = 'Team Name,Faction,Model Name,Role,Speed,Shoot,Fight,Nerve,Max HP,Current HP,Weapons,Notes\n';
+                
+                Object.values(teams).forEach(team => {
+                    team.models.forEach(model => {
+                        // Handle weapons in various formats
+                        let weaponsStr = '';
+                        if (Array.isArray(model.weapons)) {
+                            weaponsStr = model.weapons.map(w => w.name || w).join(';');
+                        } else if (model.weapons && typeof model.weapons === 'object') {
+                            weaponsStr = Object.values(model.weapons).map(w => w.name || w).join(';');
+                        } else if (typeof model.weapons === 'string') {
+                            weaponsStr = model.weapons;
+                        }
+                        
+                        // Escape quotes in values
+                        const escapeCsv = (val) => {
+                            if (val === undefined || val === null) return '';
+                            const str = String(val);
+                            return str.includes(',') || str.includes('"') || str.includes('\n') 
+                                ? `"${str.replace(/"/g, '""')}"` 
+                                : str;
+                        };
+                        
+                        csv += `${escapeCsv(team.name)},${escapeCsv(team.faction)},${escapeCsv(model.name)},${escapeCsv(model.type || model.role)},`;
+                        csv += `${escapeCsv(model.speed)},${escapeCsv(model.shoot)},${escapeCsv(model.fight)},${escapeCsv(model.nerve)},`;
+                        csv += `${model.health},${model.currentHealth || model.health},${escapeCsv(weaponsStr)},${escapeCsv(model.notes || '')}\n`;
+                    });
+                });
+                
+                // Download CSV
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `space-ops-teams-${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert(`✅ Exported ${Object.keys(teams).length} team(s) to CSV!\n\nFile: ${a.download}\n\nOpen in Google Sheets to edit.`);
+            });
+        }
+        
+        function importTeamsFromCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!currentPlayer) {
+                alert('Please set player name first!');
+                event.target.value = '';
+                return;
+            }
+            
+            if (!confirm('Import teams from CSV?\n\nThis will add teams from the CSV file to your existing teams.')) {
+                event.target.value = '';
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csv = e.target.result;
+                    const lines = csv.split('\n').filter(line => line.trim());
+                    
+                    if (lines.length < 2) {
+                        alert('CSV file is empty or invalid!');
+                        return;
                     }
                     
-                    return {
-                        name: char.name,
-                        type: char.role,
-                        role: char.role,
-                        speed: char.speed,
-                        shoot: char.shoot,
-                        fight: char.fight,
-                        nerve: char.nerve,
-                        health: char.maxHealth,
-                        currentHealth: char.currentHealth,
-                        weapons: weaponsArray,
-                        notes: char.notes || '',
-                        points: 15 // Default points per model
-                    };
-                });
-
-                // Create team object
-                const team = {
-                    name: `${currentPlayer}'s Team`, // Or get from session
-                    faction: teamData.faction || 'Unknown',
-                    created: Date.now(),
-                    modified: Date.now(),
-                    owner: currentPlayer,
-                    models: models,
-                    points: models.length * 15
-                };
-
-                // Save to Google Sheets
-                const result = await saveTeamToGoogleSheets(team);
-
-                if (result && result.success && !result.skipped) {
-                    alert(`✅ Progress saved to Google Sheets!\n\n${team.name}\n${models.length} models saved.`);
-                } else if (result && result.skipped) {
-                    alert('⚠️ Google Sheets not configured.');
-                } else {
-                    alert('❌ Failed to save to Google Sheets. Check console for errors.');
+                    // Skip header line
+                    const teams = {};
+                    
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue;
+                        
+                        // Parse CSV line (handle quoted fields)
+                        const values = [];
+                        let current = '';
+                        let inQuotes = false;
+                        
+                        for (let j = 0; j < line.length; j++) {
+                            const char = line[j];
+                            
+                            if (char === '"') {
+                                if (inQuotes && line[j + 1] === '"') {
+                                    current += '"';
+                                    j++;
+                                } else {
+                                    inQuotes = !inQuotes;
+                                }
+                            } else if (char === ',' && !inQuotes) {
+                                values.push(current);
+                                current = '';
+                            } else {
+                                current += char;
+                            }
+                        }
+                        values.push(current);
+                        
+                        if (values.length < 8) continue; // Need at least team through nerve
+                        
+                        const teamName = values[0] || 'Unnamed Team';
+                        const faction = values[1] || 'Unknown';
+                        const modelName = values[2] || 'Unnamed Model';
+                        const role = values[3] || 'Trooper';
+                        const speed = values[4] || '6';
+                        const shoot = values[5] || '4+';
+                        const fight = values[6] || '5+';
+                        const nerve = values[7] || '4+';
+                        const maxHP = parseInt(values[8]) || 15;
+                        const currentHP = parseInt(values[9]) || maxHP;
+                        const weaponsStr = values[10] || '';
+                        const notes = values[11] || '';
+                        
+                        if (!teams[teamName]) {
+                            teams[teamName] = {
+                                name: teamName,
+                                faction: faction,
+                                models: [],
+                                points: 0,
+                                created: Date.now(),
+                                modified: Date.now(),
+                                owner: currentPlayer
+                            };
+                        }
+                        
+                        const weapons = weaponsStr ? weaponsStr.split(';').map(w => ({name: w.trim()})) : [];
+                        
+                        teams[teamName].models.push({
+                            name: modelName,
+                            type: role,
+                            role: role,
+                            speed: speed,
+                            shoot: shoot,
+                            fight: fight,
+                            nerve: nerve,
+                            health: maxHP,
+                            currentHealth: currentHP,
+                            weapons: weapons,
+                            notes: notes,
+                            points: 15
+                        });
+                        
+                        teams[teamName].points += 15;
+                    }
+                    
+                    if (Object.keys(teams).length === 0) {
+                        alert('No valid teams found in CSV!');
+                        return;
+                    }
+                    
+                    // Save all teams to Firebase
+                    const promises = Object.entries(teams).map(([teamName, team]) => {
+                        const teamId = 'team_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                        return database.ref(`players/${currentPlayer}/teams/${teamId}`).set(team);
+                    });
+                    
+                    Promise.all(promises).then(() => {
+                        alert(`✅ Imported ${Object.keys(teams).length} team(s) successfully!\n\nTotal models: ${Object.values(teams).reduce((sum, t) => sum + t.models.length, 0)}`);
+                        loadPlayerTeams();
+                    }).catch(error => {
+                        alert('Error saving teams to Firebase: ' + error.message);
+                        console.error('Firebase save error:', error);
+                    });
+                    
+                } catch (error) {
+                    alert('Error importing CSV: ' + error.message + '\n\nMake sure the CSV format matches the export format.');
+                    console.error('CSV import error:', error);
                 }
-
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-
-            } catch (error) {
-                console.error('Error saving session progress:', error);
-                alert('Error saving progress: ' + error.message);
-                const btn = document.getElementById('saveProgressBtn');
-                btn.innerHTML = '💾 Save Progress to Sheets';
-                btn.disabled = false;
-            }
+            };
+            
+            reader.readAsText(file);
+            event.target.value = ''; // Reset file input
         }
 
-        // Show/hide Save Progress button based on Google Sheets status
-        function updateSaveProgressButton() {
-            const btn = document.getElementById('saveProgressBtn');
-            if (btn && googleSheetsEnabled) {
-                btn.style.display = 'inline-block';
-            } else if (btn) {
-                btn.style.display = 'none';
-            }
-        }
-
-        // Initialize on page load
-        window.addEventListener('load', function() {
-            initGoogleSheets();
-        });
 
         // Dice Roller
         let diceHistory = [];
@@ -6196,35 +6068,18 @@ teamHTML += `
                 owner: currentPlayer
             };
             
-            // Save to Firebase (always)
-            database.ref(`players/${currentPlayer}/teams/${teamId}`).set(teamData).then(async () => {
+            // Save to Firebase
+            database.ref(`players/${currentPlayer}/teams/${teamId}`).set(teamData).then(() => {
                 console.log('✅ Team saved to Firebase');
-                
-                // ALSO save to Google Sheets if enabled (v14)
-                if (googleSheetsEnabled) {
-                    const sheetsResult = await saveTeamToGoogleSheets(teamData);
-                    if (sheetsResult && sheetsResult.success && !sheetsResult.skipped) {
-                        showTeamSavedDialog(teamData.name, true); // true = Google Sheets success
-                    } else {
-                        showTeamSavedDialog(teamData.name, false); // Firebase only
-                    }
-                } else {
-                    showTeamSavedDialog(teamData.name, false); // Firebase only
-                }
+                showTeamSavedDialog(teamData.name);
             }).catch(error => {
                 alert('Error saving team: ' + error.message);
             });
         }
 
-        function showTeamSavedDialog(teamName, savedToSheets) {
+        function showTeamSavedDialog(teamName) {
             const faction = gameData.factions.find(f => f.name === currentTeam.faction);
             const content = document.getElementById('teamBuilderContent');
-            
-            const sheetsMessage = savedToSheets 
-                ? '<div style="color: #4CAF50; margin-top: 10px;">✅ Also saved to Google Sheets!</div>'
-                : googleSheetsEnabled 
-                    ? '<div style="color: #FFA500; margin-top: 10px;">⚠️ Saved to Firebase (Google Sheets failed)</div>'
-                    : '<div style="color: #9CAF88; margin-top: 10px;">💾 Saved to Firebase</div>';
             
             content.innerHTML = `
                 <div style="max-width: 600px; margin: 60px auto; text-align: center;">
@@ -6235,7 +6090,7 @@ teamHTML += `
                         <div style="color: #9CAF88; font-size: 1.1em;">
                             ${currentTeam.faction} • ${currentTeam.points} pts • ${currentTeam.models.length} models
                         </div>
-                        ${sheetsMessage}
+                        <div style="color: #9CAF88; margin-top: 10px;">💾 Saved to Firebase</div>
                     </div>
                     
                     <h3 style="color: #FF9500; margin-bottom: 20px;">What would you like to do next?</h3>
@@ -6341,15 +6196,19 @@ teamHTML += `
             
             content.innerHTML = `
                 <div style="max-width: 1200px; margin: 0 auto;">
-                    <div style="text-align: center; margin-bottom: 30px;">
+                    <div style="text-align: center; margin-bottom: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                         <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
                         <button onclick="showTeamBuilder()" class="btn btn-primary">Build New Team</button>
+                        <button onclick="exportTeamsToCSV()" class="btn btn-success">📥 Export to CSV</button>
+                        <button onclick="document.getElementById('importCSV').click()" class="btn btn-secondary">📤 Import from CSV</button>
+                        <input type="file" id="importCSV" accept=".csv" style="display: none;" onchange="importTeamsFromCSV(event)">
                     </div>
                     
                     ${teamsList.length === 0 ? `
                         <div style="text-align: center; padding: 60px; color: #666;">
                             <h3>No teams yet!</h3>
                             <p>Click "Build New Team" to create your first squad.</p>
+                            <p style="margin-top: 20px; color: #9CAF88;">Or click "Import from CSV" to load teams from a file.</p>
                         </div>
                     ` : `
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
@@ -6596,52 +6455,6 @@ teamHTML += `
         </div>
     </div>
 
-    <!-- Settings Modal (v14) -->
-    <div id="settingsModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <h2>⚙️ Settings</h2>
-            
-            <div class="settings-section">
-                <h3>🔗 Google Sheets Integration</h3>
-                <p class="help-text">
-                    Save teams permanently to Google Sheets. Teams auto-save whenever you click "Save Team". 
-                    Need help? Your Web App URL is ready - just paste it below!
-                </p>
-                
-                <div class="form-group" style="margin-top: 15px;">
-                    <label for="googleSheetUrl">Google Apps Script Web App URL:</label>
-                    <input type="text" 
-                           id="googleSheetUrl" 
-                           placeholder="https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec"
-                           value="">
-                    <p class="help-text">Paste your deployed Web App URL here. Leave blank to use Firebase only.</p>
-                </div>
-                
-                <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
-                    <button class="btn btn-primary" onclick="testGoogleSheetsConnection()">Test Connection</button>
-                    <button class="btn btn-secondary" onclick="saveGoogleSheetsUrl()">Save URL</button>
-                    <button class="btn btn-secondary" onclick="clearGoogleSheetsUrl()">Clear</button>
-                </div>
-                
-                <div id="connectionStatus"></div>
-            </div>
-            
-            <div class="settings-section">
-                <h3>ℹ️ About v14</h3>
-                <p class="help-text">
-                    <strong>New in v14:</strong> Google Sheets integration!<br><br>
-                    • Teams save to <strong>both</strong> Firebase (sessions) and Google Sheets (permanent)<br>
-                    • Google Sheets is <strong>optional</strong> - tracker works great without it<br>
-                    • Real-time sessions unchanged - works exactly like v13<br>
-                    • Set up once, never lose teams again!
-                </p>
-            </div>
-            
-            <div class="form-actions">
-                <button class="btn btn-secondary" onclick="closeSettings()">Close</button>
-            </div>
-        </div>
-    </div>
 
 </body>
 </html>
