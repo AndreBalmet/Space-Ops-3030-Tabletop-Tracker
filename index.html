@@ -1937,6 +1937,11 @@
         <div style="position: absolute; bottom: 20px; left: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
             Triggertype LLC
         </div>
+        
+        <!-- Version -->
+        <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
+            v14.1
+        </div>
     </div>
 
     <!-- App Interface (hidden initially) -->
@@ -2835,9 +2840,18 @@
                             weaponsStr = model.weapons;
                         }
                         
-                        // Handle inventory
-                        const inv1 = model.inventory && model.inventory[0] ? model.inventory[0] : '';
-                        const inv2 = model.inventory && model.inventory[1] ? model.inventory[1] : '';
+                        // Handle inventory - support both array and object formats
+                        let inv1 = '';
+                        let inv2 = '';
+                        
+                        if (Array.isArray(model.inventory)) {
+                            inv1 = model.inventory[0] || '';
+                            inv2 = model.inventory[1] || '';
+                        } else if (model.inventory && typeof model.inventory === 'object') {
+                            const invValues = Object.values(model.inventory);
+                            inv1 = invValues[0] || '';
+                            inv2 = invValues[1] || '';
+                        }
                         
                         // Escape quotes in values
                         const escapeCsv = (val) => {
@@ -4391,6 +4405,7 @@
         function closeCharacterModal() {
             document.getElementById('characterModal').classList.remove('active');
             editingCharacter = null;
+            // Don't reset editingTeamId here - it's reset in closeTeamEditing
         }
 
         function addWeaponField(name = '', type = 'Ranged', attacks = '', power = '', damage = '') {
@@ -4584,6 +4599,49 @@
         document.getElementById('characterForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // Check if we're editing a team (not a session)
+            if (editingTeamId) {
+                // Team library editing mode
+                const model = {
+                    name: document.getElementById('charName').value.trim(),
+                    role: document.getElementById('charRole').value.trim(),
+                    type: document.getElementById('charRole').value.trim(),
+                    speed: document.getElementById('charSpeed').value.trim(),
+                    shoot: document.getElementById('charShoot').value.trim(),
+                    fight: document.getElementById('charFight').value.trim(),
+                    nerve: document.getElementById('charNerve').value.trim(),
+                    health: parseInt(document.getElementById('charHealth').value),
+                    currentHealth: parseInt(document.getElementById('charHealth').value),
+                    weapons: weaponFields.filter(w => w.name && w.attacks && w.power && w.damage),
+                    inventory: document.getElementById('charInventory').value.split(',').map(i => i.trim()).filter(i => i),
+                    notes: document.getElementById('charNotes').value.trim(),
+                    points: 15
+                };
+                
+                database.ref(`players/${currentPlayer}/teams/${editingTeamId}`).once('value', snapshot => {
+                    const team = snapshot.val();
+                    if (team) {
+                        if (editingCharacter && editingCharacter.modelIndex !== undefined) {
+                            // Editing existing model
+                            team.models[editingCharacter.modelIndex] = model;
+                        } else {
+                            // Adding new model
+                            team.models.push(model);
+                        }
+                        team.points = team.models.length * 15;
+                        team.modified = Date.now();
+                        
+                        database.ref(`players/${currentPlayer}/teams/${editingTeamId}`).set(team).then(() => {
+                            closeCharacterModal();
+                            displayTeamEditing(editingTeamId, team);
+                        });
+                    }
+                });
+                
+                return; // Exit early - team editing complete
+            }
+            
+            // Session editing mode continues below
             const character = {
                 name: document.getElementById('charName').value.trim(),
                 role: document.getElementById('charRole').value.trim(),
@@ -6310,20 +6368,222 @@ teamHTML += `
                                             <div>${team.points} points • ${team.models.length} models</div>
                                         </div>
                                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                            <button onclick="editTeam('${teamId}')" class="btn btn-secondary" style="flex: 1;"> Edit</button>
-                                            <button onclick="deleteTeamConfirm('${teamId}', '${team.name}')" class="btn btn-danger" style="flex: 1;"> Delete</button>
+                                            <button onclick="editTeamInline('${teamId}')" class="btn btn-secondary" style="flex: 1;">✏️ Edit</button>
+                                            <button onclick="deleteTeamConfirm('${teamId}', '${team.name}')" class="btn btn-danger" style="flex: 1;">🗑️ Delete</button>
                                         </div>
                                     </div>
                                 `;
                             }).join('')}
                         </div>
                     `}
+                    
+                    <!-- Team Editing Area -->
+                    <div id="teamEditingArea" style="display: none; margin-top: 40px; padding: 30px; background: rgba(255, 149, 0, 0.1); border-radius: 10px; border: 2px solid #FF9500;">
+                        <!-- Team models will be displayed here -->
+                    </div>
                 </div>
             `;
         }
 
-        function editTeam(teamId) {
+        let editingTeamId = null;
+
+        function editTeamInline(teamId) {
+            editingTeamId = teamId;
             database.ref(`players/${currentPlayer}/teams/${teamId}`).once('value', snapshot => {
+                const team = snapshot.val();
+                if (team) {
+                    displayTeamEditing(teamId, team);
+                }
+            });
+        }
+
+        function displayTeamEditing(teamId, team) {
+            const editArea = document.getElementById('teamEditingArea');
+            const faction = gameData.factions.find(f => f.name === team.faction);
+            
+            editArea.style.display = 'block';
+            editArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            editArea.innerHTML = `
+                <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2 style="color: ${faction ? faction.primaryColor : '#FF9500'}; margin: 0;">Editing: ${team.name}</h2>
+                        <p style="color: #9CAF88; margin: 5px 0 0 0;">${team.faction} • ${team.models.length} models</p>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="addModelToTeam('${teamId}')" class="btn btn-primary">+ Add Model</button>
+                        <button onclick="closeTeamEditing()" class="btn btn-secondary">✓ Done</button>
+                    </div>
+                </div>
+                
+                <div id="teamModelsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; margin-top: 20px;">
+                    ${team.models.map((model, index) => renderTeamModel(teamId, index, model, faction)).join('')}
+                </div>
+            `;
+        }
+
+        function renderTeamModel(teamId, modelIndex, model, faction) {
+            const weaponsList = Array.isArray(model.weapons) 
+                ? model.weapons.map(w => w.name || w).join(', ')
+                : '';
+            const inventoryList = Array.isArray(model.inventory)
+                ? model.inventory.join(', ')
+                : '';
+                
+            return `
+                <div style="background: rgba(0, 0, 0, 0.3); padding: 15px; border-radius: 8px; border-left: 4px solid ${faction ? faction.primaryColor : '#FF9500'};">
+                    <h3 style="color: ${faction ? faction.primaryColor : '#FF9500'}; margin: 0 0 10px 0; font-size: 1.1em;">${model.name}</h3>
+                    <div style="color: #9CAF88; font-size: 0.9em; margin-bottom: 10px;">${model.role || model.type}</div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 10px;">
+                        <div style="text-align: center; background: rgba(255, 255, 255, 0.05); padding: 5px; border-radius: 4px;">
+                            <div style="color: #666; font-size: 0.7em;">SPD</div>
+                            <div style="color: #FF9500; font-weight: bold;">${model.speed}</div>
+                        </div>
+                        <div style="text-align: center; background: rgba(255, 255, 255, 0.05); padding: 5px; border-radius: 4px;">
+                            <div style="color: #666; font-size: 0.7em;">SHOOT</div>
+                            <div style="color: #FF9500; font-weight: bold;">${model.shoot}</div>
+                        </div>
+                        <div style="text-align: center; background: rgba(255, 255, 255, 0.05); padding: 5px; border-radius: 4px;">
+                            <div style="color: #666; font-size: 0.7em;">FIGHT</div>
+                            <div style="color: #FF9500; font-weight: bold;">${model.fight}</div>
+                        </div>
+                        <div style="text-align: center; background: rgba(255, 255, 255, 0.05); padding: 5px; border-radius: 4px;">
+                            <div style="color: #666; font-size: 0.7em;">NERVE</div>
+                            <div style="color: #FF9500; font-weight: bold;">${model.nerve}</div>
+                        </div>
+                        <div style="text-align: center; background: rgba(255, 255, 255, 0.05); padding: 5px; border-radius: 4px;">
+                            <div style="color: #666; font-size: 0.7em;">HP</div>
+                            <div style="color: #4CAF50; font-weight: bold;">${model.currentHealth || model.health}/${model.health}</div>
+                        </div>
+                    </div>
+                    
+                    ${weaponsList ? `
+                        <div style="margin-bottom: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
+                            <div style="color: #9CAF88; font-size: 0.8em; font-weight: bold; margin-bottom: 3px;">Weapons:</div>
+                            <div style="color: #ccc; font-size: 0.85em;">${weaponsList}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${inventoryList ? `
+                        <div style="margin-bottom: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
+                            <div style="color: #9CAF88; font-size: 0.8em; font-weight: bold; margin-bottom: 3px;">Inventory:</div>
+                            <div style="color: #ccc; font-size: 0.85em;">${inventoryList}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${model.notes ? `
+                        <div style="margin-bottom: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
+                            <div style="color: #9CAF88; font-size: 0.8em; font-weight: bold; margin-bottom: 3px;">Notes:</div>
+                            <div style="color: #ccc; font-size: 0.85em; white-space: pre-wrap;">${model.notes}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button onclick="editTeamModel('${teamId}', ${modelIndex})" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.9em;">✏️ Edit</button>
+                        <button onclick="deleteTeamModel('${teamId}', ${modelIndex}, '${model.name}')" class="btn btn-danger" style="flex: 1; padding: 8px; font-size: 0.9em;">🗑️ Delete</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addModelToTeam(teamId) {
+            editingTeamId = teamId;
+            editingCharacter = null; // Clear editing state
+            document.getElementById('modalTitle').textContent = 'Add Model to Team';
+            
+            // Clear form
+            document.getElementById('charName').value = '';
+            document.getElementById('charRole').value = '';
+            document.getElementById('charPortrait').value = '';
+            document.getElementById('charSpeed').value = '6';
+            document.getElementById('charShoot').value = '4+';
+            document.getElementById('charFight').value = '5+';
+            document.getElementById('charNerve').value = '4+';
+            document.getElementById('charHealth').value = '15';
+            document.getElementById('charColor').value = generateRandomColor();
+            updateColorPreview();
+            document.getElementById('charInventory').value = '';
+            document.getElementById('charNotes').value = '';
+            
+            weaponFields = [];
+            renderWeaponFields();
+            addWeaponField();
+            
+            consumableFields = [];
+            renderConsumableFields();
+            addConsumableField();
+            
+            specialActionFields = [];
+            renderSpecialActionFields();
+            addSpecialActionField();
+            
+            document.getElementById('characterModal').classList.add('active');
+        }
+
+        function editTeamModel(teamId, modelIndex) {
+            database.ref(`players/${currentPlayer}/teams/${teamId}`).once('value', snapshot => {
+                const team = snapshot.val();
+                if (team && team.models[modelIndex]) {
+                    editingTeamId = teamId;
+                    editingCharacter = { teamId, modelIndex }; // Store model index instead of charId
+                    
+                    const model = team.models[modelIndex];
+                    document.getElementById('modalTitle').textContent = 'Edit Model';
+                    
+                    // Populate form with model data
+                    document.getElementById('charName').value = model.name || '';
+                    document.getElementById('charRole').value = model.role || model.type || '';
+                    document.getElementById('charPortrait').value = model.portrait || '';
+                    document.getElementById('charSpeed').value = model.speed || '';
+                    document.getElementById('charShoot').value = model.shoot || '';
+                    document.getElementById('charFight').value = model.fight || '';
+                    document.getElementById('charNerve').value = model.nerve || '';
+                    document.getElementById('charHealth').value = model.health || 15;
+                    document.getElementById('charColor').value = model.color || generateRandomColor();
+                    updateColorPreview();
+                    document.getElementById('charInventory').value = Array.isArray(model.inventory) ? model.inventory.join(', ') : '';
+                    document.getElementById('charNotes').value = model.notes || '';
+                    
+                    weaponFields = Array.isArray(model.weapons) ? model.weapons.map(w => ({...w})) : [];
+                    renderWeaponFields();
+                    if (weaponFields.length === 0) addWeaponField();
+                    
+                    consumableFields = [];
+                    renderConsumableFields();
+                    addConsumableField();
+                    
+                    specialActionFields = [];
+                    renderSpecialActionFields();
+                    addSpecialActionField();
+                    
+                    document.getElementById('characterModal').classList.add('active');
+                }
+            });
+        }
+
+        function deleteTeamModel(teamId, modelIndex, modelName) {
+            if (confirm(`Delete ${modelName} from team?`)) {
+                database.ref(`players/${currentPlayer}/teams/${teamId}`).once('value', snapshot => {
+                    const team = snapshot.val();
+                    if (team) {
+                        team.models.splice(modelIndex, 1);
+                        team.points = team.models.length * 15;
+                        team.modified = Date.now();
+                        
+                        database.ref(`players/${currentPlayer}/teams/${teamId}`).set(team).then(() => {
+                            displayTeamEditing(teamId, team);
+                        });
+                    }
+                });
+            }
+        }
+
+        function closeTeamEditing() {
+            editingTeamId = null;
+            document.getElementById('teamEditingArea').style.display = 'none';
+            loadPlayerTeams();
+        }
                 const team = snapshot.val();
                 if (team) {
                     currentTeam = { ...team };
