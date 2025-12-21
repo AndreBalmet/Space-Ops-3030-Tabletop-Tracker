@@ -1914,7 +1914,7 @@
         
         <!-- Version -->
         <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            v14.10
+            v14.12
         </div>
     </div>
 
@@ -2259,8 +2259,16 @@
                     <input type="text" id="charRole" placeholder="e.g., Space Marine Captain" />
                 </div>
                 <div class="form-group">
-                    <label>Portrait URL</label>
-                    <input type="url" id="charPortrait" placeholder="https://..." />
+                    <label>Portrait Image</label>
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <input type="url" id="charPortrait" placeholder="Paste URL or drag image here..." style="margin-bottom: 5px;" />
+                            <div id="portraitDropZone" style="border: 2px dashed #FF9500; border-radius: 5px; padding: 20px; text-align: center; background: rgba(255, 149, 0, 0.1); cursor: pointer; min-height: 80px; display: flex; align-items: center; justify-content: center;">
+                                <span style="color: #9CAF88; font-size: 0.9em;">🖼️ Drag image from web browser here<br>or paste URL above</span>
+                            </div>
+                        </div>
+                        <div id="portraitPreview" style="width: 100px; height: 100px; border: 2px solid #FF9500; border-radius: 5px; background: rgba(0,0,0,0.3); display: none; background-size: cover; background-position: center;"></div>
+                    </div>
                 </div>
                 
                 <h3 style="color: #ff6b35; margin: 20px 0 10px 0;">Stats</h3>
@@ -2802,7 +2810,7 @@
                 }
                 
                 // Build CSV content
-                let csv = 'Team Name,Faction,Model Name,Role,Speed,Shoot,Fight,Nerve,Max HP,Current HP,Weapons,Inventory 1,Inventory 2,Notes\n';
+                let csv = 'Team Name,Faction,Model Name,Role,Speed,Shoot,Fight,Nerve,Max HP,Current HP,Weapons,Inventory 1,Inventory 2,Portrait,Notes\n';
                 
                 Object.values(teams).forEach(team => {
                     team.models.forEach(model => {
@@ -2840,7 +2848,7 @@
                         
                         csv += `${escapeCsv(team.name)},${escapeCsv(team.faction)},${escapeCsv(model.name)},${escapeCsv(model.type || model.role)},`;
                         csv += `${escapeCsv(model.speed)},${escapeCsv(model.shoot)},${escapeCsv(model.fight)},${escapeCsv(model.nerve)},`;
-                        csv += `${model.health},${model.currentHealth || model.health},${escapeCsv(weaponsStr)},${escapeCsv(inv1)},${escapeCsv(inv2)},${escapeCsv(model.notes || '')}\n`;
+                        csv += `${model.health},${model.currentHealth || model.health},${escapeCsv(weaponsStr)},${escapeCsv(inv1)},${escapeCsv(inv2)},${escapeCsv(model.portrait || '')},${escapeCsv(model.notes || '')}\n`;
                     });
                 });
                 
@@ -2931,7 +2939,8 @@
                         const weaponsStr = values[10] || '';
                         const inv1 = values[11] || '';
                         const inv2 = values[12] || '';
-                        const notes = values[13] || values[11] || ''; // Fallback to old format (column 11) if new format not present
+                        const portrait = values[13] || ''; // Portrait URL
+                        const notes = values[14] || values[11] || ''; // Notes column moved to 14, fallback to old format
                         
                         if (!teams[teamName]) {
                             teams[teamName] = {
@@ -2960,6 +2969,7 @@
                             currentHealth: currentHP,
                             weapons: weapons,
                             inventory: inventory,
+                            portrait: portrait, // Add portrait URL
                             notes: notes,
                             points: 15
                         });
@@ -6507,37 +6517,57 @@ teamHTML += `
         }
 
         function addModelToTeam(teamId) {
-            editingTeamId = teamId;
-            editingCharacter = null; // Clear editing state
-            document.getElementById('modalTitle').textContent = 'Add Model to Team';
-            
-            // Clear form
-            document.getElementById('charName').value = '';
-            document.getElementById('charRole').value = '';
-            document.getElementById('charPortrait').value = '';
-            document.getElementById('charSpeed').value = '6';
-            document.getElementById('charShoot').value = '4+';
-            document.getElementById('charFight').value = '5+';
-            document.getElementById('charNerve').value = '4+';
-            document.getElementById('charHealth').value = '15';
-            document.getElementById('charColor').value = generateRandomColor();
-            updateColorPreview();
-            document.getElementById('charInventory').value = '';
-            document.getElementById('charNotes').value = '';
-            
-            weaponFields = [];
-            renderWeaponFields();
-            addWeaponField();
-            
-            consumableFields = [];
-            renderConsumableFields();
-            addConsumableField();
-            
-            specialActionFields = [];
-            renderSpecialActionFields();
-            addSpecialActionField();
-            
-            document.getElementById('characterModal').classList.add('active');
+            try {
+                console.log('addModelToTeam starting, teamId:', teamId);
+                editingTeamId = teamId;
+                editingCharacter = null; // Clear editing state
+                
+                console.log('Setting modal title...');
+                document.getElementById('modalTitle').textContent = 'Add Model to Team';
+                
+                console.log('Clearing form fields...');
+                // Clear form
+                document.getElementById('charName').value = '';
+                document.getElementById('charRole').value = '';
+                document.getElementById('charPortrait').value = '';
+                if (window.updatePortraitPreview) {
+                    window.updatePortraitPreview(''); // Clear preview
+                }
+                document.getElementById('charSpeed').value = '6';
+                document.getElementById('charShoot').value = '4+';
+                document.getElementById('charFight').value = '5+';
+                document.getElementById('charNerve').value = '4+';
+                document.getElementById('charHealth').value = '15';
+                document.getElementById('charColor').value = generateRandomColor();
+                updateColorPreview();
+                document.getElementById('charInventory').value = '';
+                document.getElementById('charNotes').value = '';
+                
+                console.log('Resetting weapon/consumable/action fields...');
+                weaponFields = [];
+                renderWeaponFields();
+                addWeaponField();
+                
+                consumableFields = [];
+                renderConsumableFields();
+                addConsumableField();
+                
+                specialActionFields = [];
+                renderSpecialActionFields();
+                addSpecialActionField();
+                
+                console.log('Opening modal...');
+                const modal = document.getElementById('characterModal');
+                if (modal) {
+                    modal.classList.add('active');
+                    console.log('Modal opened successfully!');
+                } else {
+                    console.error('Modal element not found!');
+                }
+            } catch (error) {
+                console.error('Error in addModelToTeam:', error);
+                alert('Error opening Add Model dialog: ' + error.message);
+            }
         }
         
         // Make functions globally accessible
@@ -6557,6 +6587,9 @@ teamHTML += `
                     document.getElementById('charName').value = model.name || '';
                     document.getElementById('charRole').value = model.role || model.type || '';
                     document.getElementById('charPortrait').value = model.portrait || '';
+                    if (window.updatePortraitPreview) {
+                        window.updatePortraitPreview(model.portrait || ''); // Show preview
+                    }
                     document.getElementById('charSpeed').value = model.speed || '';
                     document.getElementById('charShoot').value = model.shoot || '';
                     document.getElementById('charFight').value = model.fight || '';
@@ -6818,6 +6851,89 @@ teamHTML += `
                     closeTeamEditing();
                 }
             });
+            
+            // Portrait drag-and-drop functionality
+            const dropZone = document.getElementById('portraitDropZone');
+            const portraitInput = document.getElementById('charPortrait');
+            const portraitPreview = document.getElementById('portraitPreview');
+            
+            if (dropZone && portraitInput && portraitPreview) {
+                // Prevent default drag behaviors on the drop zone
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+                
+                // Highlight drop zone when item is dragged over
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, () => {
+                        dropZone.style.background = 'rgba(255, 149, 0, 0.3)';
+                        dropZone.style.borderColor = '#FFD700';
+                    }, false);
+                });
+                
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, () => {
+                        dropZone.style.background = 'rgba(255, 149, 0, 0.1)';
+                        dropZone.style.borderColor = '#FF9500';
+                    }, false);
+                });
+                
+                // Handle dropped image
+                dropZone.addEventListener('drop', (e) => {
+                    const data = e.dataTransfer;
+                    
+                    // Try to get image URL from drag data
+                    let imageUrl = '';
+                    
+                    // Method 1: Get from text/html (images dragged from webpages)
+                    if (data.types.includes('text/html')) {
+                        const html = data.getData('text/html');
+                        const imgMatch = html.match(/<img[^>]+src="([^">]+)"/);
+                        if (imgMatch) {
+                            imageUrl = imgMatch[1];
+                        }
+                    }
+                    
+                    // Method 2: Get from text/uri-list (direct image URLs)
+                    if (!imageUrl && data.types.includes('text/uri-list')) {
+                        imageUrl = data.getData('text/uri-list').split('\n')[0];
+                    }
+                    
+                    // Method 3: Get from text/plain (fallback)
+                    if (!imageUrl && data.types.includes('text/plain')) {
+                        const text = data.getData('text/plain');
+                        if (text.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) || text.startsWith('http')) {
+                            imageUrl = text;
+                        }
+                    }
+                    
+                    if (imageUrl) {
+                        portraitInput.value = imageUrl;
+                        updatePortraitPreview(imageUrl);
+                        console.log('Image dropped:', imageUrl);
+                    } else {
+                        alert('Could not extract image URL. Try dragging the image directly or pasting the URL.');
+                    }
+                }, false);
+                
+                // Update preview when URL is typed/pasted
+                portraitInput.addEventListener('input', () => {
+                    updatePortraitPreview(portraitInput.value);
+                });
+                
+                // Function to update portrait preview
+                window.updatePortraitPreview = function(url) {
+                    if (url && url.trim()) {
+                        portraitPreview.style.backgroundImage = `url('${url}')`;
+                        portraitPreview.style.display = 'block';
+                    } else {
+                        portraitPreview.style.display = 'none';
+                    }
+                };
+            }
         });
     </script>
     </div> <!-- end main-content -->
