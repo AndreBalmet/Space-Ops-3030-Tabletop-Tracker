@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Space-Ops 3030 Tracker</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
     <style>
         /* Landing Page */
         .landing-page {
@@ -1175,6 +1176,9 @@
 
         .modal.active {
             display: flex !important;
+            /* DEBUG: Make it SUPER visible */
+            outline: 10px solid red !important;
+            background: rgba(255, 0, 0, 0.5) !important;
         }
 
         .modal-content {
@@ -1914,7 +1918,7 @@
         
         <!-- Version -->
         <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            v14.13-test
+            v14.14-ULTRAVISIBLE
         </div>
     </div>
 
@@ -6564,10 +6568,30 @@ teamHTML += `
                     // Debug: log modal's actual computed styles
                     setTimeout(() => {
                         const styles = window.getComputedStyle(modal);
+                        const rect = modal.getBoundingClientRect();
                         console.log('Modal computed display:', styles.display);
                         console.log('Modal computed z-index:', styles.zIndex);
                         console.log('Modal computed position:', styles.position);
+                        console.log('Modal computed opacity:', styles.opacity);
+                        console.log('Modal computed visibility:', styles.visibility);
+                        console.log('Modal dimensions:', rect.width, 'x', rect.height);
+                        console.log('Modal position:', rect.top, rect.left);
                         console.log('Modal has active class:', modal.classList.contains('active'));
+                        
+                        // Check if modal is actually in viewport
+                        const isInViewport = (
+                            rect.top >= 0 &&
+                            rect.left >= 0 &&
+                            rect.bottom <= window.innerHeight &&
+                            rect.right <= window.innerWidth
+                        );
+                        console.log('Modal in viewport:', isInViewport);
+                        
+                        // Force scroll to modal if needed
+                        if (!isInViewport) {
+                            console.warn('Modal is off-screen! Scrolling...');
+                            modal.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
                     }, 100);
                     
                     console.log('Modal opened successfully!');
