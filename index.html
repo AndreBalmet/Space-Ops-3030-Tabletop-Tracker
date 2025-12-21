@@ -1187,10 +1187,18 @@
             border-radius: 10px;
             max-width: 600px;
             width: 90%;
+            min-width: 400px; /* FORCE minimum width */
+            min-height: 200px; /* FORCE minimum height */
             max-height: 90vh;
             overflow-y: auto;
             border: 2px solid #FF9500;
             margin: 20px;
+        }
+        
+        /* DEBUG: Make modal-content ULTRA visible */
+        .modal.active .modal-content {
+            background: lime !important;
+            border: 10px solid blue !important;
         }
 
         .modal-content h2 {
@@ -1918,7 +1926,7 @@
         
         <!-- Version -->
         <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            v14.14-ULTRAVISIBLE
+            v14.15-LIMEGREEN
         </div>
     </div>
 
@@ -6530,22 +6538,41 @@ teamHTML += `
                 document.getElementById('modalTitle').textContent = 'Add Model to Team';
                 
                 console.log('Clearing form fields...');
-                // Clear form
-                document.getElementById('charName').value = '';
-                document.getElementById('charRole').value = '';
-                document.getElementById('charPortrait').value = '';
+                // Clear form - check if elements exist first
+                const elements = {
+                    charName: document.getElementById('charName'),
+                    charRole: document.getElementById('charRole'),
+                    charPortrait: document.getElementById('charPortrait'),
+                    charSpeed: document.getElementById('charSpeed'),
+                    charShoot: document.getElementById('charShoot'),
+                    charFight: document.getElementById('charFight'),
+                    charNerve: document.getElementById('charNerve'),
+                    charHealth: document.getElementById('charHealth'),
+                    charColor: document.getElementById('charColor'),
+                    charInventory: document.getElementById('charInventory'),
+                    charNotes: document.getElementById('charNotes')
+                };
+                
+                console.log('Form elements check:');
+                for (const [name, el] of Object.entries(elements)) {
+                    console.log(`  ${name}: ${el ? 'EXISTS' : 'MISSING!'}`);
+                }
+                
+                if (elements.charName) elements.charName.value = '';
+                if (elements.charRole) elements.charRole.value = '';
+                if (elements.charPortrait) elements.charPortrait.value = '';
                 if (window.updatePortraitPreview) {
                     window.updatePortraitPreview(''); // Clear preview
                 }
-                document.getElementById('charSpeed').value = '6';
-                document.getElementById('charShoot').value = '4+';
-                document.getElementById('charFight').value = '5+';
-                document.getElementById('charNerve').value = '4+';
-                document.getElementById('charHealth').value = '15';
-                document.getElementById('charColor').value = generateRandomColor();
+                if (elements.charSpeed) elements.charSpeed.value = '6';
+                if (elements.charShoot) elements.charShoot.value = '4+';
+                if (elements.charFight) elements.charFight.value = '5+';
+                if (elements.charNerve) elements.charNerve.value = '4+';
+                if (elements.charHealth) elements.charHealth.value = '15';
+                if (elements.charColor) elements.charColor.value = generateRandomColor();
                 updateColorPreview();
-                document.getElementById('charInventory').value = '';
-                document.getElementById('charNotes').value = '';
+                if (elements.charInventory) elements.charInventory.value = '';
+                if (elements.charNotes) elements.charNotes.value = '';
                 
                 console.log('Resetting weapon/consumable/action fields...');
                 weaponFields = [];
