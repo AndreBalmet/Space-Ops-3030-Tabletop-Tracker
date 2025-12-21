@@ -1918,7 +1918,7 @@
         
         <!-- Version -->
         <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            v14.44
+            v14.47
         </div>
     </div>
 
@@ -1929,6 +1929,9 @@
     </div>
 
     <div class="main-content">
+    <div style="text-align: center; margin: 20px 0;">
+        <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+    </div>
     <div class="header">
         <!-- Session Info Bar (moved to top) -->
         <div id="sessionInfoBar" style="background: rgba(255, 149, 0, 0.1); padding: 8px 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #FF9500; display: none;">
@@ -5638,8 +5641,9 @@ teamHTML += `
             `;
             
             quickPlayMenu.innerHTML = `
-                <div style="text-align: center; margin-bottom: 40px;">
-                    <button onclick="returnToLanding()" class="btn btn-secondary" style="margin-top: 30px;">← Back to Menu</button>
+                <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 40px;">
+                    <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+                    <button onclick="selectMode('teambuilder')" class="btn btn-secondary">Build Custom Team →</button>
                 </div>
                 
                 <h2 style="color: #FF9500; text-align: center; margin-bottom: 20px; font-size: 2em;">Quick Play - Choose Your Squad</h2>
@@ -5657,12 +5661,7 @@ teamHTML += `
                         </div>
                     `).join('')}
                 </div>
-                
-                <div style="margin-top: 40px; text-align: center;">
-                    <button class="btn btn-secondary" onclick="showQuickBuild()" style="padding: 15px 30px;">
-                        Or Build Custom Team →
-                    </button>
-                </div>
+
             `;
             
             quickPlayWrapper.appendChild(quickPlayMenu);
@@ -5983,10 +5982,6 @@ teamHTML += `
         function showFactionSelector() {
             const content = document.getElementById('teamBuilderContent');
             content.innerHTML = `
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <button onclick="returnToLanding()" class="btn btn-secondary" style="margin-top: 30px;">← Back to Menu</button>
-                    <button onclick="showMyTeams()" class="btn btn-secondary"> My Teams</button>
-                </div>
                 <h3 style="color: #FF9500; text-align: center; margin-bottom: 30px;">Choose Your Faction</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto;">
                     ${gameData.factions.map(faction => `
@@ -6897,9 +6892,7 @@ teamHTML += `
             const content = document.getElementById('loreContent');
             content.innerHTML = `
                 <div style="max-width: 900px; margin: 0 auto;">
-                    <div style="text-align: center; margin-bottom: 30px;">
-                        <button onclick="returnToLanding()" class="btn btn-secondary" style="margin-top: 30px;">← Back to Menu</button>
-                    </div>
+
                     
                     <div style="margin-bottom: 40px; padding: 30px; background: rgba(255, 149, 0, 0.1); border-radius: 10px; border: 1px solid #FF9500;">
                         <h2 style="color: #FF9500; text-align: center; margin-bottom: 20px;">Welcome to The Reach</h2>
@@ -7066,7 +7059,11 @@ teamHTML += `
             <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" 
                  alt="Space Ops 3030" />
         </div>
-        <h2 style="color: #FF9500; text-align: center; margin: 30px 0 20px 0;">Team Builder</h2>
+        <div style="display: flex; gap: 15px; justify-content: center; margin: 20px 0;">
+            <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+            <button onclick="showMyTeams()" class="btn btn-secondary">My Teams</button>
+        </div>
+        <h2 style="color: #FF9500; text-align: center; margin: 20px 0;">Team Builder</h2>
         <div id="teamBuilderContent"></div>
     </div>
 
@@ -7094,7 +7091,10 @@ teamHTML += `
             <img src="https://raw.githubusercontent.com/AndreBalmet/Space-Ops-3030-Tabletop-Tracker/refs/heads/main/Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png" 
                  alt="Space Ops 3030" />
         </div>
-        <h2 style="color: #FF9500; text-align: center; margin: 30px 0 30px 0;"> The Lore of Space Ops 3030</h2>
+        <div style="text-align: center; margin: 20px 0;">
+            <button onclick="returnToLanding()" class="btn btn-secondary">← Back to Menu</button>
+        </div>
+        <h2 style="color: #FF9500; text-align: center; margin: 20px 0 30px 0;"> The Lore of Space Ops 3030</h2>
         <div id="loreContent"></div>
     </div>
 
