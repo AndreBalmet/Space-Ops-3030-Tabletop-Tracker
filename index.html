@@ -1914,7 +1914,7 @@
         
         <!-- Version -->
         <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            v14.6
+            v14.7
         </div>
     </div>
 
@@ -6051,7 +6051,7 @@ teamHTML += `
                                                 </div>
                                                 <div style="color: #666; font-size: 0.8em; margin-top: 5px;">${model.description}</div>
                                             </div>
-                                            <button onclick="addModelToTeam('${model.name}')" class="btn btn-success" style="padding: 8px 15px;">+</button>
+                                            <button onclick="addPresetModelToTeam('${model.name}')" class="btn btn-success" style="padding: 8px 15px;">+</button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -6072,7 +6072,7 @@ teamHTML += `
             renderCurrentTeam();
         }
 
-        function addModelToTeam(modelName) {
+        function addPresetModelToTeam(modelName) {
             const modelData = gameData.models.find(m => m.name === modelName);
             if (!modelData) return;
             
@@ -6324,8 +6324,8 @@ teamHTML += `
                                             <div>${team.points} points • ${team.models.length} models</div>
                                         </div>
                                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                            <button onclick="editTeamInline('${teamId}')" class="btn btn-secondary" style="flex: 1;">✏️ Edit</button>
-                                            <button onclick="deleteTeamConfirm('${teamId}', '${team.name}')" class="btn btn-danger" style="flex: 1;">🗑️ Delete</button>
+                                            <button onclick="editTeamInline('${teamId}')" class="btn btn-secondary" style="flex: 1;">Edit</button>
+                                            <button onclick="deleteTeamConfirm('${teamId}', '${team.name}')" class="btn btn-danger" style="flex: 1;">Delete</button>
                                         </div>
                                     </div>
                                 `;
@@ -6367,8 +6367,8 @@ teamHTML += `
                         <p style="color: #9CAF88; margin: 5px 0 0 0;">${team.faction} • ${team.models.length} models</p>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button onclick="addModelToTeam('${teamId}')" class="btn btn-primary">+ Add Model</button>
-                        <button onclick="closeTeamEditing()" class="btn btn-secondary">✓ Done</button>
+                        <button onclick="addModelToTeam('${teamId}')" class="btn btn-primary">Add Model</button>
+                        <button onclick="closeTeamEditing()" class="btn btn-secondary">Done</button>
                     </div>
                 </div>
                 
@@ -6485,8 +6485,8 @@ teamHTML += `
                     
                     <!-- Edit/Delete Buttons -->
                     <div class="model-actions" style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="editTeamModel('${teamId}', ${modelIndex})">✏️ Edit</button>
-                        <button class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="deleteTeamModel('${teamId}', ${modelIndex}, '${model.name.replace(/'/g, "\\'")}')">🗑️ Delete</button>
+                        <button class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="editTeamModel('${teamId}', ${modelIndex})">Edit</button>
+                        <button class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="deleteTeamModel('${teamId}', ${modelIndex}, '${model.name.replace(/'/g, "\\'")}')">Delete</button>
                     </div>
                 </div>
             `;
