@@ -1167,14 +1167,14 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.8);
-            z-index: 1000;
+            z-index: 99999; /* Much higher to appear above everything */
             align-items: center;
             justify-content: center;
             overflow-y: auto;
         }
 
         .modal.active {
-            display: flex;
+            display: flex !important;
         }
 
         .modal-content {
@@ -1914,7 +1914,7 @@
         
         <!-- Version -->
         <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            v14.12
+            v14.13-test
         </div>
     </div>
 
@@ -6560,6 +6560,16 @@ teamHTML += `
                 const modal = document.getElementById('characterModal');
                 if (modal) {
                     modal.classList.add('active');
+                    
+                    // Debug: log modal's actual computed styles
+                    setTimeout(() => {
+                        const styles = window.getComputedStyle(modal);
+                        console.log('Modal computed display:', styles.display);
+                        console.log('Modal computed z-index:', styles.zIndex);
+                        console.log('Modal computed position:', styles.position);
+                        console.log('Modal has active class:', modal.classList.contains('active'));
+                    }, 100);
+                    
                     console.log('Modal opened successfully!');
                 } else {
                     console.error('Modal element not found!');
