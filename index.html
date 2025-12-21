@@ -2821,7 +2821,7 @@
                 }
                 
                 // Build CSV content
-                let csv = 'Team Name,Faction,Model Name,Role,Speed,Shoot,Fight,Nerve,Max HP,Current HP,Weapons,Notes\n';
+                let csv = 'Team Name,Faction,Model Name,Role,Speed,Shoot,Fight,Nerve,Max HP,Current HP,Weapons,Inventory 1,Inventory 2,Notes\n';
                 
                 Object.values(teams).forEach(team => {
                     team.models.forEach(model => {
@@ -2835,6 +2835,10 @@
                             weaponsStr = model.weapons;
                         }
                         
+                        // Handle inventory
+                        const inv1 = model.inventory && model.inventory[0] ? model.inventory[0] : '';
+                        const inv2 = model.inventory && model.inventory[1] ? model.inventory[1] : '';
+                        
                         // Escape quotes in values
                         const escapeCsv = (val) => {
                             if (val === undefined || val === null) return '';
@@ -2846,7 +2850,7 @@
                         
                         csv += `${escapeCsv(team.name)},${escapeCsv(team.faction)},${escapeCsv(model.name)},${escapeCsv(model.type || model.role)},`;
                         csv += `${escapeCsv(model.speed)},${escapeCsv(model.shoot)},${escapeCsv(model.fight)},${escapeCsv(model.nerve)},`;
-                        csv += `${model.health},${model.currentHealth || model.health},${escapeCsv(weaponsStr)},${escapeCsv(model.notes || '')}\n`;
+                        csv += `${model.health},${model.currentHealth || model.health},${escapeCsv(weaponsStr)},${escapeCsv(inv1)},${escapeCsv(inv2)},${escapeCsv(model.notes || '')}\n`;
                     });
                 });
                 
@@ -2935,7 +2939,9 @@
                         const maxHP = parseInt(values[8]) || 15;
                         const currentHP = parseInt(values[9]) || maxHP;
                         const weaponsStr = values[10] || '';
-                        const notes = values[11] || '';
+                        const inv1 = values[11] || '';
+                        const inv2 = values[12] || '';
+                        const notes = values[13] || values[11] || ''; // Fallback to old format (column 11) if new format not present
                         
                         if (!teams[teamName]) {
                             teams[teamName] = {
@@ -2950,6 +2956,7 @@
                         }
                         
                         const weapons = weaponsStr ? weaponsStr.split(';').map(w => ({name: w.trim()})) : [];
+                        const inventory = [inv1, inv2].filter(item => item); // Filter out empty strings
                         
                         teams[teamName].models.push({
                             name: modelName,
@@ -2962,6 +2969,7 @@
                             health: maxHP,
                             currentHealth: currentHP,
                             weapons: weapons,
+                            inventory: inventory,
                             notes: notes,
                             points: 15
                         });
@@ -3874,6 +3882,14 @@
                                         weaponsArray = Object.values(char.weapons);
                                     }
                                     
+                                    // Handle inventory
+                                    let inventoryArray = [];
+                                    if (Array.isArray(char.inventory)) {
+                                        inventoryArray = char.inventory;
+                                    } else if (char.inventory && typeof char.inventory === 'object') {
+                                        inventoryArray = Object.values(char.inventory);
+                                    }
+                                    
                                     return {
                                         name: char.name,
                                         type: char.role,
@@ -3885,6 +3901,7 @@
                                         health: char.maxHealth,
                                         currentHealth: char.currentHealth,
                                         weapons: weaponsArray,
+                                        inventory: inventoryArray,
                                         notes: char.notes || '',
                                         points: 15
                                     };
@@ -5589,7 +5606,6 @@ teamHTML += `
                 <div class="starter-squad-grid" style="max-width: 900px; width: 100%;">
                     ${gameData.starterSquads.filter(squad => squad.models.length > 0).map(squad => `
                         <div class="starter-squad-card" onclick="loadStarterSquad('${squad.name}')">
-                            <span class="starter-squad-difficulty difficulty-${squad.difficulty}">${squad.difficulty.toUpperCase()}</span>
                             <h3>${squad.name}</h3>
                             <p style="color: #888; font-size: 0.9em; margin: 10px 0;">${squad.points} points • ${squad.models.reduce((sum, m) => sum + m.count, 0)} models</p>
                             <p style="color: #aaa; font-size: 0.95em; line-height: 1.5;">${squad.description}</p>
