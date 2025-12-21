@@ -1914,7 +1914,7 @@
         
         <!-- Version -->
         <div style="position: absolute; bottom: 20px; right: 20px; font-size: 0.75em; color: rgba(255, 255, 255, 0.4); font-weight: normal;">
-            v14.9
+            v14.10
         </div>
     </div>
 
@@ -6381,8 +6381,8 @@ teamHTML += `
                         <p style="color: #9CAF88; margin: 5px 0 0 0;">${team.faction} • ${team.models.length} models</p>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button onclick="window.addModelToTeam('${teamId}')" class="btn btn-primary" data-team-id="${teamId}">Add Model</button>
-                        <button onclick="window.closeTeamEditing()" class="btn btn-secondary">Done</button>
+                        <button class="btn btn-primary team-add-model-btn" data-team-id="${teamId}">Add Model</button>
+                        <button class="btn btn-secondary team-done-btn">Done</button>
                     </div>
                 </div>
                 
@@ -6499,8 +6499,8 @@ teamHTML += `
                     
                     <!-- Edit/Delete Buttons -->
                     <div class="model-actions" style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="window.editTeamModel('${teamId}', ${modelIndex})" data-team-id="${teamId}" data-model-index="${modelIndex}">Edit</button>
-                        <button class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" onclick="window.deleteTeamModel('${teamId}', ${modelIndex}, '${model.name.replace(/'/g, "\\'")}')">Delete</button>
+                        <button class="btn btn-secondary model-edit-btn" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" data-team-id="${teamId}" data-model-index="${modelIndex}">Edit</button>
+                        <button class="btn btn-danger model-delete-btn" style="flex: 1; min-width: 120px; padding: 8px; font-size: 0.85em;" data-team-id="${teamId}" data-model-index="${modelIndex}" data-model-name="${model.name}">Delete</button>
                     </div>
                 </div>
             `;
@@ -6785,6 +6785,39 @@ teamHTML += `
             if (savedPlayerName) {
                 document.getElementById('playerName').value = savedPlayerName;
             }
+            
+            // Set up event delegation for My Teams editing buttons
+            document.addEventListener('click', function(e) {
+                // Add Model button
+                if (e.target.classList.contains('team-add-model-btn')) {
+                    const teamId = e.target.dataset.teamId;
+                    console.log('Add Model clicked for team:', teamId);
+                    addModelToTeam(teamId);
+                }
+                
+                // Edit Model button
+                if (e.target.classList.contains('model-edit-btn')) {
+                    const teamId = e.target.dataset.teamId;
+                    const modelIndex = parseInt(e.target.dataset.modelIndex);
+                    console.log('Edit Model clicked:', teamId, modelIndex);
+                    editTeamModel(teamId, modelIndex);
+                }
+                
+                // Delete Model button
+                if (e.target.classList.contains('model-delete-btn')) {
+                    const teamId = e.target.dataset.teamId;
+                    const modelIndex = parseInt(e.target.dataset.modelIndex);
+                    const modelName = e.target.dataset.modelName;
+                    console.log('Delete Model clicked:', teamId, modelIndex, modelName);
+                    deleteTeamModel(teamId, modelIndex, modelName);
+                }
+                
+                // Done button
+                if (e.target.classList.contains('team-done-btn')) {
+                    console.log('Done clicked');
+                    closeTeamEditing();
+                }
+            });
         });
     </script>
     </div> <!-- end main-content -->
