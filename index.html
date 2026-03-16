@@ -3968,39 +3968,96 @@
         }
 
         // Render unique actions HTML (special actions + equipment-granted actions)
-        function renderUniqueActions(char) {
+        function renderUniqueActions(char, teamId, charId) {
             var allActions = (char.specialActions || []).slice();
-            if (char.inventory) {
-                char.inventory.forEach(function(itemName) {
-                    if (!itemName) return;
-                    var equip = lookupEquipData(itemName);
-                    if (equip && equip.actionName) {
+            // Check both inventory and defaultInventory for equipment with actions
+            var allGearNames = (char.inventory || []).concat(char.defaultInventory || []);
+            // Also check slotted equipment items
+            (char.weapons || []).forEach(function(w) {
+                if (w && w.type === 'Equipment' && w.name) allGearNames.push(w.name);
+            });
+            // Deduplicate
+            var seenGear = {};
+            allGearNames.forEach(function(itemName) {
+                if (!itemName || seenGear[itemName]) return;
+                seenGear[itemName] = true;
+                var equip = lookupEquipData(itemName);
+                if (equip) {
+                    // Check for action (actionName field)
+                    if (equip.actionName) {
                         var exists = allActions.some(function(a) { return a.name === equip.actionName; });
                         if (!exists) {
+                            var ammoVal = equip.ammo ? parseInt(equip.ammo) : (equip.maxUses ? parseInt(equip.maxUses) : null);
+                            // Check if char already has tracked uses for this gear action
+                            var trackedUses = (char.gearActionUses || {})[itemName];
                             allActions.push({
                                 name: equip.actionName,
-                                description: equip.actionDescription || equip.passiveAbility || equip.passioveAbility || equip.description || '',
+                                description: equip.actionDescription || equip.description || '',
                                 effects: equip.effects || '',
                                 type: 'Equipment',
-                                uses: equip.maxUses ? parseInt(equip.maxUses) : 1,
-                                maxUses: equip.maxUses ? parseInt(equip.maxUses) : 1,
+                                uses: trackedUses !== undefined ? trackedUses : (ammoVal || 1),
+                                maxUses: ammoVal || 1,
                                 _fromEquip: itemName
                             });
                         }
                     }
-                });
-            }
+                    // Surface passive abilities — check traits for Ammo(N) to determine if it's a use-based action
+                    var passive = equip.passiveAbility || equip.passioveAbility || equip.passiveability || '';
+                    if (passive && !equip.actionName) {
+                        var pExists = allActions.some(function(a) { return a.name === itemName; });
+                        if (!pExists) {
+                            // Check traits for Ammo(N) pattern
+                            var traitsStr = equip.traits || '';
+                            var ammoMatch = traitsStr.match(/[Aa]mmo\s*\((\d+)\)/);
+                            if (ammoMatch) {
+                                var ammoCount = parseInt(ammoMatch[1]) || 1;
+                                var trackedUses = (char.gearActionUses || {})[itemName];
+                                allActions.push({
+                                    name: itemName,
+                                    description: passive,
+                                    effects: '',
+                                    type: 'Equipment',
+                                    uses: trackedUses !== undefined ? trackedUses : ammoCount,
+                                    maxUses: ammoCount,
+                                    _fromEquip: itemName
+                                });
+                            } else {
+                                allActions.push({
+                                    name: itemName,
+                                    description: passive,
+                                    effects: '',
+                                    type: 'Passive',
+                                    _fromEquip: itemName
+                                });
+                            }
+                        }
+                    }
+                }
+            });
             if (allActions.length === 0) return '<div style="color: #666; text-align: center; padding: 10px;">No unique actions</div>';
-            return allActions.map(function(action) {
+            var escTeam = teamId ? teamId.replace(/'/g, "\\'") : '';
+            var escChar = charId ? charId.replace(/'/g, "\\'") : '';
+            return allActions.map(function(action, idx) {
                 var equipTag = action._fromEquip ? ' <span style="font-size:10px; color:var(--text-secondary); font-style:italic;">(from ' + action._fromEquip + ')</span>' : '';
                 var ttBody = ((action.description || '') + (action.effects ? ' | Effects: ' + action.effects : '')).replace(/"/g, '&amp;quot;');
+                var usesHTML = '';
+                if (action.type === 'Passive') {
+                    usesHTML = '<span class="special-action-uses" style="background:#9CAF88;">Passive</span>';
+                } else if (teamId && charId) {
+                    var isGearAction = action._fromEquip && action.type === 'Equipment';
+                    usesHTML = '<div style="display:flex;align-items:center;gap:4px;">' +
+                        '<button class="health-btn btn-danger" style="width:22px;height:22px;font-size:11px;padding:0;" onclick="updateActionUses(\'' + escTeam + '\',\'' + escChar + '\',' + idx + ',' + (isGearAction ? '\'' + action._fromEquip.replace(/'/g, "\\'") + '\'' : 'null') + ',-1)">\u2212</button>' +
+                        '<span class="special-action-uses">' + (action.uses !== undefined ? action.uses : '?') + '/' + (action.maxUses !== undefined ? action.maxUses : '?') + '</span>' +
+                        '<button class="health-btn btn-success" style="width:22px;height:22px;font-size:11px;padding:0;" onclick="updateActionUses(\'' + escTeam + '\',\'' + escChar + '\',' + idx + ',' + (isGearAction ? '\'' + action._fromEquip.replace(/'/g, "\\'") + '\'' : 'null') + ',1)">+</button>' +
+                    '</div>';
+                } else {
+                    usesHTML = '<span class="special-action-uses">' + (action.uses !== undefined ? action.uses : '?') + '/' + (action.maxUses !== undefined ? action.maxUses : '?') + ' uses</span>';
+                }
                 return '<div class="special-action-item">' +
                     '<div class="special-action-header">' +
-                        '<span class="special-action-name so-tt" data-tt-title="' + action.name + (action.type ? ' (' + action.type + ')' : '') + '" data-tt-body="' + ttBody + '">' + action.name + '</span>' + equipTag +
-                        '<span class="special-action-uses">' + (action.uses !== undefined ? action.uses : '?') + '/' + (action.maxUses !== undefined ? action.maxUses : '?') + ' uses</span>' +
+                        '<span class="special-action-name so-tt" data-tt-title="' + action.name + (action.type && action.type !== 'Passive' ? ' (' + action.type + ')' : '') + '" data-tt-body="' + ttBody + '">' + action.name + '</span>' + equipTag +
+                        usesHTML +
                     '</div>' +
-                    '<div class="special-action-desc">' + (action.description || '') + '</div>' +
-                    (action.effects ? '<div class="special-action-effects">Effects: ' + action.effects + '</div>' : '') +
                 '</div>';
             }).join('');
         }
@@ -6639,6 +6696,30 @@
             });
         }
 
+        function updateActionUses(teamId, charId, actionIdx, gearName, change) {
+            const charRef = database.ref(`sessions/${currentSession}/teams/${teamId}/characters/${charId}`);
+            charRef.transaction(function(char) {
+                if (!char) return char;
+                if (gearName) {
+                    // Gear-based action — track uses in gearActionUses
+                    if (!char.gearActionUses) char.gearActionUses = {};
+                    var equip = lookupEquipData(gearName);
+                    var maxUses = equip && equip.ammo ? parseInt(equip.ammo) : (equip && equip.maxUses ? parseInt(equip.maxUses) : 1);
+                    var current = char.gearActionUses[gearName] !== undefined ? char.gearActionUses[gearName] : maxUses;
+                    char.gearActionUses[gearName] = Math.max(0, Math.min(maxUses, current + change));
+                } else {
+                    // Regular special action
+                    if (char.specialActions && char.specialActions[actionIdx]) {
+                        var sa = char.specialActions[actionIdx];
+                        var maxU = sa.maxUses !== undefined ? sa.maxUses : 1;
+                        sa.uses = Math.max(0, Math.min(maxU, (sa.uses !== undefined ? sa.uses : maxU) + change));
+                    }
+                }
+                return char;
+            });
+        }
+        window.updateActionUses = updateActionUses;
+
         function useConsumable(teamId, charId, consumableIndex, targetTeamId = null, targetCharId = null) {
             const charRef = database.ref(`sessions/${currentSession}/teams/${teamId}/characters/${charId}`);
             charRef.once('value', (snapshot) => {
@@ -7632,7 +7713,7 @@ teamHTML += `
         <!-- SECTION 2: Unique Actions (special actions + equipment-granted actions) -->
         <div class="model-section-2">
             <div class="section-title">Unique Actions</div>
-            ${renderUniqueActions(char)}
+            ${renderUniqueActions(char, teamId, charId)}
         </div>
         
         <!-- SECTION 3: Gear -->
