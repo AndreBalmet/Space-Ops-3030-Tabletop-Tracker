@@ -109,34 +109,14 @@
             overflow: hidden;
         }
 
-        /* Top-left diagonal stripes */
+        /* Top-left diagonal stripes (hidden for now) */
         .landing-stripe-tl {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 5.8%;
-            height: 4.5%;
-            background: repeating-linear-gradient(
-                -45deg,
-                var(--black) 0px, var(--black) 0.5px,
-                transparent 0.5px, transparent 4px
-            );
-            z-index: 2;
+            display: none;
         }
 
-        /* Bottom-left diagonal stripes */
+        /* Bottom-left diagonal stripes (hidden for now) */
         .landing-stripe-bl {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 5.8%;
-            height: 6%;
-            background: repeating-linear-gradient(
-                -45deg,
-                var(--black) 0px, var(--black) 0.5px,
-                transparent 0.5px, transparent 4px
-            );
-            z-index: 2;
+            display: none;
         }
 
         /* Top-right vertical line */
@@ -276,13 +256,10 @@
 
         .faction-chooser-header {
             width: 100%;
-            height: 80px;
-            background: repeating-linear-gradient(
-                -45deg,
-                var(--black) 0px, var(--black) 10px,
-                var(--white) 10px, var(--white) 20px
-            );
+            height: 50px;
+            background: var(--white);
             position: relative;
+            border-bottom: 2px solid var(--black);
         }
 
         .faction-nav-wrap {
@@ -502,13 +479,10 @@
 
         .team-builder-header {
             width: 100%;
-            height: 80px;
-            background: repeating-linear-gradient(
-                -45deg,
-                var(--black) 0px, var(--black) 10px,
-                var(--white) 10px, var(--white) 20px
-            );
+            height: 50px;
+            background: var(--white);
             position: relative;
+            border-bottom: 2px solid var(--black);
         }
 
         .team-builder-content {
@@ -3523,6 +3497,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
     <script>
         // Firebase configuration
@@ -4390,10 +4365,24 @@
                         '<div id="_pv_' + cat.key + '"></div></div>';
                 }).join('');
 
+                var xlsxSection =
+                    '<div class="_sec">' +
+                    '<h3>Upload Excel Workbook</h3>' +
+                    '<div style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">Upload a single <b>.xlsx</b> file with tabs for each data category. All matching sheets will be imported at once.</div>' +
+                    '<div class="_dz" id="_dz_xlsx" style="border-color:var(--accent);">' +
+                    '<div style="font-family:var(--font-heading);font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent);">Drop .xlsx file here or click to browse</div>' +
+                    '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Sheets: Factions, Models, Weapons, Equipment, Traits, Actions, Action Categories, Conditions</div></div>' +
+                    '<input type="file" id="_fi_xlsx" accept=".xlsx,.xls" style="display:none" />' +
+                    '<div id="_xlsx_status"></div>' +
+                    '</div>' +
+                    '<hr style="margin:20px 0;border:0;border-top:1px solid var(--border);">' +
+                    '<div style="color:var(--text-muted);font-size:12px;text-align:center;margin-bottom:15px;">— OR upload individual CSV files below —</div>';
+
                 _injectModal(
                     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid var(--accent);">' +
                     '<h2 style="margin:0;padding:0;border:0;">SYSTEM ADMINISTRATION</h2>' +
                     '<button class="btn btn-secondary" id="_cpnl">Close</button></div>' +
+                    xlsxSection +
                     sections +
                     '<div class="_sec"><h3>Settings</h3>' +
                     '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
@@ -4419,6 +4408,20 @@
                     _loadStatus(cat.key);
                 });
 
+                // XLSX upload wiring
+                var xlDz = document.getElementById('_dz_xlsx');
+                var xlFi = document.getElementById('_fi_xlsx');
+                xlDz.onclick = function() { xlFi.click(); };
+                xlDz.addEventListener('dragover', function(e) { e.preventDefault(); xlDz.classList.add('_ov'); });
+                xlDz.addEventListener('dragleave', function() { xlDz.classList.remove('_ov'); });
+                xlDz.addEventListener('drop', function(e) {
+                    e.preventDefault(); xlDz.classList.remove('_ov');
+                    var f = e.dataTransfer.files[0];
+                    if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) _handleXlsx(f);
+                    else alert('Please drop an .xlsx or .xls file');
+                });
+                xlFi.onchange = function() { if (xlFi.files[0]) _handleXlsx(xlFi.files[0]); xlFi.value = ''; };
+
                 document.getElementById('_rlBtn').onclick = async function() {
                     var data = await fetchGameData();
                     if (data) { gameData = data; alert('Game data reloaded!'); }
@@ -4442,6 +4445,73 @@
                     _showPreview(cat, rows);
                 };
                 reader.readAsText(file);
+            }
+
+            function _handleXlsx(file) {
+                var statusEl = document.getElementById('_xlsx_status');
+                statusEl.innerHTML = '<div style="color:var(--accent);font-weight:700;padding:8px 0;">Reading ' + file.name + '...</div>';
+                var reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        if (typeof XLSX === 'undefined') { alert('SheetJS library not loaded. Check your internet connection.'); return; }
+                        var data = new Uint8Array(e.target.result);
+                        var workbook = XLSX.read(data, { type: 'array' });
+
+                        var sheetMap = {
+                            'Factions': 'factions',
+                            'Models': 'models',
+                            'Weapons': 'weapons',
+                            'Equipment': 'equipment',
+                            'Traits': 'traits',
+                            'Actions': 'actions',
+                            'Action Categories': 'actionCategories',
+                            'Conditions': 'conditions'
+                        };
+
+                        var results = [];
+                        var errors = [];
+
+                        for (var sheetName of workbook.SheetNames) {
+                            var catKey = sheetMap[sheetName];
+                            if (!catKey) { results.push(sheetName + ': skipped (unknown)'); continue; }
+                            var cat = _cats.find(function(c) { return c.key === catKey; });
+                            if (!cat) { results.push(sheetName + ': skipped (no category)'); continue; }
+
+                            var csvText = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
+                            var rows = parseCSV(csvText);
+                            if (rows.length === 0) { results.push(sheetName + ': empty (0 rows)'); continue; }
+
+                            var mapped = _mapRows(rows, cat.nameCol);
+                            if (mapped.length === 0) { results.push(sheetName + ': no valid rows after filtering'); continue; }
+
+                            try {
+                                await database.ref('gameData/' + cat.key).set(mapped);
+                                if (!gameData) gameData = {};
+                                gameData[cat.key] = mapped;
+                                _loadStatus(cat.key);
+                                results.push(sheetName + ': ' + mapped.length + ' items uploaded');
+                            } catch (err) {
+                                errors.push(sheetName + ': ' + err.message);
+                            }
+                        }
+
+                        await database.ref('gameData/lastUpdated').set(firebase.database.ServerValue.TIMESTAMP);
+
+                        var html = '<div style="padding:10px 0;">' +
+                            '<div style="font-weight:700;color:var(--success);font-size:14px;margin-bottom:8px;">Import Complete</div>' +
+                            results.map(function(r) {
+                                var isSuccess = r.indexOf('uploaded') !== -1;
+                                return '<div style="font-size:12px;padding:2px 0;color:' + (isSuccess ? 'var(--success)' : 'var(--text-muted)') + ';">' + (isSuccess ? '✓ ' : '– ') + r + '</div>';
+                            }).join('') +
+                            (errors.length > 0 ? '<div style="color:var(--danger);margin-top:8px;">' + errors.join('<br>') + '</div>' : '') +
+                            '</div>';
+                        statusEl.innerHTML = html;
+                        document.getElementById('_dz_xlsx').classList.add('_ok');
+                    } catch (ex) {
+                        statusEl.innerHTML = '<div style="color:var(--danger);padding:8px 0;">Error reading file: ' + ex.message + '</div>';
+                    }
+                };
+                reader.readAsArrayBuffer(file);
             }
 
             function _showPreview(cat, rows) {
