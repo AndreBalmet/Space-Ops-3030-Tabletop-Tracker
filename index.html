@@ -9290,7 +9290,7 @@ teamHTML += `
 
                 model.weaponPointsDelta = weaponDelta;
                 model.equipmentPointsDelta = equipDelta;
-                model.points = basePts + weaponDelta + equipDelta;
+                model.points = Math.max(basePts, basePts + weaponDelta + equipDelta);
                 currentTeam.points += model.points;
             });
         }
@@ -9316,7 +9316,7 @@ teamHTML += `
             var oldPoints = model.points || 0;
             model.weaponPointsDelta = weaponDelta;
             model.equipmentPointsDelta = equipDelta;
-            model.points = basePts + weaponDelta + equipDelta;
+            model.points = Math.max(basePts, basePts + weaponDelta + equipDelta);
             currentTeam.points += (model.points - oldPoints);
         }
 
