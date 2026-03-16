@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>❯ SPACE-OPS 3030</title>
     <!-- No favicon -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;700&display=swap" rel="stylesheet">
     <style>
         /* =============================================
            SPACE-OPS 3030 TRACKER — REDESIGN v15
            Design Language: Editorial / Military Manual
-           Fonts: Georgia (body), Helvetica Neue (headings)
+           Fonts: Segoe UI (body), Helvetica Neue (headings)
            ============================================= */
 
         /* --- CSS CUSTOM PROPERTIES --- */
@@ -41,7 +44,7 @@
 
             /* Typography */
             --font-heading: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            --font-body: Georgia, 'Times New Roman', Times, serif;
+            --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             --font-mono: 'Courier New', Courier, monospace;
             --font-display: 'Helvetica Neue', Helvetica, Arial, sans-serif; /* Placeholder for Elevon */
         }
@@ -172,12 +175,12 @@
             background: none;
             border: none;
             color: var(--black);
-            font-family: var(--font-heading);
+            font-family: 'Roboto', var(--font-heading);
             font-size: clamp(24px, 3.5vw, 42px);
-            font-weight: 900;
+            font-weight: 300;
             padding: 0.12em 0;
             cursor: pointer;
-            transition: color 0.12s;
+            transition: color 0.12s, font-weight 0.12s;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             text-align: left;
@@ -195,7 +198,8 @@
 
         .menu-button:hover,
         .menu-button:active {
-            color: var(--accent);
+            color: var(--black);
+            font-weight: 700;
         }
 
         .menu-button:hover::after,
@@ -1803,6 +1807,98 @@
             border: 2px solid var(--black);
         }
 
+        /* VP Summary Card styles */
+        .team-summary-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--surface);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border-left: 3px solid #db8f00;
+            transition: transform 0.4s ease, box-shadow 0.6s ease;
+        }
+        .team-summary-card.vp-promoted {
+            box-shadow: 0 0 12px rgba(219, 143, 0, 0.6);
+        }
+        .vp-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 48px;
+        }
+        .vp-badge .vp-number {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--accent, #db8f00);
+            line-height: 1;
+        }
+        .vp-badge .vp-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .vp-badge .vp-controls {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .vp-badge .vp-controls button {
+            background: var(--off-white, #f5f0e8);
+            border: 1.5px solid var(--black, #1a1a1a);
+            color: var(--black, #1a1a1a);
+            width: 24px;
+            height: 24px;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .vp-badge .vp-controls button:hover {
+            background: var(--accent, #db8f00);
+            border-color: var(--accent, #db8f00);
+            color: #000;
+        }
+        .team-summary-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .team-summary-info .team-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95em;
+        }
+        .team-summary-info .team-meta {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+        .team-summary-health {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .team-summary-join-btn {
+            background: transparent;
+            border: 1px solid var(--accent, #db8f00);
+            color: var(--accent, #db8f00);
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .team-summary-join-btn:hover {
+            background: var(--accent, #db8f00);
+            color: #000;
+        }
+
         .team-header {
             display: flex;
             justify-content: space-between;
@@ -3030,11 +3126,11 @@
                 <button id="loginBtn" class="menu-button" onclick="requirePlayerName('login')">
                     Login
                 </button>
-                <button class="menu-button" onclick="requirePlayerName('joinsession')">
-                    Join Session
-                </button>
                 <button class="menu-button" onclick="requirePlayerName('teambuilder')">
                     Build Team
+                </button>
+                <button class="menu-button" onclick="requirePlayerName('joinsession')">
+                    Join Session
                 </button>
             </div>
 
@@ -3219,9 +3315,16 @@
     </div>
 
     <div id="gameArea" style="display: none;">
+        <!-- Turn Counter (centered above toolbar) -->
+        <div style="background: var(--surface); padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 15px;">
+            <button class="btn btn-secondary" onclick="prevTurn()" style="padding: 4px 14px; font-size: 18px; line-height: 1;">−</button>
+            <span id="turnNumberDisplay" style="font-weight: 800; font-size: 22px; color: var(--accent); white-space: nowrap; min-width: 100px; text-align: center;">TURN 1</span>
+            <button class="btn btn-primary" onclick="nextTurn()" style="padding: 4px 14px; font-size: 18px; line-height: 1;">+</button>
+        </div>
+
         <!-- Quick Actions Toolbar -->
         <div style="background: var(--surface); padding: 10px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                 <button class="btn btn-success" onclick="showLoadTeamModal()">Load Saved Team</button>
                 <button class="btn btn-info" onclick="toggleUndoPanel()">History</button>
                 <button class="btn btn-info" onclick="toggleCombatLog()">Combat Log</button>
@@ -3248,7 +3351,7 @@
 
         <!-- Team Summary Section -->
         <div id="teamsSummary" style="background: var(--surface); padding: 8px 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); display: none;">
-            <h3 style="color: var(--black); margin: 0 0 8px 0; font-size: 13px;">Session Overview</h3>
+            <h3 style="color: var(--black); margin: 0 0 8px 0; font-size: 13px;">Session Overview — VP Leaderboard</h3>
             <div id="teamsSummaryContent" style="display: grid; gap: 6px;"></div>
         </div>
         
@@ -3454,10 +3557,10 @@
                     <button type="button" class="btn btn-success" onclick="addConsumableField()">+ Add Consumable</button>
                 </div>
 
-                <h3 style="color: var(--black); margin: 20px 0 10px 0;">Special Actions</h3>
+                <h3 style="color: var(--black); margin: 20px 0 10px 0;">Unique Actions</h3>
                 <div class="consumables-form-section">
                     <div id="specialActionsFormList"></div>
-                    <button type="button" class="btn btn-success" onclick="addSpecialActionField()">+ Add Special Action</button>
+                    <button type="button" class="btn btn-success" onclick="addSpecialActionField()">+ Add Unique Action</button>
                 </div>
 
                 <div class="form-group">
@@ -3844,11 +3947,22 @@
             return traitsStr.split(',').map(function(t) {
                 var trait = t.trim();
                 if (!trait) return '';
-                var desc = WEAPON_TRAIT_GLOSSARY[trait] || '';
+                // Look up from Excel-uploaded traits first (fuzzy match: case, plurals, parenthetical)
+                var desc = '';
+                if (gameData.traits && gameData.traits.length > 0) {
+                    var normTrait = trait.toLowerCase().replace(/\s*\(\w+\)/g, '').replace(/s$/, '').trim();
+                    var match = gameData.traits.find(function(tr) { return tr.name === trait; })
+                             || gameData.traits.find(function(tr) { return tr.name && tr.name.toLowerCase() === trait.toLowerCase(); })
+                             || gameData.traits.find(function(tr) { return tr.name && tr.name.toLowerCase().replace(/\s*\(\w+\)/g, '').replace(/s$/, '').trim() === normTrait; });
+                    if (match) desc = match.description || '';
+                }
+                // Fallback to hardcoded glossary
+                if (!desc) desc = WEAPON_TRAIT_GLOSSARY[trait] || '';
                 if (desc) {
                     return '<span class="so-tt" data-tt-title="' + trait + '" data-tt-body="' + desc.replace(/"/g, '&quot;') + '">' + trait + '</span>';
                 }
-                return trait;
+                // No description found — still wrap with "?" tooltip
+                return '<span class="so-tt" data-tt-title="' + trait + '" data-tt-body="No description yet — update Excel sheet">' + trait + '</span>';
             }).join(', ');
         }
 
@@ -3901,11 +4015,21 @@
             }, { passive: false });
         }
 
+        // Normalize name for fuzzy matching: lowercase, strip hyphens, remove parenthetical suffixes
+        function _normName(n) {
+            if (!n) return '';
+            return n.toLowerCase().replace(/-/g, ' ').replace(/\s*\([^)]*\)/g, '').trim();
+        }
+
         function lookupEquipData(name) {
             if (!name) return null;
+            var norm = _normName(name);
             // Check gameData.equipment first (CSV-uploaded)
             if (gameData.equipment && gameData.equipment.length > 0) {
                 var found = gameData.equipment.find(function(e) { return e.name === name; });
+                if (found) return found;
+                // Fuzzy match: strip hyphens and parenthetical suffixes
+                found = gameData.equipment.find(function(e) { return _normName(e.name) === norm; });
                 if (found) return found;
             }
             // Fallback: equipment-type weapons from hardcoded data
@@ -3916,12 +4040,132 @@
         function wrapEquipWithTooltip(name) {
             if (!name) return '';
             var equip = lookupEquipData(name);
-            if (!equip) return name;
-            var desc = equip.passiveAbility || equip.passioveAbility || equip.description || equip.effects || '';
-            var action = equip.actionName && equip.actionDescription ? equip.actionName + ': ' + equip.actionDescription : equip.actionName || '';
-            var body = [desc, action].filter(Boolean).join(' | ');
-            if (!body) return name;
+            if (!equip) return '<span class="so-tt" data-tt-title="' + name + '" data-tt-body="No data yet — update Excel sheet">' + name + '</span>';
+            var parts = [];
+            if (equip.equipmentType) parts.push('Type: ' + equip.equipmentType);
+            if (equip.points && equip.points !== '-') parts.push('Points: ' + equip.points);
+            var passive = equip.passiveAbility || equip.passioveAbility || equip.passiveability || '';
+            if (passive) parts.push('Passive: ' + passive);
+            if (equip.actionName) {
+                var actionStr = equip.actionName;
+                if (equip.actionDescription) actionStr += ' — ' + equip.actionDescription;
+                parts.push('Action: ' + actionStr);
+            }
+            var traits = equip.traits || '';
+            if (traits) parts.push('Traits: ' + traits);
+            // Equipment with weapon-like stats
+            if (equip.attacks || equip.power || equip.damage) {
+                var statParts = [];
+                statParts.push('A' + (equip.attacks != null && equip.attacks !== '' ? equip.attacks : '?'));
+                statParts.push('P' + (equip.power != null && equip.power !== '' ? equip.power : '?'));
+                statParts.push('D' + (equip.damage != null && equip.damage !== '' ? equip.damage : '?'));
+                parts.push('Stats: ' + statParts.join(' '));
+            }
+            if (equip.health) parts.push('HP: ' + equip.health);
+            if (equip.firewall) parts.push('Firewall: ' + equip.firewall);
+            if (equip.memory) parts.push('Memory: ' + equip.memory);
+            if (equip.cpu) parts.push('CPU: ' + equip.cpu);
+            var body = parts.join(' | ');
+            if (!body) body = 'No details yet — update Excel sheet';
             return '<span class="so-tt" data-tt-title="' + name + '" data-tt-body="' + body.replace(/"/g, '&quot;') + '">' + name + '</span>';
+        }
+
+        // Look up weapon from gameData for enrichment (handles both Excel & legacy property names)
+        function _enrichWeapon(weapon) {
+            if (!weapon) return { type: '?', attacks: '?', power: '?', damage: '?', effects: '', description: '' };
+            var norm = _normName(weapon.name);
+            var gd = (gameData.weapons || []).find(function(w) { return w.name === weapon.name; })
+                   || (gameData.weapons || []).find(function(w) { return _normName(w.name) === norm; });
+            var v = function(local, localAlt, gdProp, gdAlt) {
+                if (local != null && local !== '' && local !== undefined) return local;
+                if (localAlt != null && localAlt !== '' && localAlt !== undefined) return localAlt;
+                if (gd) {
+                    if (gd[gdProp] != null && gd[gdProp] !== '') return gd[gdProp];
+                    if (gdAlt && gd[gdAlt] != null && gd[gdAlt] !== '') return gd[gdAlt];
+                }
+                return null;
+            };
+            return {
+                type: v(weapon.type, weapon.range, 'range', 'type') || '?',
+                attacks: v(weapon.attacks, null, 'attacks', null),
+                power: v(weapon.power, null, 'power', null),
+                damage: v(weapon.damage, null, 'damage', null),
+                effects: v(weapon.effects, weapon.traits, 'traits', 'effects') || '',
+                description: v(weapon.description, null, 'description', null) || '',
+                points: v(weapon.points, null, 'points', null) || ''
+            };
+        }
+
+        // Returns weapon stats line: "Melee | A3 P1 D1" with ? for missing
+        function weaponStatsLine(weapon) {
+            if (!weapon || !weapon.name) return '';
+            var w = _enrichWeapon(weapon);
+            var atk = w.attacks != null ? w.attacks : '?';
+            var pwr = w.power != null ? w.power : '?';
+            var dmg = w.damage != null ? w.damage : '?';
+            return w.type + ' | A' + atk + ' P' + pwr + ' D' + dmg;
+        }
+
+        // Returns weapon traits string with gameData fallback
+        function weaponEffects(weapon) {
+            if (!weapon) return '';
+            var w = _enrichWeapon(weapon);
+            return w.effects;
+        }
+
+        // Wrap a weapon object's name with a tooltip showing its full stats + description
+        function wrapWeaponWithTooltip(weapon) {
+            if (!weapon || !weapon.name) return weapon ? weapon.name : '';
+            var w = _enrichWeapon(weapon);
+            var parts = [];
+            if (w.type && w.type !== '?') parts.push(w.type);
+            parts.push('A' + (w.attacks != null ? w.attacks : '?'));
+            parts.push('P' + (w.power != null ? w.power : '?'));
+            parts.push('D' + (w.damage != null ? w.damage : '?'));
+            if (w.effects) parts.push('Traits: ' + w.effects);
+            if (w.points) parts.push('Pts: ' + w.points);
+            if (w.description) parts.push(w.description);
+            var body = parts.join(' | ');
+            if (!body) body = 'No data yet — update Excel sheet';
+            return '<span class="so-tt" data-tt-title="' + weapon.name + '" data-tt-body="' + body.replace(/"/g, '&quot;') + '">' + weapon.name + '</span>';
+        }
+
+        // Render unique actions HTML (special actions + equipment-granted actions)
+        function renderUniqueActions(char) {
+            var allActions = (char.specialActions || []).slice();
+            if (char.inventory) {
+                char.inventory.forEach(function(itemName) {
+                    if (!itemName) return;
+                    var equip = lookupEquipData(itemName);
+                    if (equip && equip.actionName) {
+                        var exists = allActions.some(function(a) { return a.name === equip.actionName; });
+                        if (!exists) {
+                            allActions.push({
+                                name: equip.actionName,
+                                description: equip.actionDescription || equip.passiveAbility || equip.passioveAbility || equip.description || '',
+                                effects: equip.effects || '',
+                                type: 'Equipment',
+                                uses: equip.maxUses ? parseInt(equip.maxUses) : 1,
+                                maxUses: equip.maxUses ? parseInt(equip.maxUses) : 1,
+                                _fromEquip: itemName
+                            });
+                        }
+                    }
+                });
+            }
+            if (allActions.length === 0) return '<div style="color: #666; text-align: center; padding: 10px;">No unique actions</div>';
+            return allActions.map(function(action) {
+                var equipTag = action._fromEquip ? ' <span style="font-size:10px; color:var(--text-secondary); font-style:italic;">(from ' + action._fromEquip + ')</span>' : '';
+                var ttBody = ((action.description || '') + (action.effects ? ' | Effects: ' + action.effects : '')).replace(/"/g, '&amp;quot;');
+                return '<div class="special-action-item">' +
+                    '<div class="special-action-header">' +
+                        '<span class="special-action-name so-tt" data-tt-title="' + action.name + (action.type ? ' (' + action.type + ')' : '') + '" data-tt-body="' + ttBody + '">' + action.name + '</span>' + equipTag +
+                        '<span class="special-action-uses">' + (action.uses !== undefined ? action.uses : '?') + '/' + (action.maxUses !== undefined ? action.maxUses : '?') + ' uses</span>' +
+                    '</div>' +
+                    '<div class="special-action-desc">' + (action.description || '') + '</div>' +
+                    (action.effects ? '<div class="special-action-effects">Effects: ' + action.effects + '</div>' : '') +
+                '</div>';
+            }).join('');
         }
 
         // Init tooltip on DOMContentLoaded
@@ -4065,6 +4309,7 @@
                         description: `Starter Squad - ${factionName}`,
                         created: firebase.database.ServerValue.TIMESTAMP,
                         archived: false,
+                        turnNumber: 1,
                         campaign: {
                             name: 'First Mission',
                             description: 'Your first deployment in The Reach!',
@@ -4087,21 +4332,23 @@
                     document.getElementById('gameArea').style.display = 'block';
                     
                     document.getElementById('sessionInfoBar').style.display = 'block';
-                    document.getElementById('campaignSection').style.display = 'block';
-                    
-                    loadCampaignInfo();
+                    // document.getElementById('campaignSection').style.display = 'block';
+
+                    // loadCampaignInfo();
                     loadMissionObjectives();
                     syncTimer();
-                    
+                    syncTurnNumber();
+
                     sessionRef.child('teams').on('value', (snapshot) => {
                         renderTeams(snapshot.val() || {});
                     });
-                    
+
                     const teamId = currentPlayer.replace(/\s/g, '_');
                     const teamRef = database.ref(`sessions/${sanitizedSessionName}/teams/${teamId}`);
                     teamRef.set({
                         owner: currentPlayer,
                         faction: factionName,
+                        members: [currentPlayer],
                         characters: {}
                     }).then(() => {
                         team.forEach((model, index) => {
@@ -5570,6 +5817,7 @@
                     description: description,
                     created: firebase.database.ServerValue.TIMESTAMP,
                     archived: false,
+                    turnNumber: 1,
                     campaign: {
                         name: 'Campaign Name',
                         description: 'Click to add campaign description...',
@@ -5637,18 +5885,18 @@
                 // document.getElementById('templatesTabBtn').style.display = 'block';
                 document.getElementById('gameArea').style.display = 'block';
                 
-                // Show session info bar and campaign section
+                // Show session info bar (campaign hidden for now)
                 document.getElementById('sessionInfoBar').style.display = 'block';
-                document.getElementById('campaignSection').style.display = 'block';
-                
-                // Load campaign info
-                loadCampaignInfo();
+                // document.getElementById('campaignSection').style.display = 'block';
+
+                // loadCampaignInfo();
 
                 // Load mission and objectives
                 loadMissionObjectives();
-                
+
                 // Sync turn timer
                 syncTimer();
+                syncTurnNumber();
 
                 switchTab('game');
 
@@ -5712,6 +5960,31 @@
                                         inventoryArray = Object.values(char.inventory);
                                     }
                                     
+                                    // Look up actual model points from game data
+                                    let modelPoints = 15; // fallback
+                                    if (gameData.models && gameData.models.length > 0) {
+                                        const matchedModel = gameData.models.find(m => m.name === char.name);
+                                        if (matchedModel && matchedModel.points) {
+                                            modelPoints = parseInt(matchedModel.points) || 15;
+                                        }
+                                    }
+
+                                    // Handle special actions
+                                    let specialActionsArray = [];
+                                    if (Array.isArray(char.specialActions)) {
+                                        specialActionsArray = char.specialActions;
+                                    } else if (char.specialActions && typeof char.specialActions === 'object') {
+                                        specialActionsArray = Object.values(char.specialActions);
+                                    }
+
+                                    // Handle consumables
+                                    let consumablesArray = [];
+                                    if (Array.isArray(char.consumables)) {
+                                        consumablesArray = char.consumables;
+                                    } else if (char.consumables && typeof char.consumables === 'object') {
+                                        consumablesArray = Object.values(char.consumables);
+                                    }
+
                                     return {
                                         name: char.name,
                                         type: char.role,
@@ -5724,17 +5997,24 @@
                                         currentHealth: char.currentHealth,
                                         weapons: weaponsArray,
                                         inventory: inventoryArray,
+                                        specialActions: specialActionsArray,
+                                        consumables: consumablesArray,
                                         notes: char.notes || '',
-                                        points: 15
+                                        portrait: char.portrait || '',
+                                        color: char.color || '',
+                                        portraitColor: char.portraitColor || '',
+                                        firewall: char.firewall || '',
+                                        points: modelPoints
                                     };
                                 });
-                                
+
                                 // Update team in library
+                                const totalPoints = models.reduce((sum, m) => sum + (parseInt(m.points) || 0), 0);
                                 const updatedTeam = {
                                     ...savedTeam,
                                     models: models,
                                     modified: Date.now(),
-                                    points: models.length * 15
+                                    points: totalPoints
                                 };
                                 
                                 await database.ref(`players/${currentPlayer}/teams/${teamId}`).set(updatedTeam);
@@ -6059,8 +6339,8 @@
                     return;
                 }
                 
-                // Get user's team if it exists
-                const myTeamId = currentSession ? Object.keys(sessionTeams || {}).find(id => sessionTeams[id].owner === currentPlayer) : null;
+                // Get user's team if it exists (supports multi-player teams)
+                const myTeamId = currentSession ? findMyTeamId(sessionTeams || {}) : null;
                 const myTeam = myTeamId ? sessionTeams[myTeamId] : null;
                 const teamFaction = myTeam ? myTeam.faction : null;
                 
@@ -6168,11 +6448,11 @@
                 const weapon = factionWeapons[0];
                 weaponFields[0] = {
                     name: weapon.name,
-                    type: weapon.type,
-                    attacks: weapon.attacks,
-                    power: weapon.power,
-                    damage: weapon.damage,
-                    effects: weapon.effects || ''
+                    type: weapon.type || weapon.range || '?',
+                    attacks: weapon.attacks != null ? weapon.attacks : '?',
+                    power: weapon.power != null ? weapon.power : '?',
+                    damage: weapon.damage != null ? weapon.damage : '?',
+                    effects: weapon.effects || weapon.traits || ''
                 };
                 renderWeaponFields();
             }
@@ -6542,6 +6822,7 @@
                         teamRef.set({
                             owner: currentPlayer,
                             faction: selectedFaction,
+                            members: [currentPlayer],
                             characters: {
                                 [charId]: character
                             }
@@ -6556,24 +6837,38 @@
 
         function updateHealth(teamId, charId, change) {
             const charRef = database.ref(`sessions/${currentSession}/teams/${teamId}/characters/${charId}`);
-            charRef.once('value', (snapshot) => {
-                const char = snapshot.val();
-                const newHealth = Math.max(0, Math.min(char.maxHealth, char.currentHealth + change));
-                charRef.update({ 
-                    currentHealth: newHealth,
-                    status: newHealth > 0 ? 'alive' : 'dead'
-                });
-                
-                // Add flash animation
-                const cardElement = document.getElementById(`model-card-${teamId}-${charId}`);
-                if (cardElement) {
-                    const flashClass = change < 0 ? 'damage-flash' : 'heal-flash';
-                    cardElement.classList.add(flashClass);
-                    setTimeout(() => {
-                        cardElement.classList.remove(flashClass);
-                    }, 2000);
+
+            // Optimistic local UI update — immediately adjust displayed HP
+            const hpDisplay = document.querySelector(`#model-card-${teamId}-${charId} .model-header-info div[style*="text-align: center"]`);
+            if (hpDisplay) {
+                const parts = hpDisplay.textContent.trim().replace(' HP', '').split('/');
+                if (parts.length === 2) {
+                    const cur = parseInt(parts[0]) || 0;
+                    const max = parseInt(parts[1]) || 1;
+                    const preview = Math.max(0, Math.min(max, cur + change));
+                    hpDisplay.textContent = preview + '/' + max + ' HP';
                 }
-                
+            }
+
+            // Flash animation (immediate)
+            const cardElement = document.getElementById(`model-card-${teamId}-${charId}`);
+            if (cardElement) {
+                const flashClass = change < 0 ? 'damage-flash' : 'heal-flash';
+                cardElement.classList.add(flashClass);
+                setTimeout(() => { cardElement.classList.remove(flashClass); }, 2000);
+            }
+
+            // Atomic Firebase transaction (no separate read needed)
+            charRef.transaction(function(char) {
+                if (char) {
+                    char.currentHealth = Math.max(0, Math.min(char.maxHealth, char.currentHealth + change));
+                    char.status = char.currentHealth > 0 ? 'alive' : 'dead';
+                }
+                return char;
+            }, function(error, committed, snapshot) {
+                if (error || !committed) return;
+                const char = snapshot.val();
+                if (!char) return;
                 const action = change > 0 ? 'healed' : 'damaged';
                 logAction(`${char.name} ${action} for ${Math.abs(change)} HP`, {
                     type: 'healthChange',
@@ -6581,8 +6876,7 @@
                     charId: charId,
                     change: change
                 });
-                
-                logToCombat(`${change > 0 ? 'heal' : ''} ${char.name} ${action} ${Math.abs(change)} HP (${newHealth}/${char.maxHealth})`);
+                logToCombat(`${change > 0 ? 'heal' : ''} ${char.name} ${action} ${Math.abs(change)} HP (${char.currentHealth}/${char.maxHealth})`);
             });
         }
 
@@ -6699,6 +6993,114 @@
                     teamRef.child(charId).update({ turnTaken: false });
                 });
                 logToCombat(`Reset All turns reset for team`);
+            });
+        }
+
+        // ==================== TURN NUMBER TRACKING ====================
+        function prevTurn() {
+            if (!currentSession) return;
+            const turnRef = database.ref(`sessions/${currentSession}/turnNumber`);
+            turnRef.once('value', (snapshot) => {
+                const current = snapshot.val() || 1;
+                if (current <= 1) return; // can't go below 1
+                const prev = current - 1;
+                turnRef.set(prev);
+                logToCombat(`⏪ Turn reverted to ${prev}`);
+            });
+        }
+
+        function nextTurn() {
+            if (!currentSession) return;
+            const turnRef = database.ref(`sessions/${currentSession}/turnNumber`);
+            turnRef.once('value', (snapshot) => {
+                const current = snapshot.val() || 1;
+                const next = current + 1;
+                turnRef.set(next);
+
+                // Reset ALL models across ALL teams
+                const teamsRef = database.ref(`sessions/${currentSession}/teams`);
+                teamsRef.once('value', (teamsSnap) => {
+                    const teams = teamsSnap.val() || {};
+                    Object.keys(teams).forEach(teamId => {
+                        const chars = teams[teamId].characters || {};
+                        Object.keys(chars).forEach(charId => {
+                            teamsRef.child(`${teamId}/characters/${charId}`).update({ turnTaken: false });
+                        });
+                    });
+                });
+
+                logToCombat(`⏩ Turn ${next} started — all models reset to Ready`);
+            });
+        }
+
+        function syncTurnNumber() {
+            if (!currentSession) return;
+            database.ref(`sessions/${currentSession}/turnNumber`).on('value', (snapshot) => {
+                const turn = snapshot.val() || 1;
+                const el = document.getElementById('turnNumberDisplay');
+                if (el) el.textContent = 'TURN ' + turn;
+            });
+        }
+
+        // ==================== TEAM VICTORY POINTS ====================
+        function updateGamePoints(teamId, delta) {
+            if (!currentSession) return;
+            const pointsRef = database.ref(`sessions/${currentSession}/teams/${teamId}/gamePoints`);
+            pointsRef.once('value', (snapshot) => {
+                const current = snapshot.val() || 0;
+                const next = Math.max(0, current + delta);
+                pointsRef.set(next);
+                const teamName = sessionTeams && sessionTeams[teamId] ? sessionTeams[teamId].owner : teamId;
+                logToCombat(`${teamName}'s team: ${delta > 0 ? '+' : ''}${delta} VP (now ${next})`);
+            });
+        }
+
+        // ==================== MULTI-PLAYER TEAMS ====================
+        function isMyTeam(team) {
+            if (!team || !currentPlayer) return false;
+            if (team.owner === currentPlayer) return true;
+            if (team.members && team.members.includes(currentPlayer)) return true;
+            return false;
+        }
+
+        function findMyTeamId(teams) {
+            if (!teams) return null;
+            // Check owned teams first
+            const ownedId = Object.keys(teams).find(id => teams[id].owner === currentPlayer);
+            if (ownedId) return ownedId;
+            // Then check member teams
+            return Object.keys(teams).find(id => teams[id].members && teams[id].members.includes(currentPlayer));
+        }
+
+        function joinExistingTeam(teamId) {
+            if (!currentSession || !currentPlayer) return;
+            const teamRef = database.ref(`sessions/${currentSession}/teams/${teamId}`);
+            teamRef.once('value', (snapshot) => {
+                const team = snapshot.val();
+                if (!team) return;
+                // Initialize members from owner if missing
+                const members = team.members || [team.owner];
+                if (!members.includes(currentPlayer)) {
+                    members.push(currentPlayer);
+                }
+                teamRef.update({ members: members });
+                logToCombat(`${currentPlayer} joined ${team.owner}'s team`);
+            });
+        }
+
+        function leaveTeam(teamId) {
+            if (!currentSession || !currentPlayer) return;
+            const teamRef = database.ref(`sessions/${currentSession}/teams/${teamId}`);
+            teamRef.once('value', (snapshot) => {
+                const team = snapshot.val();
+                if (!team) return;
+                if (team.owner === currentPlayer) {
+                    alert('Team owner cannot leave. Delete the team instead.');
+                    return;
+                }
+                const members = (team.members || []).filter(m => m !== currentPlayer);
+                teamRef.update({ members: members });
+                logToCombat(`${currentPlayer} left ${team.owner}'s team`);
             });
         }
 
@@ -6864,11 +7266,12 @@
                         weaponHTML += '<option value="' + w.name + '"' + sel + '>' + _formatWeaponLabel(w) + '</option>';
                     });
                     weaponHTML += '</select></div>';
+                    var ew = _enrichWeapon(weapon);
                     var wStats = [];
-                    if (weapon.attacks) wStats.push('A' + weapon.attacks);
-                    if (weapon.power) wStats.push('P' + weapon.power);
-                    if (weapon.damage) wStats.push('D' + weapon.damage);
-                    var wTraits = weapon.traits || weapon.effects || '';
+                    wStats.push('A' + (ew.attacks != null ? ew.attacks : '?'));
+                    wStats.push('P' + (ew.power != null ? ew.power : '?'));
+                    wStats.push('D' + (ew.damage != null ? ew.damage : '?'));
+                    var wTraits = ew.effects || '';
                     if (wTraits) wStats.push(wrapTraitsWithTooltips(wTraits));
                     if (wStats.length) weaponHTML += '<div class="tb-edit-stats">' + wStats.join(' \u00b7 ') + '</div>';
                 });
@@ -6942,7 +7345,9 @@
 
         function updateSessionCharWeapon(teamId, charId, slotIndex, weaponName) {
             if (!currentSession) return;
-            var newWeapon = (gameData.weapons || []).find(function(w) { return w.name === weaponName; });
+            var wNorm = _normName(weaponName);
+            var newWeapon = (gameData.weapons || []).find(function(w) { return w.name === weaponName; })
+                         || (gameData.weapons || []).find(function(w) { return _normName(w.name) === wNorm; });
             if (!newWeapon) return;
             var weaponData = {
                 name: newWeapon.name,
@@ -7062,10 +7467,10 @@
             }
             
             if (!factionName) return;
-            
-            // Check if player already has a team
-            const teamId = Object.keys(sessionTeams).find(id => sessionTeams[id].owner === currentPlayer);
-            
+
+            // Check if player already has a team (owner or member)
+            const teamId = findMyTeamId(sessionTeams);
+
             if (teamId) {
                 // Update existing team's faction
                 database.ref(`sessions/${currentSession}/teams/${teamId}/faction`).set(factionName);
@@ -7075,6 +7480,7 @@
                 database.ref(`sessions/${currentSession}/teams/${newTeamId}`).set({
                     owner: currentPlayer,
                     faction: factionName,
+                    members: [currentPlayer],
                     characters: {}
                 });
             }
@@ -7100,43 +7506,95 @@
                 return;
             }
             
-            // Show and render team summary
+            // Show and render team summary with VP leaderboard
             summaryContainer.style.display = 'block';
-            summaryContent.innerHTML = Object.entries(teams).map(([teamId, team]) => {
-                const characters = team.characters ? Object.values(team.characters).filter(c => c.status === 'alive') : [];
-                const healthStats = {
-                    healthy: 0,  // >70%
-                    damaged: 0,  // 40-70%
-                    critical: 0, // 10-40%
-                    dead: 0      // 0-10% or dead
-                };
-                
-                characters.forEach(char => {
-                    const healthPercent = (char.currentHealth / char.maxHealth) * 100;
+
+            // FLIP animation: record old positions before re-render
+            var oldPositions = {};
+            var existingCards = summaryContent.querySelectorAll('.team-summary-card');
+            existingCards.forEach(function(card) {
+                var tid = card.getAttribute('data-team-id');
+                if (tid) oldPositions[tid] = card.getBoundingClientRect().top;
+            });
+
+            // Sort teams by VP descending, then by owner name for ties
+            var sortedSummaryTeams = Object.entries(teams).sort(function(a, b) {
+                var vpA = a[1].gamePoints || 0;
+                var vpB = b[1].gamePoints || 0;
+                if (vpB !== vpA) return vpB - vpA;
+                return (a[1].owner || '').localeCompare(b[1].owner || '');
+            });
+
+            var myTeamIdForSummary = findMyTeamId(teams);
+
+            summaryContent.innerHTML = sortedSummaryTeams.map(function([teamId, team]) {
+                var characters = team.characters ? Object.values(team.characters).filter(function(c) { return c.status === 'alive'; }) : [];
+                var healthStats = { healthy: 0, damaged: 0, critical: 0, dead: 0 };
+
+                characters.forEach(function(char) {
+                    var healthPercent = (char.currentHealth / char.maxHealth) * 100;
                     if (healthPercent > 70) healthStats.healthy++;
                     else if (healthPercent > 40) healthStats.damaged++;
                     else if (healthPercent > 10) healthStats.critical++;
                     else healthStats.dead++;
                 });
-                
-                const totalModels = characters.length;
-                
-                return `
-                    <div style="background: var(--surface); padding: 6px 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid ${team.faction ? (gameData.factions.find(f => f.name === team.faction)?.primaryColor || '#E8441E') : '#db8f00'};">
-                        <div>
-                            <div style="font-weight: 600; color: var(--text-primary); font-size: 0.95em;">${team.owner}'s Team</div>
-                            <div style="color: var(--text-secondary); font-size: 12px;">${team.faction || 'Choose Faction'} • ${totalModels} model${totalModels !== 1 ? 's' : ''}</div>
-                        </div>
-                        <div style="display: flex; gap: 4px; align-items: center;">
-                            ${Array(healthStats.healthy).fill('<span style="color: #4CAF50; font-size: 13px;">●</span>').join('')}
-                            ${Array(healthStats.damaged).fill('<span style="color: #FFA500; font-size: 13px;">●</span>').join('')}
-                            ${Array(healthStats.critical).fill('<span style="color: #F44336; font-size: 13px;">●</span>').join('')}
-                            ${Array(healthStats.dead).fill('<span style="color: #666; font-size: 13px;">●</span>').join('')}
-                            ${totalModels === 0 ? '<span style="color: #666; font-size: 12px;">No models</span>' : ''}
-                        </div>
-                    </div>
-                `;
+
+                var totalModels = characters.length;
+                var membersList = team.members && team.members.length > 1 ? team.members.join(', ') : '';
+                var factionColor = team.faction ? ((gameData.factions || []).find(function(f) { return f.name === team.faction; }) || {}).primaryColor || '#db8f00' : '#db8f00';
+                var vp = team.gamePoints || 0;
+                var showJoin = !myTeamIdForSummary && currentPlayer && team.owner !== currentPlayer;
+
+                return '<div class="team-summary-card" data-team-id="' + teamId + '" style="border-left-color: ' + factionColor + ';">' +
+                    '<div class="vp-badge">' +
+                        '<div class="vp-number">' + vp + '</div>' +
+                        '<div class="vp-label">VP</div>' +
+                        '<div class="vp-controls">' +
+                            '<button onclick="updateGamePoints(\'' + teamId + '\', -1)">−</button>' +
+                            '<button onclick="updateGamePoints(\'' + teamId + '\', 1)">+</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="team-summary-info">' +
+                        '<div class="team-name">' + team.owner + '\'s Team' +
+                            (membersList ? ' <span style="font-weight:400; font-size:11px; color:var(--text-secondary);">(' + membersList + ')</span>' : '') +
+                        '</div>' +
+                        '<div class="team-meta">' + (team.faction || 'Choose Faction') + ' • ' + totalModels + ' model' + (totalModels !== 1 ? 's' : '') + '</div>' +
+                    '</div>' +
+                    '<div class="team-summary-health">' +
+                        Array(healthStats.healthy).fill('<span style="color: #4CAF50; font-size: 13px;">●</span>').join('') +
+                        Array(healthStats.damaged).fill('<span style="color: #FFA500; font-size: 13px;">●</span>').join('') +
+                        Array(healthStats.critical).fill('<span style="color: #F44336; font-size: 13px;">●</span>').join('') +
+                        Array(healthStats.dead).fill('<span style="color: #666; font-size: 13px;">●</span>').join('') +
+                        (totalModels === 0 ? '<span style="color: #666; font-size: 12px;">No models</span>' : '') +
+                    '</div>' +
+                    (showJoin ? '<button class="team-summary-join-btn" onclick="joinExistingTeam(\'' + teamId + '\')">Join</button>' : '') +
+                '</div>';
             }).join('');
+
+            // FLIP animation: animate cards from old to new positions
+            var newCards = summaryContent.querySelectorAll('.team-summary-card');
+            newCards.forEach(function(card) {
+                var tid = card.getAttribute('data-team-id');
+                if (tid && oldPositions[tid] !== undefined) {
+                    var newTop = card.getBoundingClientRect().top;
+                    var delta = oldPositions[tid] - newTop;
+                    if (Math.abs(delta) > 2) {
+                        // Invert: move card to old position
+                        card.style.transition = 'none';
+                        card.style.transform = 'translateY(' + delta + 'px)';
+                        // Force reflow
+                        card.offsetHeight;
+                        // Play: animate to new position
+                        card.style.transition = 'transform 0.4s ease, box-shadow 0.6s ease';
+                        card.style.transform = '';
+                        // Add glow to cards that moved up
+                        if (delta > 2) {
+                            card.classList.add('vp-promoted');
+                            setTimeout(function() { card.classList.remove('vp-promoted'); }, 1200);
+                        }
+                    }
+                }
+            });
 
             const allCharacters = [];
             Object.entries(teams).forEach(([teamId, team]) => {
@@ -7162,8 +7620,8 @@
             controlsDiv.innerHTML = `
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <span style="color: var(--black); font-weight: 600; margin-right: 10px;">View Mode:</span>
-                    <button class="btn ${currentView === 'compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Compact</button>
-                    <button class="btn ${currentView === 'tiny' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='tiny'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Tiny</button>
+                    <button class="btn ${currentView === 'compact' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='compact'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Large</button>
+                    <button class="btn ${currentView === 'tiny' ? 'btn-primary' : 'btn-secondary'}" onclick="currentView='tiny'; renderTeams(${JSON.stringify(teams).replace(/"/g, '&quot;')})">Small</button>
                 </div>
             `;
             container.appendChild(controlsDiv);
@@ -7172,9 +7630,24 @@
             const myTeamSection = document.createElement('div');
             myTeamSection.style.cssText = 'background: rgba(156, 175, 136, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #9CAF88;';
             const playerName = currentPlayer || localStorage.getItem('lastPlayerName') || 'Your';
-            const myTeamId = Object.keys(teams).find(id => teams[id].owner === currentPlayer);
+            const myTeamId = findMyTeamId(teams);
             const myTeam = myTeamId ? teams[myTeamId] : null;
-            
+
+            // Build join buttons for teamless players
+            let joinTeamButtons = '';
+            if (!myTeam && Object.keys(teams).length > 0) {
+                joinTeamButtons = `
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+                        <div style="color: var(--text-secondary); font-size: 12px; margin-bottom: 6px;">Or join an existing team:</div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            ${Object.entries(teams).map(([id, t]) => `
+                                <button class="btn btn-info" style="font-size: 12px; padding: 6px 12px;" onclick="joinExistingTeam('${id}')">${t.owner}'s Team (${t.faction || 'No Faction'})</button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
             myTeamSection.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                     <div style="flex: 1; min-width: 200px;">
@@ -7182,9 +7655,10 @@
                         ${myTeam ? `
                             <div style="color: #ccc; font-size: 0.95em;">
                                 ${myTeam.faction || 'No Faction'} • ${myTeam.characters ? Object.keys(myTeam.characters).length : 0} models
+                                ${myTeam.members && myTeam.members.length > 1 ? '<br><span style="font-size: 12px; color: var(--text-secondary);">Members: ' + myTeam.members.join(', ') + '</span>' : ''}
                             </div>
                         ` : `
-                            <div style="color: #888; font-size: 13px; margin-bottom: 8px;">No team loaded - Choose faction to start</div>
+                            <div style="color: #888; font-size: 13px; margin-bottom: 8px;">No team loaded - Choose faction to start or join a team</div>
                             <div style="display: flex; gap: 8px; align-items: center;">
                                 <label style="color: var(--text-secondary); font-size: 13px;">Faction:</label>
                                 <select id="myTeamFactionSelect" onchange="setMyTeamFaction(this.value)" style="padding: 6px 10px; background: var(--white); border: 1px solid var(--border); color: var(--text-primary); border-radius: 5px; font-size: 13px;">
@@ -7192,6 +7666,7 @@
                                     ${gameData.factions.map(f => `<option value="${f.name}">${f.name}</option>`).join('')}
                                 </select>
                             </div>
+                            ${joinTeamButtons}
                         `}
                     </div>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -7205,8 +7680,8 @@
 
             // Sort teams: current player's team first, then others
             const sortedTeams = Object.entries(teams).sort(([idA, teamA], [idB, teamB]) => {
-                if (teamA.owner === currentPlayer) return -1;
-                if (teamB.owner === currentPlayer) return 1;
+                if (isMyTeam(teamA)) return -1;
+                if (isMyTeam(teamB)) return 1;
                 return 0;
             });
 
@@ -7214,17 +7689,31 @@
                 const teamDiv = document.createElement('div');
                 teamDiv.className = 'team';
 
+                const isMine = isMyTeam(team);
+                const teamMembers = team.members && team.members.length > 1 ? team.members.join(', ') : '';
                 let teamHTML = `
                     <div class="team-header">
                         <div>
                             <h2>${team.owner}'s Team</h2>
                             ${team.faction ? `<div style="color: var(--text-secondary); font-size: 13px; margin-top: 5px;">Faction: ${team.faction}</div>` : ''}
+                            ${teamMembers ? `<div style="color: var(--text-secondary); font-size: 12px; margin-top: 3px;">Members: ${teamMembers}</div>` : ''}
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                                <span style="color: var(--accent); font-weight: 800; font-size: 24px; min-width: 32px; text-align: center;">${team.gamePoints || 0}</span>
+                                <span style="color: var(--text-secondary); font-size: 12px; font-weight: 600;">VP</span>
+                                <button class="btn btn-secondary" style="padding: 2px 10px; font-size: 14px; line-height: 1;" onclick="updateGamePoints('${teamId}', -1)">−</button>
+                                <button class="btn btn-secondary" style="padding: 2px 10px; font-size: 14px; line-height: 1;" onclick="updateGamePoints('${teamId}', 1)">+</button>
+                            </div>
                         </div>
                         <div class="team-controls">
                             <button class="btn btn-warning" onclick="resetTeamTurns('${teamId}')">Reset All Turns</button>
-                            ${team.owner === currentPlayer ? `
+                            ${isMine ? `
                                 <button class="btn btn-success" onclick="openAddTeamModal()">+ Add Model</button>
+                            ` : ''}
+                            ${team.owner === currentPlayer ? `
                                 <button class="btn btn-danger" onclick="deleteTeam('${teamId}')">Delete Team</button>
+                            ` : ''}
+                            ${isMine && team.owner !== currentPlayer ? `
+                                <button class="btn btn-secondary" onclick="leaveTeam('${teamId}')">Leave Team</button>
                             ` : ''}
                         </div>
                     </div>
@@ -7351,6 +7840,12 @@ teamHTML += `
                     <div class="model-stat-label">Health</div>
                     <div class="model-stat-value">${char.maxHealth}</div>
                 </div>
+                ${char.firewall && char.firewall !== '-' ? `
+                    <div class="model-stat-box">
+                        <div class="model-stat-label">Firewall</div>
+                        <div class="model-stat-value">${char.firewall}</div>
+                    </div>
+                ` : ''}
             </div>
             
             <!-- Effects Field -->
@@ -7364,19 +7859,10 @@ teamHTML += `
             </div>
         </div>
         
-        <!-- SECTION 2: Special Actions -->
+        <!-- SECTION 2: Unique Actions (special actions + equipment-granted actions) -->
         <div class="model-section-2">
-            <div class="section-title">Special Actions</div>
-            ${char.specialActions && char.specialActions.length > 0 ? char.specialActions.map((action, idx) => `
-                <div class="special-action-item">
-                    <div class="special-action-header">
-                        <span class="special-action-name so-tt" data-tt-title="${action.name}${action.type ? ' (' + action.type + ')' : ''}" data-tt-body="${((action.description || '') + (action.effects ? ' | Effects: ' + action.effects : '')).replace(/"/g, '&quot;')}">${action.name}</span>
-                        <span class="special-action-uses">${action.uses}/${action.maxUses} uses</span>
-                    </div>
-                    <div class="special-action-desc">${action.description}</div>
-                    ${action.effects ? `<div class="special-action-effects">Effects: ${action.effects}</div>` : ''}
-                </div>
-            `).join('') : '<div style="color: #666; text-align: center; padding: 10px;">No special actions</div>'}
+            <div class="section-title">Unique Actions</div>
+            ${renderUniqueActions(char)}
         </div>
         
         <!-- SECTION 3: Equipment -->
@@ -7387,9 +7873,9 @@ teamHTML += `
                 <div class="equipment-slot ${!char.weapons || !char.weapons[0] ? 'empty' : ''}">
                     <div class="equipment-label">Weapon 1</div>
                     ${char.weapons && char.weapons[0] ? `
-                        <div class="equipment-name">${char.weapons[0].name}</div>
-                        <div class="equipment-stats">${char.weapons[0].type} | A${char.weapons[0].attacks} P${char.weapons[0].power} D${char.weapons[0].damage}</div>
-                        ${char.weapons[0].effects ? `<div class="equipment-effects">${wrapTraitsWithTooltips(char.weapons[0].effects)}</div>` : ''}
+                        <div class="equipment-name">${wrapWeaponWithTooltip(char.weapons[0])}</div>
+                        <div class="equipment-stats">${weaponStatsLine(char.weapons[0])}</div>
+                        ${weaponEffects(char.weapons[0]) ? `<div class="equipment-effects">${wrapTraitsWithTooltips(weaponEffects(char.weapons[0]))}</div>` : ''}
                     ` : '<div style="color: #666;">Empty</div>'}
                 </div>
 
@@ -7397,9 +7883,9 @@ teamHTML += `
                 <div class="equipment-slot ${!char.weapons || !char.weapons[1] ? 'empty' : ''}">
                     <div class="equipment-label">Weapon 2</div>
                     ${char.weapons && char.weapons[1] ? `
-                        <div class="equipment-name">${char.weapons[1].name}</div>
-                        <div class="equipment-stats">${char.weapons[1].type} | A${char.weapons[1].attacks} P${char.weapons[1].power} D${char.weapons[1].damage}</div>
-                        ${char.weapons[1].effects ? `<div class="equipment-effects">${wrapTraitsWithTooltips(char.weapons[1].effects)}</div>` : ''}
+                        <div class="equipment-name">${wrapWeaponWithTooltip(char.weapons[1])}</div>
+                        <div class="equipment-stats">${weaponStatsLine(char.weapons[1])}</div>
+                        ${weaponEffects(char.weapons[1]) ? `<div class="equipment-effects">${wrapTraitsWithTooltips(weaponEffects(char.weapons[1]))}</div>` : ''}
                     ` : '<div style="color: #666;">Empty</div>'}
                 </div>
                 
@@ -7428,7 +7914,7 @@ teamHTML += `
                 </div>
             ` : ''}
             
-            ${team.owner === currentPlayer && currentView !== 'tiny' ? `
+            ${isMine && currentView !== 'tiny' ? `
                 <div style="margin-top: 15px; display: flex; gap: 5px; flex-wrap: wrap;">
                     <button class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 8px; font-size: 12px;" onclick="toggleSessionModelEdit('${teamId}', '${charId}')">Edit</button>
                     <button class="btn btn-danger" style="flex: 1; min-width: 120px; padding: 8px; font-size: 12px;" onclick="deleteCharacter('${teamId}', '${charId}')">Delete</button>
@@ -7985,6 +8471,7 @@ teamHTML += `
                         description: `Quick Build - ${factionName}`,
                         created: firebase.database.ServerValue.TIMESTAMP,
                         archived: false,
+                        turnNumber: 1,
                         campaign: {
                             name: 'Campaign Name',
                             description: 'Click to add campaign description...',
@@ -8010,26 +8497,27 @@ teamHTML += `
                     document.getElementById('toolsTabBtn').style.display = 'block';
                     document.getElementById('gameArea').style.display = 'block';
                     
-                    // Show session info bar and campaign section
+                    // Show session info bar (campaign hidden for now)
                     document.getElementById('sessionInfoBar').style.display = 'block';
-                    document.getElementById('campaignSection').style.display = 'block';
-                    
-                    // Load campaign info and objectives
-                    loadCampaignInfo();
+                    // document.getElementById('campaignSection').style.display = 'block';
+
+                    // loadCampaignInfo();
                     loadMissionObjectives();
                     syncTimer();
-                    
+                    syncTurnNumber();
+
                     // Set up teams listener
                     sessionRef.child('teams').on('value', (snapshot) => {
                         renderTeams(snapshot.val() || {});
                     });
-                    
+
                     // Create team with faction
                     const teamId = currentPlayer.replace(/\s/g, '_');
                     const teamRef = database.ref(`sessions/${sanitizedSessionName}/teams/${teamId}`);
                     teamRef.set({
                         owner: currentPlayer,
                         faction: factionName,
+                        members: [currentPlayer],
                         characters: {}
                     }).then(() => {
                         // Add characters
@@ -8050,10 +8538,34 @@ teamHTML += `
 
         function addQuickTeamModel(modelData, factionName) {
             if (!currentSession || !currentPlayer) return;
-            
+
             const teamId = currentPlayer.replace(/\s/g, '_');
             const charId = 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            
+
+            // Resolve starting weapons from gameData (fuzzy name match for hyphens/suffixes)
+            var startWeapons = [];
+            var weaponsList = gameData.weapons || [];
+            if (modelData.startingRangedWeapon && modelData.startingRangedWeapon !== '-') {
+                var rwNorm = _normName(modelData.startingRangedWeapon);
+                var rw = weaponsList.find(function(w) { return w.name === modelData.startingRangedWeapon; })
+                      || weaponsList.find(function(w) { return _normName(w.name) === rwNorm; });
+                if (rw) startWeapons.push({ name: rw.name, type: rw.type || rw.range || '?', attacks: rw.attacks != null ? rw.attacks : '?', power: rw.power != null ? rw.power : '?', damage: rw.damage != null ? rw.damage : '?', effects: rw.effects || rw.traits || '', points: rw.points || '' });
+                else startWeapons.push({ name: modelData.startingRangedWeapon, type: 'Ranged', attacks: '?', power: '?', damage: '?', effects: '' });
+            }
+            if (modelData.startingMeleeWeapon && modelData.startingMeleeWeapon !== '-') {
+                var mwNorm = _normName(modelData.startingMeleeWeapon);
+                var mw = weaponsList.find(function(w) { return w.name === modelData.startingMeleeWeapon; })
+                      || weaponsList.find(function(w) { return _normName(w.name) === mwNorm; });
+                if (mw) startWeapons.push({ name: mw.name, type: mw.type || mw.range || '?', attacks: mw.attacks != null ? mw.attacks : '?', power: mw.power != null ? mw.power : '?', damage: mw.damage != null ? mw.damage : '?', effects: mw.effects || mw.traits || '', points: mw.points || '' });
+                else startWeapons.push({ name: modelData.startingMeleeWeapon, type: 'Melee', attacks: '?', power: '?', damage: '?', effects: '' });
+            }
+
+            // Resolve loadout as inventory
+            var loadout = [];
+            if (modelData.loadout) {
+                loadout = modelData.loadout.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+            }
+
             database.ref(`sessions/${currentSession}/teams/${teamId}/characters/${charId}`).set({
                 name: modelData.name,
                 role: modelData.type,
@@ -8063,10 +8575,12 @@ teamHTML += `
                 shoot: modelData.shoot,
                 fight: modelData.fight,
                 nerve: modelData.nerve,
+                firewall: modelData.firewall || '',
                 portrait: modelData.portrait,
                 status: 'alive',
                 turnTaken: false,
-                weapons: [],
+                weapons: startWeapons,
+                inventory: loadout,
                 consumables: [],
                 specialActions: [],
                 owner: currentPlayer
@@ -8250,8 +8764,19 @@ teamHTML += `
         // Helper: build gear line from model data
         function _modelGearLine(model) {
             var gear = [];
-            if (model.startingRangedWeapon && model.startingRangedWeapon !== '-') gear.push(model.startingRangedWeapon);
-            if (model.startingMeleeWeapon && model.startingMeleeWeapon !== '-') gear.push(model.startingMeleeWeapon);
+            var weaponsList = gameData.weapons || [];
+            if (model.startingRangedWeapon && model.startingRangedWeapon !== '-') {
+                var rwNorm = _normName(model.startingRangedWeapon);
+                var rw = weaponsList.find(function(w) { return w.name === model.startingRangedWeapon; })
+                      || weaponsList.find(function(w) { return _normName(w.name) === rwNorm; });
+                gear.push(rw ? wrapWeaponWithTooltip(rw) : model.startingRangedWeapon);
+            }
+            if (model.startingMeleeWeapon && model.startingMeleeWeapon !== '-') {
+                var mwNorm = _normName(model.startingMeleeWeapon);
+                var mw = weaponsList.find(function(w) { return w.name === model.startingMeleeWeapon; })
+                      || weaponsList.find(function(w) { return _normName(w.name) === mwNorm; });
+                gear.push(mw ? wrapWeaponWithTooltip(mw) : model.startingMeleeWeapon);
+            }
             return gear.join(' · ');
         }
 
@@ -8295,15 +8820,15 @@ teamHTML += `
         }
 
         function _formatWeaponLabel(w) {
+            var ew = _enrichWeapon(w);
             var parts = [w.name];
             var stats = [];
-            if (w.attacks) stats.push('A' + w.attacks);
-            if (w.power) stats.push('P' + w.power);
-            if (w.damage) stats.push('D' + w.damage);
+            stats.push('A' + (ew.attacks != null ? ew.attacks : '?'));
+            stats.push('P' + (ew.power != null ? ew.power : '?'));
+            stats.push('D' + (ew.damage != null ? ew.damage : '?'));
             if (stats.length) parts.push(stats.join(' '));
-            var traits = w.traits || w.effects || '';
-            if (traits) parts.push(traits);
-            var pts = parseInt(w.points) || 0;
+            if (ew.effects) parts.push(ew.effects);
+            var pts = parseInt(ew.points) || 0;
             if (pts) parts.push(pts + ' pt' + (pts !== 1 ? 's' : ''));
             return parts.join(' \u2014 ');
         }
@@ -8401,11 +8926,15 @@ teamHTML += `
             var startWeapons = [];
             var weaponsList = gameData.weapons || [];
             if (modelData.startingRangedWeapon && modelData.startingRangedWeapon !== '-') {
-                var rw = weaponsList.find(w => w.name === modelData.startingRangedWeapon);
+                var rwNorm = _normName(modelData.startingRangedWeapon);
+                var rw = weaponsList.find(w => w.name === modelData.startingRangedWeapon)
+                      || weaponsList.find(w => _normName(w.name) === rwNorm);
                 startWeapons.push(rw || { name: modelData.startingRangedWeapon, type: 'Ranged' });
             }
             if (modelData.startingMeleeWeapon && modelData.startingMeleeWeapon !== '-') {
-                var mw = weaponsList.find(w => w.name === modelData.startingMeleeWeapon);
+                var mwNorm = _normName(modelData.startingMeleeWeapon);
+                var mw = weaponsList.find(w => w.name === modelData.startingMeleeWeapon)
+                      || weaponsList.find(w => _normName(w.name) === mwNorm);
                 startWeapons.push(mw || { name: modelData.startingMeleeWeapon, type: 'Melee' });
             }
 
@@ -8420,7 +8949,17 @@ teamHTML += `
                 id: Math.floor(Date.now() * 1000 + Math.random() * 1000),
                 currentHealth: parseInt(modelData.health) || 0,
                 status: 'alive',
-                weapons: startWeapons.map(function(w) { return Object.assign({}, w); }),
+                weapons: startWeapons.map(function(w) {
+                    return {
+                        name: w.name,
+                        type: w.type || w.range || '?',
+                        attacks: w.attacks != null ? w.attacks : '?',
+                        power: w.power != null ? w.power : '?',
+                        damage: w.damage != null ? w.damage : '?',
+                        effects: w.effects || w.traits || '',
+                        points: w.points || ''
+                    };
+                }),
                 specialActions: [],
                 inventory: loadout.slice(),
                 defaultWeapons: startWeapons.map(function(w) { return w.name; }),
@@ -8474,7 +9013,7 @@ teamHTML += `
             var role = _modelRole(model);
             var stats = _modelStatLine(model);
             var displayName = model.customName || model.name;
-            var weaponNames = (model.weapons || []).map(function(w) { return w.name; }).filter(Boolean).join(', ');
+            var weaponNames = (model.weapons || []).map(function(w) { return wrapWeaponWithTooltip(w); }).filter(Boolean).join(', ');
             var gearNames = (model.inventory || []).map(function(g) { return wrapEquipWithTooltip(g); }).join(', ');
             var totalDelta = (model.weaponPointsDelta || 0) + (model.equipmentPointsDelta || 0);
             var deltaStr = totalDelta > 0 ? ' (+' + totalDelta + ')' : totalDelta < 0 ? ' (' + totalDelta + ')' : '';
@@ -8586,11 +9125,12 @@ teamHTML += `
                     weaponHTML += '</select>';
                     if (wPts) weaponHTML += '<span class="tb-edit-pts-delta">' + wPts + ' pts</span>';
                     weaponHTML += '</div>';
+                    var ew = _enrichWeapon(weapon);
                     var wStats = [];
-                    if (weapon.attacks) wStats.push('A' + weapon.attacks);
-                    if (weapon.power) wStats.push('P' + weapon.power);
-                    if (weapon.damage) wStats.push('D' + weapon.damage);
-                    var wTraits = weapon.traits || weapon.effects || '';
+                    wStats.push('A' + (ew.attacks != null ? ew.attacks : '?'));
+                    wStats.push('P' + (ew.power != null ? ew.power : '?'));
+                    wStats.push('D' + (ew.damage != null ? ew.damage : '?'));
+                    var wTraits = ew.effects || '';
                     if (wTraits) wStats.push(wrapTraitsWithTooltips(wTraits));
                     if (wStats.length) weaponHTML += '<div class="tb-edit-stats">' + wStats.join(' \u00b7 ') + '</div>';
                 });
@@ -8723,7 +9263,15 @@ teamHTML += `
             var newWeapon = (gameData.weapons || []).find(function(w) { return w.name === weaponName; });
             if (!newWeapon) return;
 
-            model.weapons[slotIndex] = Object.assign({}, newWeapon);
+            model.weapons[slotIndex] = {
+                name: newWeapon.name,
+                type: newWeapon.type || newWeapon.range || '?',
+                attacks: newWeapon.attacks != null ? newWeapon.attacks : '?',
+                power: newWeapon.power != null ? newWeapon.power : '?',
+                damage: newWeapon.damage != null ? newWeapon.damage : '?',
+                effects: newWeapon.effects || newWeapon.traits || '',
+                points: newWeapon.points || ''
+            };
             recalculateModelPoints(model);
             renderCurrentTeam();
             updateTeamPoints();
@@ -9244,33 +9792,35 @@ teamHTML += `
                             <div class="equipment-slot ${!model.weapons || !model.weapons[0] ? 'empty' : ''}">
                                 <div class="equipment-label">Weapon 1</div>
                                 ${model.weapons && model.weapons[0] ? `
-                                    <div class="equipment-name">${model.weapons[0].name || model.weapons[0]}</div>
-                                    ${model.weapons[0].type ? `<div class="equipment-stats">${model.weapons[0].type} | A${model.weapons[0].attacks} P${model.weapons[0].power} D${model.weapons[0].damage}</div>` : ''}
+                                    <div class="equipment-name">${wrapWeaponWithTooltip(model.weapons[0])}</div>
+                                    <div class="equipment-stats">${weaponStatsLine(model.weapons[0])}</div>
+                                    ${weaponEffects(model.weapons[0]) ? `<div class="equipment-effects">${wrapTraitsWithTooltips(weaponEffects(model.weapons[0]))}</div>` : ''}
                                 ` : '<div style="color: #666;">Empty</div>'}
                             </div>
-                            
+
                             <!-- Weapon Slot 2 -->
                             <div class="equipment-slot ${!model.weapons || !model.weapons[1] ? 'empty' : ''}">
                                 <div class="equipment-label">Weapon 2</div>
                                 ${model.weapons && model.weapons[1] ? `
-                                    <div class="equipment-name">${model.weapons[1].name || model.weapons[1]}</div>
-                                    ${model.weapons[1].type ? `<div class="equipment-stats">${model.weapons[1].type} | A${model.weapons[1].attacks} P${model.weapons[1].power} D${model.weapons[1].damage}</div>` : ''}
+                                    <div class="equipment-name">${wrapWeaponWithTooltip(model.weapons[1])}</div>
+                                    <div class="equipment-stats">${weaponStatsLine(model.weapons[1])}</div>
+                                    ${weaponEffects(model.weapons[1]) ? `<div class="equipment-effects">${wrapTraitsWithTooltips(weaponEffects(model.weapons[1]))}</div>` : ''}
                                 ` : '<div style="color: #666;">Empty</div>'}
                             </div>
-                            
+
                             <!-- Inventory Slot 1 -->
                             <div class="equipment-slot ${!model.inventory || !model.inventory[0] ? 'empty' : ''}">
                                 <div class="equipment-label">Inventory 1</div>
                                 ${model.inventory && model.inventory[0] ? `
-                                    <div class="equipment-name">${model.inventory[0]}</div>
+                                    <div class="equipment-name">${wrapEquipWithTooltip(model.inventory[0])}</div>
                                 ` : '<div style="color: #666;">Empty</div>'}
                             </div>
-                            
+
                             <!-- Inventory Slot 2 -->
                             <div class="equipment-slot ${!model.inventory || !model.inventory[1] ? 'empty' : ''}">
                                 <div class="equipment-label">Inventory 2</div>
                                 ${model.inventory && model.inventory[1] ? `
-                                    <div class="equipment-name">${model.inventory[1]}</div>
+                                    <div class="equipment-name">${wrapEquipWithTooltip(model.inventory[1])}</div>
                                 ` : '<div style="color: #666;">Empty</div>'}
                             </div>
                         </div>
@@ -9592,7 +10142,8 @@ teamHTML += `
                     // Set team with faction
                     teamRef.update({
                         owner: currentPlayer,
-                        faction: team.faction
+                        faction: team.faction,
+                        members: [currentPlayer]
                     }).then(() => {
                         // Add each model
                         team.models.forEach((model, index) => {
@@ -9607,7 +10158,10 @@ teamHTML += `
                                     shoot: model.shoot || '4+',
                                     fight: model.fight || '4+',
                                     nerve: model.nerve || '4+',
+                                    firewall: model.firewall || '',
                                     portrait: model.portrait || '',
+                                    color: model.color || '',
+                                    portraitColor: model.portraitColor || '',
                                     status: 'alive',
                                     turnTaken: false,
                                     weapons: model.weapons || [],
