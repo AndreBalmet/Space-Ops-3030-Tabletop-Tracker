@@ -3679,7 +3679,7 @@
         };
 
 
-        // Initialize game data (set after gameDataHardcoded is defined below)
+        // Initialize game data (loaded from Firebase via XLSX upload)
         let gameData = null;
 
         // Initialize Firebase
@@ -3694,22 +3694,11 @@
         let statusEffectTarget = null;
         let currentMode = null; // 'quickplay', 'teambuilder', 'joinsession', 'lore'
 
-        // Game Data (Hardcoded for v12, will sync from Google Sheets in v13)
-
         // ============================================================
-        // MASTER DATA FETCH SYSTEM
+        // MASTER DATA FETCH SYSTEM (Firebase via XLSX upload only)
         // ============================================================
-        
-        // CSV URLs - You'll update these after publishing your Google Sheet
-        const CSV_URLS = {
-            factions: 'YOUR_FACTIONS_CSV_URL_HERE',
-            models: 'YOUR_MODELS_CSV_URL_HERE', 
-            weapons: 'YOUR_WEAPONS_CSV_URL_HERE',
-            specialActions: 'YOUR_SPECIAL_ACTIONS_CSV_URL_HERE',
-            starterSquads: 'YOUR_STARTER_SQUADS_CSV_URL_HERE'
-        };
 
-        // Parse CSV text to array of objects (quote-aware, handles Google Sheets exports)
+        // Parse CSV text to array of objects (used by XLSX import which converts sheets to CSV)
         function parseCSV(csvText, opts) {
             opts = opts || {};
             const lines = csvText.trim().split('\n');
@@ -3753,15 +3742,13 @@
             return data;
         }
 
-        // Fetch game data — Priority: Firebase > CSV URLs > hardcoded
+        // Fetch game data from Firebase (uploaded via XLSX in admin panel)
         async function fetchGameData() {
-            // Priority 1: Firebase /gameData/
             try {
                 if (database) {
                     var snap = await database.ref('gameData').once('value');
                     var fb = snap.val();
                     if (fb) {
-                        // Check if any data category exists
                         var dataKeys = Object.keys(fb).filter(function(k) { return k !== 'lastUpdated' && k !== 'updatedBy' && Array.isArray(fb[k]); });
                         if (dataKeys.length > 0) {
                             console.log('Using game data from Firebase (' + dataKeys.length + ' categories)');
@@ -3772,218 +3759,12 @@
                 }
             } catch (e) { console.warn('Firebase gameData fetch failed:', e.message); }
 
-            // Priority 2: CSV URLs (if configured)
-            try {
-                var configured = !CSV_URLS.factions.includes('YOUR_') && !CSV_URLS.models.includes('YOUR_');
-                if (configured) {
-                    var [factionsCSV, modelsCSV, weaponsCSV, actionsCSV, squadsCSV] = await Promise.all([
-                        fetch(CSV_URLS.factions).then(function(r) { return r.text(); }),
-                        fetch(CSV_URLS.models).then(function(r) { return r.text(); }),
-                        fetch(CSV_URLS.weapons).then(function(r) { return r.text(); }),
-                        fetch(CSV_URLS.specialActions).then(function(r) { return r.text(); }),
-                        fetch(CSV_URLS.starterSquads).then(function(r) { return r.text(); })
-                    ]);
-                    console.log('Using game data from CSV URLs');
-                    return {
-                        factions: parseCSV(factionsCSV),
-                        models: parseCSV(modelsCSV),
-                        weapons: parseCSV(weaponsCSV),
-                        specialActions: parseCSV(actionsCSV),
-                        starterSquads: parseCSV(squadsCSV)
-                    };
-                }
-            } catch (e) { console.warn('CSV fetch failed:', e.message); }
-
-            console.log('Using hardcoded fallback data');
+            console.log('No game data found in Firebase. Upload XLSX via admin panel.');
             return null;
         }
 
         // ============================================================
-        // FALLBACK: HARDCODED DATA (used if CSV fetch fails)
-        // ============================================================
-        const gameDataHardcoded = {
-            factions: [
-                {
-                    name: 'Arc Rangers',
-                    loreShort: 'Elite operatives defending The Reach with mobility and precision',
-                    loreFull: `Arc Rangers are the elite defense force of The Reach, specializing in rapid response and precision strikes. Equipped with advanced mobility gear including jet packs and grappling systems, they excel at hit-and-run tactics. Known for their strict code of honor and unwavering dedication to protecting civilian populations against the Space-Wyrm threat and other dangers lurking in the dark corners of space.`,
-                    primaryColor: '#db8f00',
-                    accentColor: '#9CAF88'
-                },
-                {
-                    name: 'Space-Wyrm',
-                    loreShort: 'Ancient lunar zealots serving the Sun God, powered by solar tech',
-                    loreFull: `The Space-Wyrm are an ancient bipedal lizard species from beneath the Moon's surface. Zealously devoted to their Sun God Ajj (the Ajarem - people of Ajj), they view humanity as their wayward creation that must be re-subjugated. Their technology is entirely solar-powered, making them vulnerable to overheating but deadly in sustained combat. The Sun God is cruel and unforgiving, demanding total devotion. Every Space-Wyrm passes through The Garden, a genetic mutation gate that determines their role in society. Different denominations create internal conflict even as they unite against humanity. Their battle cry: "The Sun God provides!"`,
-                    primaryColor: '#FFD700',
-                    accentColor: '#8B0000'
-                },
-                {
-                    name: 'Kippin',
-                    loreShort: 'Genetically engineered rebels with tech expertise and fearless tactics',
-                    loreFull: `The Kippin were created by the Bazzle-Johson Corporation-State as a compliant workforce - bipedal Mustelidae (otter-like) with weasel and wolverine traits. But the "Trainables" proved anything but compliant. After learning to communicate across the Reach, they declared war on their corporate masters in 2608, reducing BazzleCorp to ash. Now free, the Kippin run extensive underground networks across 90% of space colonies. They're tech-savvy engineers and bold warriors with inherently low risk-assessment - allies must remind them to wear body armor! Known for experimental "custom" weapons, Kip-Cant sign language, and being banned from ESports for being too good. They operate successful drone pilot co-ops and street samurai gangs in Neo-Osaka. Rumor speaks of The Beach - a hidden resort using a stolen Space-Wyrm lens to create a warm sea on an ice asteroid.`,
-                    primaryColor: '#10B981',
-                    accentColor: '#374151'
-                },
-                {
-                    name: 'Malegeist',
-                    loreShort: 'Returned colonists corrupted by parasitic infection from deep space',
-                    loreFull: `The Daedelus Expedition left Earth 300 years ago on a one-way trip to establish humanity's first exoplanet colony. They returned in 3022 as something else. The Malegeist encountered a parasitic organism in deep space that grants extended life and psionic abilities - but at a terrible cost. They can only survive by processing other organics into genetic material for sustenance. Gaunt, mutated, clad in gothic hard suits, the Malegeist infiltrate every level of corporate life in the Reach. Their philosophy: "Food has no rights." They operate in semi-autonomous fleet-pods, planning with the patience of those who have extended lifespans. The rarest Malegeist become Space Liches - neither living nor dead, neither human nor organism, shrouded in mystery and terror. Survivors of Lich encounters can never be fully trusted - are they witnesses or unwitting agents?`,
-                    primaryColor: '#9333EA',
-                    accentColor: '#1F2937'
-                }
-            ],
-            models: [
-                // Arc Rangers
-                { name: 'Veteran Captain', faction: 'Arc Rangers', type: 'Captain', speed: 8, shoot: '3+', fight: '4+', grit: '3+', health: 20, points: 40, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Experienced leader with tactical expertise' },
-                { name: 'Arc Ranger', faction: 'Arc Rangers', type: 'Trooper', speed: 8, shoot: '4+', fight: '5+', grit: '4+', health: 15, points: 15, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Standard operative with balanced capabilities' },
-                { name: 'Scout Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 10, shoot: '4+', fight: '5+', grit: '3+', health: 12, points: 18, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Fast reconnaissance specialist' },
-                { name: 'Heavy Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 6, shoot: '3+', fight: '5+', grit: '4+', health: 18, points: 22, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Armored fire support unit' },
-                { name: 'Tech Specialist', faction: 'Arc Rangers', type: 'Specialist', speed: 7, shoot: '4+', fight: '5+', grit: '4+', health: 14, points: 20, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Technical expert with scanner abilities' },
-                { name: 'Medic Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 7, shoot: '5+', fight: '5+', grit: '4+', health: 14, points: 16, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Field medic with healing capabilities' },
-                // Space-Wyrm
-                { name: 'Solar Priest', faction: 'Space-Wyrm', type: 'Leader', speed: 5, shoot: '4+', fight: '3+', grit: '2+', health: 22, points: 45, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Priest', description: 'High-ranking religious commander' },
-                { name: 'Wyrm Zealot', faction: 'Space-Wyrm', type: 'Warrior', speed: 6, shoot: '4+', fight: '3+', grit: '2+', health: 18, points: 20, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Zealot', description: 'Fanatical Sun God devotee' },
-                { name: 'Wyrm Hatchling', faction: 'Space-Wyrm', type: 'Trooper', speed: 7, shoot: '5+', fight: '4+', grit: '3+', health: 10, points: 12, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Hatchling', description: 'Young warrior from The Garden' },
-                { name: 'Wyrm Hunter', faction: 'Space-Wyrm', type: 'Specialist', speed: 8, shoot: '3+', fight: '4+', grit: '3+', health: 15, points: 18, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Hunter', description: 'Swift ambush predator' },
-                { name: 'Wyrm Brute', faction: 'Space-Wyrm', type: 'Warrior', speed: 5, shoot: '5+', fight: '2+', grit: '2+', health: 24, points: 25, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Brute', description: 'Heavily mutated warrior' },
-                { name: 'Solar Cultist', faction: 'Space-Wyrm', type: 'Trooper', speed: 6, shoot: '4+', fight: '4+', grit: '3+', health: 12, points: 14, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Cultist', description: 'Devoted follower with basic solar weapons' }
-            ],
-            weapons: [
-                // Arc Rangers
-                { name: 'Plasma Carbine', faction: 'Arc Rangers', type: 'Ranged', attacks: 2, power: 4, damage: 2, effects: 'Rapid Fire', description: 'Standard issue energy carbine' },
-                { name: 'Arc Blade', faction: 'Arc Rangers', type: 'Melee', attacks: 2, power: 3, damage: 1, effects: 'Precise', description: 'Close combat energy blade' },
-                { name: 'Heavy Plasma Cannon', faction: 'Arc Rangers', type: 'Ranged', attacks: 3, power: 5, damage: 3, effects: 'Unwieldy', description: 'High-powered suppression weapon' },
-                { name: 'Grapple Gun', faction: 'Arc Rangers', type: 'Equipment', attacks: 0, power: 0, damage: 0, effects: 'Mobility', description: 'Vertical movement tool' },
-                { name: 'Shock Baton', faction: 'Arc Rangers', type: 'Melee', attacks: 3, power: 2, damage: 1, effects: 'Stun', description: 'Non-lethal enforcement tool' },
-                { name: 'Sniper Rifle', faction: 'Arc Rangers', type: 'Ranged', attacks: 1, power: 5, damage: 3, effects: 'Long Range', description: 'Precision elimination weapon' },
-                { name: 'Medkit', faction: 'Arc Rangers', type: 'Equipment', attacks: 0, power: 0, damage: 0, effects: 'Healing', description: 'Field medical equipment' },
-                // Space-Wyrm
-                { name: 'Thermal Lance', faction: 'Space-Wyrm', type: 'Melee', attacks: 3, power: 5, damage: 3, effects: 'Overheating', description: 'Solar-powered melee weapon' },
-                { name: 'Sun Cannon', faction: 'Space-Wyrm', type: 'Ranged', attacks: 2, power: 6, damage: 4, effects: 'Blast, Overheating', description: 'Devastating solar energy weapon' },
-                { name: 'Claw Gauntlets', faction: 'Space-Wyrm', type: 'Melee', attacks: 4, power: 3, damage: 1, effects: 'Rending', description: 'Enhanced natural weapons' },
-                { name: 'Solar Shield', faction: 'Space-Wyrm', type: 'Equipment', attacks: 0, power: 0, damage: 0, effects: 'Defense +1', description: 'Energy shield from solar cells' },
-                { name: 'Fusion Rifle', faction: 'Space-Wyrm', type: 'Ranged', attacks: 2, power: 4, damage: 2, effects: 'Solar Charge', description: 'Standard solar ranged weapon' },
-                { name: 'Burning Blade', faction: 'Space-Wyrm', type: 'Melee', attacks: 2, power: 4, damage: 2, effects: 'Ignite', description: 'Superheated blade weapon' },
-                { name: 'Prayer Beads', faction: 'Space-Wyrm', type: 'Equipment', attacks: 0, power: 0, damage: 0, effects: 'Faith', description: 'Religious icon for morale' }
-            ],
-            specialActions: [
-                // Arc Rangers
-                { name: 'Jump Boost', faction: 'Arc Rangers', description: 'Uses jet pack to boost 6 inches. Ignores terrain.', effects: 'Dangerous terrain test required', maxUses: 1, type: 'Movement' },
-                { name: 'Tactical Scanner', faction: 'Arc Rangers', description: 'Reveal enemy positions and weaknesses.', effects: 'Squad +1 to hit this turn', maxUses: 2, type: 'Support' },
-                { name: 'Suppressing Fire', faction: 'Arc Rangers', description: 'Pin enemy units with sustained fire.', effects: 'Enemy -1 movement this turn', maxUses: 3, type: 'Combat' },
-                { name: 'Emergency Evac', faction: 'Arc Rangers', description: 'Rapid extraction from danger zone.', effects: 'Remove from danger', maxUses: 1, type: 'Movement' },
-                { name: 'Overwatch Protocol', faction: 'Arc Rangers', description: 'Enhanced defensive reaction fire.', effects: 'Free interrupt shot', maxUses: 2, type: 'Defense' },
-                { name: 'Medic Stabilize', faction: 'Arc Rangers', description: 'Advanced field medicine.', effects: 'Restore D3 health to ally', maxUses: 2, type: 'Support' },
-                // Space-Wyrm
-                { name: 'Solar Frenzy', faction: 'Space-Wyrm', description: 'Channel Sun God wrath for extra attacks.', effects: '+2 attacks, risk Overheating', maxUses: 2, type: 'Combat' },
-                { name: 'Divine Vision', faction: 'Space-Wyrm', description: 'Heat-induced prophetic guidance.', effects: 'Re-roll one failed test', maxUses: 1, type: 'Support' },
-                { name: 'Hatchery Rage', faction: 'Space-Wyrm', description: 'Primal berserker fury from hatchery memories.', effects: '+3 attacks, -1 defense for 2 turns', maxUses: 1, type: 'Combat' },
-                { name: 'Solar Surge', faction: 'Space-Wyrm', description: 'Overload solar cells for power boost.', effects: '+1 to all solar weapons this turn', maxUses: 2, type: 'Combat' },
-                { name: 'Zealot\'s Prayer', faction: 'Space-Wyrm', description: 'Invoke Sun God protection.', effects: 'Ignore next wound on Grit test', maxUses: 2, type: 'Defense' },
-                { name: 'Thermal Vent', faction: 'Space-Wyrm', description: 'Emergency heat dissipation.', effects: 'Remove Overheating status', maxUses: 3, type: 'Support' }
-            ],
-            starterSquads: [
-                // Arc Rangers Squads
-                {
-                    name: 'Arc Rangers - Quick Strike',
-                    faction: 'Arc Rangers',
-                    difficulty: 'easy',
-                    points: 30,
-                    description: 'Fast 2-model team perfect for learning the basics of mobility and shooting.',
-                    models: [
-                        { preset: 'Arc Ranger', count: 2 }
-                    ]
-                },
-                {
-                    name: 'Arc Rangers - Balanced Force',
-                    faction: 'Arc Rangers',
-                    difficulty: 'medium',
-                    points: 60,
-                    description: 'Well-rounded 3-model squad with a leader and support troops.',
-                    models: [
-                        { preset: 'Veteran Captain', count: 1 },
-                        { preset: 'Arc Ranger', count: 2 }
-                    ]
-                },
-                {
-                    name: 'Arc Rangers - Full Squad',
-                    faction: 'Arc Rangers',
-                    difficulty: 'hard',
-                    points: 100,
-                    description: 'Elite 5-model tactical team with specialized roles.',
-                    models: [
-                        { preset: 'Veteran Captain', count: 1 },
-                        { preset: 'Arc Ranger', count: 2 },
-                        { preset: 'Scout Ranger', count: 1 },
-                        { preset: 'Medic Ranger', count: 1 }
-                    ]
-                },
-                // Space-Wyrm Squads
-                {
-                    name: 'Space-Wyrm - Raiding Party',
-                    faction: 'Space-Wyrm',
-                    difficulty: 'easy',
-                    points: 32,
-                    description: 'Aggressive 2-model melee-focused starter team.',
-                    models: [
-                        { preset: 'Wyrm Zealot', count: 1 },
-                        { preset: 'Wyrm Hatchling', count: 1 }
-                    ]
-                },
-                {
-                    name: 'Space-Wyrm - Sun Hunters',
-                    faction: 'Space-Wyrm',
-                    difficulty: 'medium',
-                    points: 65,
-                    description: 'Zealot war band with priest leadership and devotees.',
-                    models: [
-                        { preset: 'Solar Priest', count: 1 },
-                        { preset: 'Wyrm Zealot', count: 1 }
-                    ]
-                },
-                {
-                    name: 'Space-Wyrm - Temple Warband',
-                    faction: 'Space-Wyrm',
-                    difficulty: 'hard',
-                    points: 105,
-                    description: 'Full religious war party with mixed tactics.',
-                    models: [
-                        { preset: 'Solar Priest', count: 1 },
-                        { preset: 'Wyrm Zealot', count: 1 },
-                        { preset: 'Wyrm Brute', count: 1 },
-                        { preset: 'Wyrm Hunter', count: 1 }
-                    ]
-                },
-                // Kippin Squads (Coming in future update - placeholders for now)
-                {
-                    name: 'Kippin - Scout Duo',
-                    faction: 'Kippin',
-                    difficulty: 'easy',
-                    points: 30,
-                    description: 'Fast-moving infiltration team. (Full rules coming soon)',
-                    models: [] // Will be populated when Kippin models are added
-                },
-                {
-                    name: 'Kippin - Tech Raiders',
-                    faction: 'Kippin',
-                    difficulty: 'medium',
-                    points: 60,
-                    description: 'Engineering specialists with custom weapons. (Full rules coming soon)',
-                    models: []
-                },
-                {
-                    name: 'Kippin - Underground Cell',
-                    faction: 'Kippin',
-                    difficulty: 'hard',
-                    points: 100,
-                    description: 'Complete rebel squad with varied tactics. (Full rules coming soon)',
-                    models: []
-                }
-            ]
-        };
-
-        // Now that gameDataHardcoded is defined, set the fallback
-        gameData = gameDataHardcoded;
+        // No hardcoded fallback data — all game data comes from Firebase via XLSX upload
 
         // ═══════════════════════════════════════════
         // Tooltip System — hover info for traits, conditions, actions
@@ -4020,7 +3801,7 @@
                              || gameData.traits.find(function(tr) { return tr.name && tr.name.toLowerCase().replace(/\s*\(\w+\)/g, '').replace(/s$/, '').trim() === normTrait; });
                     if (match) desc = match.description || '';
                 }
-                // Fallback to hardcoded glossary
+                // Fallback glossary
                 if (!desc) desc = WEAPON_TRAIT_GLOSSARY[trait] || '';
                 if (desc) {
                     return '<span class="so-tt" data-tt-title="' + trait + '" data-tt-body="' + desc.replace(/"/g, '&quot;') + '">' + trait + '</span>';
@@ -4096,7 +3877,7 @@
                 found = gameData.equipment.find(function(e) { return _normName(e.name) === norm; });
                 if (found) return found;
             }
-            // Fallback: equipment-type weapons from hardcoded data
+            // Fallback: equipment-type weapons from game data
             var weapons = gameData.weapons || [];
             return weapons.find(function(w) { return w.name === name && w.type === 'Equipment'; }) || null;
         }
@@ -4470,35 +4251,18 @@
             alert("Firebase initialization failed. Please check the console.");
         }
 
-        // Fetch game data (Firebase > CSV URLs > hardcoded fallback)
-        // Merge with hardcoded so missing categories still work
+        // Fetch game data from Firebase
         fetchGameData().then(function(fetchedData) {
             if (fetchedData) {
-                var merged = Object.assign({}, gameDataHardcoded);
+                gameData = {};
                 Object.keys(fetchedData).forEach(function(k) {
                     if (k !== 'lastUpdated' && k !== 'updatedBy' && fetchedData[k]) {
-                        // For factions: merge per-item so hardcoded colors/lore are preserved
-                        if (k === 'factions' && Array.isArray(fetchedData[k]) && Array.isArray(merged[k])) {
-                            var fbFactions = fetchedData[k];
-                            merged[k] = merged[k].map(function(hc) {
-                                var fb = fbFactions.find(function(f) { return f.name === hc.name; });
-                                return fb ? Object.assign({}, hc, fb) : hc;
-                            });
-                            // Add any Firebase factions not in hardcoded
-                            fbFactions.forEach(function(fb) {
-                                if (!merged[k].find(function(m) { return m.name === fb.name; })) {
-                                    merged[k].push(fb);
-                                }
-                            });
-                        } else {
-                            merged[k] = fetchedData[k];
-                        }
+                        gameData[k] = fetchedData[k];
                     }
                 });
-                gameData = merged;
-                console.log('Game data loaded (remote + fallback merge)');
+                console.log('Game data loaded from Firebase');
             } else {
-                console.log('Using hardcoded fallback data');
+                console.log('No game data available — upload XLSX via admin panel');
             }
         });
 
@@ -4718,14 +4482,14 @@
                 document.getElementById('_rlBtn').onclick = async function() {
                     var data = await fetchGameData();
                     if (data) { gameData = data; alert('Game data reloaded!'); }
-                    else { alert('No remote data. Using hardcoded fallback.'); }
+                    else { alert('No game data found. Upload XLSX via admin panel.'); }
                 };
                 document.getElementById('_cpBtn').onclick = function() { _removeModal(); _showChangePw(); };
                 document.getElementById('_clrBtn').onclick = async function() {
-                    if (!confirm('Clear ALL uploaded game data from Firebase? Tracker will revert to hardcoded data.')) return;
+                    if (!confirm('Clear ALL uploaded game data from Firebase? You will need to re-upload the XLSX file.')) return;
                     await database.ref('gameData').remove();
-                    gameData = gameDataHardcoded;
-                    alert('All game data cleared.');
+                    gameData = null;
+                    alert('All game data cleared. Re-upload XLSX to restore.');
                     _cats.forEach(function(c) { _loadStatus(c.key); });
                 };
             }
@@ -7209,15 +6973,18 @@
             // --- Stats section ---
             var statFields = [
                 { key: 'speed', label: 'SPD' },
-                { key: 'fight', label: 'FGT' },
                 { key: 'shoot', label: 'SHT' },
-                { key: 'defense', label: 'DEF' },
-                { key: 'grit', label: 'GRT' },
+                { key: 'fight', label: 'FGT' },
+                { key: 'defense', label: 'DEF', fallbacks: ['nerve'] },
+                { key: 'grit', label: 'GRT', fallbacks: ['nerve'] },
                 { key: 'maxHealth', label: 'HP' }
             ];
             var statGridHTML = '<div class="tb-edit-stat-grid">';
             statFields.forEach(function(sf) {
                 var val = char[sf.key] || '';
+                if (!val && sf.fallbacks) {
+                    sf.fallbacks.forEach(function(fb) { if (!val) val = char[fb] || ''; });
+                }
                 if (!val && val !== 0) return;
                 statGridHTML += '<div class="tb-edit-stat-cell">' +
                     '<label>' + sf.label + '</label>' +
@@ -7856,34 +7623,30 @@ teamHTML += `
                         <div class="model-stat-value">${char.speed}</div>
                     </div>
                 ` : ''}
-                ${char.fight ? `
-                    <div class="model-stat-box">
-                        <div class="model-stat-label">Fight</div>
-                        <div class="model-stat-value">${char.fight}</div>
-                    </div>
-                ` : ''}
                 ${char.shoot ? `
                     <div class="model-stat-box">
                         <div class="model-stat-label">Shoot</div>
                         <div class="model-stat-value">${char.shoot}</div>
                     </div>
                 ` : ''}
-                ${char.defense ? `
+                ${char.fight ? `
+                    <div class="model-stat-box">
+                        <div class="model-stat-label">Fight</div>
+                        <div class="model-stat-value">${char.fight}</div>
+                    </div>
+                ` : ''}
+                ${(char.defense || char.nerve) ? `
                     <div class="model-stat-box">
                         <div class="model-stat-label">Defense</div>
-                        <div class="model-stat-value">${char.defense}</div>
+                        <div class="model-stat-value">${char.defense || char.nerve || ''}</div>
                     </div>
                 ` : ''}
-                ${char.grit ? `
+                ${(char.grit || char.nerve) ? `
                     <div class="model-stat-box">
                         <div class="model-stat-label">Grit</div>
-                        <div class="model-stat-value">${char.grit}</div>
+                        <div class="model-stat-value">${char.grit || char.nerve || ''}</div>
                     </div>
                 ` : ''}
-                <div class="model-stat-box">
-                    <div class="model-stat-label">Health</div>
-                    <div class="model-stat-value">${char.maxHealth}</div>
-                </div>
                 ${char.firewall && char.firewall !== '-' ? `
                     <div class="model-stat-box">
                         <div class="model-stat-label">Firewall</div>
@@ -8785,8 +8548,8 @@ teamHTML += `
             if (model.speed) parts.push('SPD ' + model.speed);
             if (model.shoot && model.shoot !== '-') parts.push('SHT ' + model.shoot);
             if (model.fight && model.fight !== '-') parts.push('FGT ' + model.fight);
-            if (model.defense) parts.push('DEF ' + model.defense);
-            if (model.grit) parts.push('GRT ' + model.grit);
+            if (model.defense || model.nerve) parts.push('DEF ' + (model.defense || model.nerve));
+            if (model.grit || model.nerve) parts.push('GRT ' + (model.grit || model.nerve));
             if (model.health) parts.push('HP ' + model.health);
             if (model.firewall && model.firewall !== '-') parts.push('FW ' + model.firewall);
             return parts.join('  ');
@@ -8796,16 +8559,14 @@ teamHTML += `
             var hpVal = hp || model.health || '';
             var stats = [
                 { label: 'Speed', val: model.speed },
-                { label: 'Fight', val: model.fight && model.fight !== '-' ? model.fight : null },
                 { label: 'Shoot', val: model.shoot && model.shoot !== '-' ? model.shoot : null },
-                { label: 'Defense', val: model.defense },
-                { label: 'Grit', val: model.grit }
+                { label: 'Fight', val: model.fight && model.fight !== '-' ? model.fight : null },
+                { label: 'Defense', val: model.defense || model.nerve || null },
+                { label: 'Grit', val: model.grit || model.nerve || null },
+                { label: 'Health', val: hpVal || null }
             ].filter(function(s) { return s.val; });
             if (stats.length === 0) return '';
             var html = '<div class="tb-stat-block">';
-            if (hpVal) {
-                html += '<div class="tb-hp-row"><span class="tb-hp-label">HEALTH</span><span class="tb-hp-val">' + hpVal + '</span></div>';
-            }
             html += '<div class="tb-stat-grid">';
             stats.forEach(function(s) {
                 html += '<div class="tb-stat-cell"><div class="tb-stat-label">' + s.label + '</div><div class="tb-stat-val">' + s.val + '</div></div>';
@@ -8840,9 +8601,9 @@ teamHTML += `
         function getAvailableWeapons(faction, isMelee) {
             var weapons = gameData.weapons || [];
             return weapons.filter(function(w) {
-                // Skip equipment-type items from hardcoded data
+                // Skip equipment-type items
                 if (w.type === 'Equipment') return false;
-                // Filter by melee vs ranged — handle both CSV schema (range) and hardcoded (type)
+                // Filter by melee vs ranged
                 if (w.range) {
                     return isMelee ? w.range === 'Melee' : w.range !== 'Melee';
                 }
@@ -8866,7 +8627,7 @@ teamHTML += `
                     return et === '' || et.indexOf('operator') !== -1 || et.indexOf('cyberdeck') !== -1;
                 });
             }
-            // Fallback: equipment-type weapons from hardcoded data
+            // Fallback: equipment-type weapons from game data
             return (gameData.weapons || []).filter(function(w) {
                 return w.type === 'Equipment' && (!w.faction || w.faction === faction);
             });
@@ -9164,10 +8925,10 @@ teamHTML += `
             // --- Stats section ---
             var statFields = [
                 { key: 'speed', label: 'SPD' },
-                { key: 'fight', label: 'FGT' },
                 { key: 'shoot', label: 'SHT' },
-                { key: 'defense', label: 'DEF' },
-                { key: 'grit', label: 'GRT' },
+                { key: 'fight', label: 'FGT' },
+                { key: 'defense', label: 'DEF', fallbacks: ['nerve'] },
+                { key: 'grit', label: 'GRT', fallbacks: ['nerve'] },
                 { key: 'health', label: 'HP' },
                 { key: 'firewall', label: 'FW' }
             ];
@@ -9177,6 +8938,12 @@ teamHTML += `
             statFields.forEach(function(sf) {
                 var val = model.stats ? (model.stats[sf.key] || '') : (model[sf.key] || '');
                 var baseVal = baseStats[sf.key] || '';
+                if (!val && sf.fallbacks) {
+                    sf.fallbacks.forEach(function(fb) {
+                        if (!val) val = model.stats ? (model.stats[fb] || '') : (model[fb] || '');
+                        if (!baseVal) baseVal = baseStats[fb] || '';
+                    });
+                }
                 if (val === '-' && !baseVal) return; // skip fields like firewall='-'
                 if (!val && !baseVal) return;
                 var modified = String(val) !== String(baseVal) && baseVal !== '';
@@ -9992,16 +9759,16 @@ teamHTML += `
                                     <div class="model-stat-value">${model.shoot}</div>
                                 </div>
                             ` : ''}
-                            ${model.defense ? `
+                            ${(model.defense || model.nerve) ? `
                                 <div class="model-stat-box">
                                     <div class="model-stat-label">Defense</div>
-                                    <div class="model-stat-value">${model.defense}</div>
+                                    <div class="model-stat-value">${model.defense || model.nerve}</div>
                                 </div>
                             ` : ''}
-                            ${model.grit ? `
+                            ${(model.grit || model.nerve) ? `
                                 <div class="model-stat-box">
                                     <div class="model-stat-label">Grit</div>
-                                    <div class="model-stat-value">${model.grit}</div>
+                                    <div class="model-stat-value">${model.grit || model.nerve}</div>
                                 </div>
                             ` : ''}
                             <div class="model-stat-box">
@@ -10388,7 +10155,8 @@ teamHTML += `
                                     shoot: model.shoot || '4+',
                                     fight: model.fight || '4+',
                                     defense: model.defense || '',
-                                    grit: model.grit || '4+',
+                                    grit: model.grit || '',
+                                    nerve: model.nerve || model.grit || model.defense || '',
                                     firewall: model.firewall || '',
                                     portrait: model.portrait || '',
                                     color: model.color || '',
@@ -10674,7 +10442,14 @@ teamHTML += `
             function getStat(model, key, fallbackKey) {
                 if (model.stats && model.stats[key]) return String(model.stats[key]);
                 if (model[key]) return String(model[key]);
-                if (fallbackKey && model[fallbackKey]) return String(model[fallbackKey]);
+                if (Array.isArray(fallbackKey)) {
+                    for (var fi = 0; fi < fallbackKey.length; fi++) {
+                        if (model.stats && model.stats[fallbackKey[fi]]) return String(model.stats[fallbackKey[fi]]);
+                        if (model[fallbackKey[fi]]) return String(model[fallbackKey[fi]]);
+                    }
+                } else if (fallbackKey && model[fallbackKey]) {
+                    return String(model[fallbackKey]);
+                }
                 return '';
             }
 
@@ -10708,10 +10483,10 @@ teamHTML += `
                 doc.text(hp, cx + cardW - pad - hbW / 2, y + 7, { align: 'center' });
                 y += 12;
 
-                // --- Stat boxes: SPEED, FIGHT, SHOOT, DEFENSE, GRIT ---
-                var statLabels = ['SPEED', 'FIGHT', 'SHOOT', 'DEFENSE', 'GRIT'];
-                var statKeys = ['speed', 'fight', 'shoot', 'defense', 'grit'];
-                var statFallbacks = [null, null, null, null, null];
+                // --- Stat boxes: SPEED, SHOOT, FIGHT, DEFENSE, GRIT ---
+                var statLabels = ['SPEED', 'SHOOT', 'FIGHT', 'DEFENSE', 'GRIT'];
+                var statKeys = ['speed', 'shoot', 'fight', 'defense', 'grit'];
+                var statFallbacks = [null, null, null, ['nerve'], ['nerve']];
                 var numStats = statLabels.length;
                 var boxW = (cardW - pad * 2 - (numStats - 1) * 2) / numStats;
                 var boxH = 10;
