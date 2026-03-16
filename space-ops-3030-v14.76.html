@@ -786,6 +786,34 @@
             letter-spacing: 0.5px;
         }
 
+        .tb-hp-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+            padding: 4px 10px;
+            background: var(--black, #1a1a1a);
+            border-radius: 4px 4px 0 0;
+            border: 1.5px solid var(--black, #1a1a1a);
+            border-bottom: none;
+        }
+        .tb-hp-label {
+            font-family: var(--font-heading);
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--off-white, #f5f0e8);
+            letter-spacing: 1px;
+        }
+        .tb-hp-val {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--off-white, #f5f0e8);
+        }
+        .tb-hp-row + .tb-stat-grid {
+            margin-top: 0;
+            border-radius: 0 0 4px 4px;
+        }
         .tb-stat-grid {
             display: flex;
             gap: 0;
@@ -8819,7 +8847,8 @@ teamHTML += `
             return parts.join('  ');
         }
 
-        function _modelStatGrid(model) {
+        function _modelStatGrid(model, hp) {
+            var hpVal = hp || model.health || '';
             var stats = [
                 { label: 'Speed', val: model.speed },
                 { label: 'Fight', val: model.fight && model.fight !== '-' ? model.fight : null },
@@ -8828,7 +8857,11 @@ teamHTML += `
                 { label: 'Grit', val: model.grit }
             ].filter(function(s) { return s.val; });
             if (stats.length === 0) return '';
-            var html = '<div class="tb-stat-grid">';
+            var html = '';
+            if (hpVal) {
+                html += '<div class="tb-hp-row"><span class="tb-hp-label">HEALTH</span><span class="tb-hp-val">' + hpVal + '</span></div>';
+            }
+            html += '<div class="tb-stat-grid">';
             stats.forEach(function(s) {
                 html += '<div class="tb-stat-cell"><div class="tb-stat-label">' + s.label + '</div><div class="tb-stat-val">' + s.val + '</div></div>';
             });
@@ -9089,7 +9122,8 @@ teamHTML += `
 
         function _renderCollapsedCard(model, fColor) {
             var role = _modelRole(model);
-            var statGrid = _modelStatGrid(model.stats || model);
+            var hp = model.stats ? model.stats.health || model.health : model.health;
+            var statGrid = _modelStatGrid(model.stats || model, hp);
             var displayName = model.customName || model.name;
             var weaponNames = (model.weapons || []).map(function(w) { return wrapWeaponWithTooltip(w); }).filter(Boolean).join(', ');
             var gearNames = (model.inventory || []).map(function(g) { return wrapEquipWithTooltip(g); }).join(', ');
@@ -9101,7 +9135,6 @@ teamHTML += `
                     '<div class="tb-roster-name">' + displayName + '</div>' +
                     '<div style="display:flex;align-items:center;gap:6px;">' +
                         '<span style="font-size:13px;font-weight:700;color:var(--text-secondary);">' + (model.points || '\u2014') + ' pts' + deltaStr + '</span>' +
-                        '<span style="font-size:12px;color:var(--text-muted);">HP ' + (model.stats ? model.stats.health || model.health : model.health) + '</span>' +
                         '<button class="tb-edit-btn" onclick="toggleModelEdit(' + model.id + ')">Edit</button>' +
                         '<button class="tb-remove-btn" onclick="removeModelFromTeam(' + model.id + ')">&#10005;</button>' +
                     '</div>' +
