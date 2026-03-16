@@ -1,0 +1,6 @@
+Name,Faction,Type,Speed,Shoot,Fight,Nerve,Health,Points,Portrait,Description
+Veteran Captain,Arc Rangers,Captain,8,3+,4+,3+,20,40,https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg,Experienced leader with tactical expertise
+Arc Ranger,Arc Rangers,Trooper,8,4+,5+,4+,15,15,https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg,Standard operative with balanced capabilities
+Scout Ranger,Arc Rangers,Specialist,10,4+,5+,3+,12,18,https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg,Fast reconnaissance specialist
+Solar Priest,Space-Wyrm,Leader,5,4+,3+,2+,22,45,https://via.placeholder.com/100,High-ranking religious commander
+Wyrm Zealot,Space-Wyrm,Warrior,6,4+,3+,2+,18,20,https://via.placeholder.com/100,Fanatical Sun God devotee

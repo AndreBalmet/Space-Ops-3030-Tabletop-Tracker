@@ -1,0 +1,2560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space-Ops 3030 — Node Editor</title>
+    <style>
+        /* ===== EDITOR SHELL ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            display: grid;
+            grid-template-rows: 48px 1fr;
+            grid-template-columns: 1fr;
+            height: 100vh;
+            background: #111;
+            color: #ccc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        /* ===== TOOLBAR ===== */
+        .toolbar {
+            grid-column: 1 / -1;
+            background: #0a0a0a;
+            border-bottom: 2px solid #db8f00;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .toolbar-title {
+            color: #db8f00;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .toolbar-divider {
+            width: 1px;
+            height: 24px;
+            background: #333;
+        }
+
+        .toolbar-node-name {
+            color: #4299e1;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .toolbar-node-name:empty { display: none; }
+        .toolbar-node-name:empty + .toolbar-divider { display: none; }
+
+        .toolbar-status {
+            flex: 1;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .toolbar-status.has-changes { color: #db8f00; }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .toolbar-btn {
+            padding: 6px 14px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #1a1a1a;
+            color: #ccc;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .toolbar-btn:hover { background: #2a2a2a; border-color: #666; }
+        .toolbar-btn.primary { border-color: #db8f00; color: #db8f00; }
+        .toolbar-btn.primary:hover { background: #db8f00; color: #000; }
+        .toolbar-btn.danger { border-color: #ff4444; color: #ff4444; }
+        .toolbar-btn.danger:hover { background: #ff4444; color: #fff; }
+        .toolbar-btn.preview-btn { border-color: #4CAF50; color: #4CAF50; }
+        .toolbar-btn.preview-btn:hover { background: #4CAF50; color: #fff; }
+        .toolbar-btn.fit-btn { border-color: #9f7aea; color: #9f7aea; }
+        .toolbar-btn.fit-btn:hover { background: #9f7aea; color: #fff; }
+
+        .zoom-indicator {
+            color: #555;
+            font-size: 11px;
+            min-width: 40px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* ===== MAIN CONTENT AREA ===== */
+        .main-content {
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ===== CANVAS ===== */
+        .canvas-container {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            background: #0d0d0d;
+            cursor: grab;
+            /* Dot grid background */
+            background-image: radial-gradient(circle, #1a1a1a 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        .canvas-container.panning { cursor: grabbing; }
+
+        .canvas-world {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: 0 0;
+        }
+
+        /* ===== NODES ===== */
+        .canvas-node {
+            position: absolute;
+            width: 180px;
+            min-height: 80px;
+            background: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 10px;
+            cursor: pointer;
+            user-select: none;
+            transition: box-shadow 0.2s, border-color 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 10px;
+            gap: 6px;
+        }
+
+        .canvas-node:hover {
+            border-color: #666;
+            box-shadow: 0 0 20px rgba(255,255,255,0.05);
+        }
+
+        .canvas-node.selected {
+            border-color: #4299e1 !important;
+            box-shadow: 0 0 30px rgba(66, 153, 225, 0.3);
+        }
+
+        .canvas-node.expanded {
+            border-color: #db8f00 !important;
+            box-shadow: 0 0 30px rgba(219, 143, 0, 0.4);
+        }
+
+        /* Node type colors */
+        .canvas-node.type-page { border-color: #db8f00; }
+        .canvas-node.type-tab { border-color: #4CAF50; }
+        .canvas-node.type-modal { border-color: #9f7aea; }
+        .canvas-node.type-view { border-color: #4299e1; }
+
+        .node-icon {
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        .type-page .node-icon { color: #db8f00; }
+        .type-tab .node-icon { color: #4CAF50; }
+        .type-modal .node-icon { color: #9f7aea; }
+        .type-view .node-icon { color: #4299e1; }
+
+        .node-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #ddd;
+            text-align: center;
+            line-height: 1.3;
+        }
+
+        .node-type-badge {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        /* ===== SVG CONNECTIONS ===== */
+        .connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .connection-line {
+            fill: none;
+            stroke: #333;
+            stroke-width: 2;
+        }
+
+        .connection-line.type-nav { stroke: #db8f00; stroke-opacity: 0.5; }
+        .connection-line.type-tab { stroke: #4CAF50; stroke-opacity: 0.4; }
+        .connection-line.type-modal { stroke: #9f7aea; stroke-opacity: 0.4; }
+        .connection-line.type-tool { stroke: #4299e1; stroke-opacity: 0.4; }
+
+        .connection-arrow {
+            fill: #555;
+        }
+
+        .connection-label {
+            font-size: 10px;
+            fill: #555;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        /* ===== EXPANDED NODE VIEW ===== */
+        .expanded-view {
+            width: 0;
+            overflow: hidden;
+            background: #222;
+            border-left: 2px solid #333;
+            transition: width 0.25s ease;
+            position: relative;
+        }
+
+        .expanded-view.open {
+            width: 45%;
+            min-width: 400px;
+        }
+
+        .expanded-view .expanded-header {
+            background: #141414;
+            border-bottom: 2px solid #db8f00;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .expanded-header .node-title {
+            color: #db8f00;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .expanded-header .close-btn {
+            background: none;
+            border: 1px solid #555;
+            color: #888;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .expanded-header .close-btn:hover { background: #333; color: #fff; }
+
+        .expanded-iframe-wrap {
+            width: 100%;
+            height: calc(100% - 44px);
+            overflow: auto;
+        }
+
+        .expanded-iframe-wrap iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            min-height: 100%;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 0;
+            overflow: hidden;
+            background: #0a0a0a;
+            border-left: 2px solid #333;
+            transition: width 0.25s ease;
+        }
+
+        .sidebar.open {
+            width: 340px;
+            min-width: 340px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-track { background: #0a0a0a; }
+        .sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        .sidebar::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        .sidebar-empty {
+            padding: 30px 20px;
+            text-align: center;
+            color: #555;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .sidebar-empty .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.3; }
+
+        /* Sidebar Sections */
+        .sidebar-section { border-bottom: 1px solid #222; }
+
+        .section-header {
+            background: #141414;
+            color: #db8f00;
+            padding: 10px 15px;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .section-header:hover { background: #1a1a1a; }
+
+        .section-header .chevron {
+            font-size: 10px;
+            transition: transform 0.2s;
+            color: #555;
+        }
+
+        .section-header.open .chevron { transform: rotate(90deg); color: #db8f00; }
+
+        .section-body {
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+
+        .section-body.open {
+            padding: 12px 15px;
+            max-height: 2000px;
+        }
+
+        /* Property Rows */
+        .prop-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .prop-label {
+            color: #777;
+            font-size: 11px;
+            min-width: 75px;
+            flex-shrink: 0;
+        }
+
+        .prop-input {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 5px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            min-width: 0;
+        }
+
+        .prop-input:focus { border-color: #db8f00; outline: none; }
+
+        .prop-select {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 5px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            min-width: 0;
+        }
+
+        .prop-select:focus { border-color: #db8f00; outline: none; }
+
+        .prop-color-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+        }
+
+        .prop-color {
+            width: 32px;
+            height: 28px;
+            border: 1px solid #444;
+            border-radius: 3px;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+            flex-shrink: 0;
+        }
+
+        .prop-color::-webkit-color-swatch-wrapper { padding: 2px; }
+        .prop-color::-webkit-color-swatch { border: none; border-radius: 2px; }
+
+        .prop-unit {
+            width: 50px;
+            flex-shrink: 0;
+        }
+
+        /* Info section special styles */
+        .info-value {
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        .info-value.muted { color: #555; }
+
+        .breadcrumb {
+            color: #555;
+            font-size: 10px;
+            font-family: 'Courier New', monospace;
+            padding: 6px 0;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .selector-input {
+            width: 100%;
+            background: #1a1a1a;
+            border: 1px solid #db8f00;
+            color: #db8f00;
+            padding: 6px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            margin-top: 4px;
+        }
+
+        .selector-input:focus { outline: none; border-color: #FFD700; }
+
+        /* Toggle Button Group */
+        .btn-group {
+            display: flex;
+            gap: 2px;
+        }
+
+        .btn-group button {
+            flex: 1;
+            padding: 4px 8px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #777;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-group button:first-child { border-radius: 3px 0 0 3px; }
+        .btn-group button:last-child { border-radius: 0 3px 3px 0; }
+        .btn-group button.active { background: #db8f00; color: #000; border-color: #db8f00; }
+        .btn-group button:hover:not(.active) { background: #2a2a2a; }
+
+        /* Spacing Box Model */
+        .spacing-box {
+            position: relative;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 24px 30px;
+            margin: 4px 0;
+        }
+
+        .spacing-box .box-label {
+            position: absolute;
+            font-size: 9px;
+            color: #555;
+            text-transform: uppercase;
+        }
+
+        .spacing-box .box-label.top-label { top: 2px; left: 50%; transform: translateX(-50%); }
+        .spacing-box .box-label.bottom-label { bottom: 2px; left: 50%; transform: translateX(-50%); }
+
+        .spacing-box .spacing-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .spacing-input {
+            width: 40px;
+            text-align: center;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 3px;
+            border-radius: 2px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .spacing-input:focus { border-color: #db8f00; outline: none; }
+
+        .spacing-inner {
+            border: 1px dashed #444;
+            padding: 8px 16px;
+            border-radius: 3px;
+            text-align: center;
+        }
+
+        .spacing-inner .inner-label {
+            font-size: 9px;
+            color: #555;
+            text-transform: uppercase;
+        }
+
+        /* Color swatches */
+        .color-swatches {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .color-swatch {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid #444;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .color-swatch:hover { transform: scale(1.2); border-color: #fff; }
+
+        /* Reset button */
+        .reset-btn {
+            width: 100%;
+            padding: 8px;
+            background: transparent;
+            border: 1px solid #ff4444;
+            color: #ff4444;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-top: 8px;
+            transition: all 0.2s;
+        }
+
+        .reset-btn:hover { background: #ff4444; color: #fff; }
+
+        /* Position offsets */
+        .position-offsets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 6px;
+            padding: 8px;
+            background: #141414;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        .offset-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .offset-label {
+            color: #666;
+            font-size: 10px;
+            min-width: 32px;
+            text-transform: uppercase;
+        }
+
+        .offset-input {
+            width: 100%;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 4px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .offset-input:focus { border-color: #db8f00; outline: none; }
+
+        /* ===== FILE PICKER OVERLAY ===== */
+        .file-picker-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .file-picker-box {
+            background: #1a1a1a;
+            border: 2px solid #db8f00;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .file-picker-box h2 { color: #db8f00; margin-bottom: 12px; }
+        .file-picker-box p { color: #888; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
+
+        .file-picker-btn {
+            padding: 12px 30px;
+            background: #db8f00;
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .file-picker-btn:hover { background: #FFD700; }
+
+        /* ===== LEGEND ===== */
+        .canvas-legend {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(10,10,10,0.9);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px 14px;
+            display: flex;
+            gap: 16px;
+            z-index: 10;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            color: #777;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            border: 2px solid;
+        }
+
+        .legend-dot.page { border-color: #db8f00; }
+        .legend-dot.tab { border-color: #4CAF50; }
+        .legend-dot.modal { border-color: #9f7aea; }
+        .legend-dot.view { border-color: #4299e1; }
+
+        /* ===== CANVAS INSTRUCTIONS OVERLAY ===== */
+        .canvas-instructions {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10,10,10,0.85);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 8px 16px;
+            color: #666;
+            font-size: 11px;
+            z-index: 10;
+            white-space: nowrap;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        .canvas-instructions kbd {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 10px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+        <div class="toolbar-title">Space-Ops 3030</div>
+        <div class="toolbar-divider"></div>
+        <div class="toolbar-node-name" id="toolbarNodeName"></div>
+        <div class="toolbar-status" id="statusBar">Double-click a node to edit its content</div>
+        <div class="toolbar-actions">
+            <span class="zoom-indicator" id="zoomIndicator">100%</span>
+            <button class="toolbar-btn fit-btn" onclick="fitToView()" title="F">Fit</button>
+            <button class="toolbar-btn preview-btn" onclick="togglePreview()">Preview ↗</button>
+            <button class="toolbar-btn" onclick="undoLast()" title="Ctrl+Z">Undo</button>
+            <button class="toolbar-btn danger" onclick="undoAll()">Undo All</button>
+            <button class="toolbar-btn primary" onclick="exportCleanHTML()" title="Ctrl+S">Export HTML</button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <!-- CANVAS -->
+        <div class="canvas-container" id="canvasContainer">
+            <div class="canvas-world" id="canvasWorld">
+                <svg class="connections-svg" id="connectionsSvg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                            <polygon points="0 0, 8 3, 0 6" class="connection-arrow" />
+                        </marker>
+                    </defs>
+                </svg>
+                <!-- Nodes rendered by JS -->
+            </div>
+
+            <div class="canvas-legend">
+                <div class="legend-item"><div class="legend-dot page"></div> Page</div>
+                <div class="legend-item"><div class="legend-dot tab"></div> Tab</div>
+                <div class="legend-item"><div class="legend-dot modal"></div> Modal</div>
+                <div class="legend-item"><div class="legend-dot view"></div> View</div>
+            </div>
+
+            <div class="canvas-instructions" id="canvasInstructions">
+                <kbd>Scroll</kbd> zoom · <kbd>Drag</kbd> pan · <kbd>Click</kbd> select · <kbd>Double-click</kbd> edit · <kbd>Esc</kbd> back
+            </div>
+        </div>
+
+        <!-- EXPANDED NODE VIEW -->
+        <div class="expanded-view" id="expandedView">
+            <div class="expanded-header">
+                <span class="node-title" id="expandedTitle">--</span>
+                <button class="close-btn" onclick="closeExpandedView()">✕ Close</button>
+            </div>
+            <div class="expanded-iframe-wrap">
+                <iframe id="previewFrame"></iframe>
+            </div>
+        </div>
+
+        <!-- SIDEBAR -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-empty" id="sidebarEmpty">
+                <div class="icon">🎯</div>
+                Click any element in the<br>expanded view to edit its styles
+            </div>
+            <div id="sidebarContent" style="display: none;">
+
+                <!-- Section 1: Element Info -->
+                <div class="sidebar-section">
+                    <div class="section-header open" onclick="toggleSection(this)">
+                        Element Info <span class="chevron">▶</span>
+                    </div>
+                    <div class="section-body open">
+                        <div class="prop-row">
+                            <span class="prop-label">Tag</span>
+                            <span class="info-value" id="infoTag">--</span>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">ID</span>
+                            <span class="info-value" id="infoId">--</span>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Classes</span>
+                            <span class="info-value" id="infoClasses">--</span>
+                        </div>
+                        <div>
+                            <span class="prop-label">Selector</span>
+                            <input type="text" class="selector-input" id="infoSelector"
+                                   onchange="updateSelector(this.value)" />
+                        </div>
+                        <div class="breadcrumb" id="infoBreadcrumb">--</div>
+                        <button class="reset-btn" onclick="resetElement()">Reset Element</button>
+                    </div>
+                </div>
+
+                <!-- Section 2: Typography -->
+                <div class="sidebar-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        Typography <span class="chevron">▶</span>
+                    </div>
+                    <div class="section-body" id="typographyBody">
+                        <div class="prop-row">
+                            <span class="prop-label">Font</span>
+                            <select class="prop-select" id="propFontFamily" onchange="applyProp('font-family', this.value)">
+                                <option value="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif">Segoe UI</option>
+                                <option value="Arial, Helvetica, sans-serif">Arial</option>
+                                <option value="'Courier New', monospace">Courier New</option>
+                                <option value="Georgia, serif">Georgia</option>
+                                <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                                <option value="Verdana, Geneva, sans-serif">Verdana</option>
+                                <option value="system-ui, sans-serif">System UI</option>
+                                <option value="monospace">Monospace</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Size</span>
+                            <input type="number" class="prop-input" id="propFontSize" min="1" max="200" step="1"
+                                   onchange="applyProp('font-size', this.value + 'px')" />
+                            <span style="color: #555; font-size: 11px;">px</span>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Weight</span>
+                            <select class="prop-select" id="propFontWeight" onchange="applyProp('font-weight', this.value)">
+                                <option value="100">100 Thin</option>
+                                <option value="200">200</option>
+                                <option value="300">300 Light</option>
+                                <option value="400">400 Normal</option>
+                                <option value="500">500 Medium</option>
+                                <option value="600">600 Semi-Bold</option>
+                                <option value="700">700 Bold</option>
+                                <option value="800">800</option>
+                                <option value="900">900 Black</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Color</span>
+                            <div class="prop-color-wrapper">
+                                <input type="color" class="prop-color" id="propColor"
+                                       onchange="applyProp('color', this.value); document.getElementById('propColorHex').value = this.value;" />
+                                <input type="text" class="prop-input" id="propColorHex" placeholder="#ffffff"
+                                       onchange="applyProp('color', this.value); document.getElementById('propColor').value = this.value;" />
+                            </div>
+                        </div>
+                        <div class="color-swatches" id="textColorSwatches"></div>
+                        <div class="prop-row" style="margin-top: 8px;">
+                            <span class="prop-label">Transform</span>
+                            <select class="prop-select" id="propTextTransform" onchange="applyProp('text-transform', this.value)">
+                                <option value="none">none</option>
+                                <option value="uppercase">UPPERCASE</option>
+                                <option value="lowercase">lowercase</option>
+                                <option value="capitalize">Capitalize</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Spacing</span>
+                            <input type="number" class="prop-input" id="propLetterSpacing" step="0.5"
+                                   onchange="applyProp('letter-spacing', this.value + 'px')" />
+                            <span style="color: #555; font-size: 11px;">px</span>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Line Height</span>
+                            <input type="number" class="prop-input" id="propLineHeight" step="0.1" min="0"
+                                   onchange="applyProp('line-height', this.value)" />
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Align</span>
+                            <div class="btn-group">
+                                <button onclick="applyProp('text-align', 'left')" data-prop="text-align" data-val="left">Left</button>
+                                <button onclick="applyProp('text-align', 'center')" data-prop="text-align" data-val="center">Center</button>
+                                <button onclick="applyProp('text-align', 'right')" data-prop="text-align" data-val="right">Right</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Background -->
+                <div class="sidebar-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        Background <span class="chevron">▶</span>
+                    </div>
+                    <div class="section-body" id="backgroundBody">
+                        <div class="prop-row">
+                            <span class="prop-label">Color</span>
+                            <div class="prop-color-wrapper">
+                                <input type="color" class="prop-color" id="propBgColor"
+                                       onchange="applyProp('background-color', this.value); document.getElementById('propBgColorHex').value = this.value;" />
+                                <input type="text" class="prop-input" id="propBgColorHex" placeholder="#000000"
+                                       onchange="applyProp('background-color', this.value); document.getElementById('propBgColor').value = this.value;" />
+                            </div>
+                        </div>
+                        <div class="color-swatches" id="bgColorSwatches"></div>
+                        <div class="prop-row" style="margin-top: 8px;">
+                            <span class="prop-label">Opacity</span>
+                            <input type="range" id="propOpacity" min="0" max="1" step="0.05" style="flex: 1;"
+                                   onchange="applyProp('opacity', this.value); document.getElementById('opacityVal').textContent = this.value;" />
+                            <span id="opacityVal" style="color: #fff; font-size: 11px; min-width: 30px; text-align: right;">1</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Border -->
+                <div class="sidebar-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        Border <span class="chevron">▶</span>
+                    </div>
+                    <div class="section-body" id="borderBody">
+                        <div class="prop-row">
+                            <span class="prop-label">Width</span>
+                            <input type="number" class="prop-input" id="propBorderWidth" min="0" step="1"
+                                   onchange="applyProp('border-width', this.value + 'px')" />
+                            <span style="color: #555; font-size: 11px;">px</span>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Color</span>
+                            <div class="prop-color-wrapper">
+                                <input type="color" class="prop-color" id="propBorderColor"
+                                       onchange="applyProp('border-color', this.value); document.getElementById('propBorderColorHex').value = this.value;" />
+                                <input type="text" class="prop-input" id="propBorderColorHex" placeholder="#444444"
+                                       onchange="applyProp('border-color', this.value); document.getElementById('propBorderColor').value = this.value;" />
+                            </div>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Style</span>
+                            <select class="prop-select" id="propBorderStyle" onchange="applyProp('border-style', this.value)">
+                                <option value="none">none</option>
+                                <option value="solid">solid</option>
+                                <option value="dashed">dashed</option>
+                                <option value="dotted">dotted</option>
+                                <option value="double">double</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Radius</span>
+                            <input type="number" class="prop-input" id="propBorderRadius" min="0" step="1"
+                                   onchange="applyProp('border-radius', this.value + 'px')" />
+                            <span style="color: #555; font-size: 11px;">px</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 5: Spacing -->
+                <div class="sidebar-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        Spacing <span class="chevron">▶</span>
+                    </div>
+                    <div class="section-body" id="spacingBody">
+                        <div class="spacing-box">
+                            <span class="box-label top-label">MARGIN</span>
+                            <div class="spacing-row">
+                                <input type="number" class="spacing-input" id="propMarginTop"
+                                       onchange="applyProp('margin-top', this.value + 'px')" title="margin-top" />
+                            </div>
+                            <div class="spacing-row" style="margin: 4px 0;">
+                                <input type="number" class="spacing-input" id="propMarginLeft"
+                                       onchange="applyProp('margin-left', this.value + 'px')" title="margin-left" />
+                                <div class="spacing-inner" style="flex: 1;">
+                                    <span class="inner-label">PADDING</span>
+                                    <div class="spacing-row" style="margin-top: 4px;">
+                                        <input type="number" class="spacing-input" id="propPaddingTop"
+                                               onchange="applyProp('padding-top', this.value + 'px')" title="padding-top" />
+                                    </div>
+                                    <div class="spacing-row" style="margin: 4px 0;">
+                                        <input type="number" class="spacing-input" id="propPaddingLeft"
+                                               onchange="applyProp('padding-left', this.value + 'px')" title="padding-left" />
+                                        <div style="padding: 2px 8px; color: #555; font-size: 9px;">ELEMENT</div>
+                                        <input type="number" class="spacing-input" id="propPaddingRight"
+                                               onchange="applyProp('padding-right', this.value + 'px')" title="padding-right" />
+                                    </div>
+                                    <div class="spacing-row">
+                                        <input type="number" class="spacing-input" id="propPaddingBottom"
+                                               onchange="applyProp('padding-bottom', this.value + 'px')" title="padding-bottom" />
+                                    </div>
+                                </div>
+                                <input type="number" class="spacing-input" id="propMarginRight"
+                                       onchange="applyProp('margin-right', this.value + 'px')" title="margin-right" />
+                            </div>
+                            <div class="spacing-row">
+                                <input type="number" class="spacing-input" id="propMarginBottom"
+                                       onchange="applyProp('margin-bottom', this.value + 'px')" title="margin-bottom" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 6: Dimensions -->
+                <div class="sidebar-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        Dimensions <span class="chevron">▶</span>
+                    </div>
+                    <div class="section-body" id="dimensionsBody">
+                        <div class="prop-row">
+                            <span class="prop-label">Width</span>
+                            <input type="text" class="prop-input" id="propWidth" placeholder="auto"
+                                   onchange="applyProp('width', this.value)" />
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Height</span>
+                            <input type="text" class="prop-input" id="propHeight" placeholder="auto"
+                                   onchange="applyProp('height', this.value)" />
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Min W</span>
+                            <input type="text" class="prop-input" id="propMinWidth" placeholder="auto"
+                                   onchange="applyProp('min-width', this.value)" />
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Max W</span>
+                            <input type="text" class="prop-input" id="propMaxWidth" placeholder="none"
+                                   onchange="applyProp('max-width', this.value)" />
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Min H</span>
+                            <input type="text" class="prop-input" id="propMinHeight" placeholder="auto"
+                                   onchange="applyProp('min-height', this.value)" />
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Max H</span>
+                            <input type="text" class="prop-input" id="propMaxHeight" placeholder="none"
+                                   onchange="applyProp('max-height', this.value)" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 7: Layout -->
+                <div class="sidebar-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        Layout <span class="chevron">▶</span>
+                    </div>
+                    <div class="section-body" id="layoutBody">
+                        <div class="prop-row">
+                            <span class="prop-label">Display</span>
+                            <select class="prop-select" id="propDisplay" onchange="applyProp('display', this.value)">
+                                <option value="block">block</option>
+                                <option value="flex">flex</option>
+                                <option value="grid">grid</option>
+                                <option value="inline-block">inline-block</option>
+                                <option value="inline">inline</option>
+                                <option value="inline-flex">inline-flex</option>
+                                <option value="none">none</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Flex Dir</span>
+                            <select class="prop-select" id="propFlexDirection" onchange="applyProp('flex-direction', this.value)">
+                                <option value="row">row</option>
+                                <option value="column">column</option>
+                                <option value="row-reverse">row-reverse</option>
+                                <option value="column-reverse">column-reverse</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Justify</span>
+                            <select class="prop-select" id="propJustifyContent" onchange="applyProp('justify-content', this.value)">
+                                <option value="flex-start">flex-start</option>
+                                <option value="center">center</option>
+                                <option value="flex-end">flex-end</option>
+                                <option value="space-between">space-between</option>
+                                <option value="space-around">space-around</option>
+                                <option value="space-evenly">space-evenly</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Align</span>
+                            <select class="prop-select" id="propAlignItems" onchange="applyProp('align-items', this.value)">
+                                <option value="stretch">stretch</option>
+                                <option value="flex-start">flex-start</option>
+                                <option value="center">center</option>
+                                <option value="flex-end">flex-end</option>
+                                <option value="baseline">baseline</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Gap</span>
+                            <input type="number" class="prop-input" id="propGap" min="0" step="1"
+                                   onchange="applyProp('gap', this.value + 'px')" />
+                            <span style="color: #555; font-size: 11px;">px</span>
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Position</span>
+                            <select class="prop-select" id="propPosition" onchange="applyProp('position', this.value); togglePositionOffsets();">
+                                <option value="static">static</option>
+                                <option value="relative">relative</option>
+                                <option value="absolute">absolute</option>
+                                <option value="fixed">fixed</option>
+                                <option value="sticky">sticky</option>
+                            </select>
+                        </div>
+                        <div class="position-offsets" id="positionOffsets" style="display: none;">
+                            <div class="offset-row">
+                                <span class="offset-label">Top</span>
+                                <input type="text" class="offset-input" id="propTop" placeholder="auto"
+                                       onchange="applyProp('top', this.value)" />
+                            </div>
+                            <div class="offset-row">
+                                <span class="offset-label">Right</span>
+                                <input type="text" class="offset-input" id="propRight" placeholder="auto"
+                                       onchange="applyProp('right', this.value)" />
+                            </div>
+                            <div class="offset-row">
+                                <span class="offset-label">Bottom</span>
+                                <input type="text" class="offset-input" id="propBottom" placeholder="auto"
+                                       onchange="applyProp('bottom', this.value)" />
+                            </div>
+                            <div class="offset-row">
+                                <span class="offset-label">Left</span>
+                                <input type="text" class="offset-input" id="propLeft" placeholder="auto"
+                                       onchange="applyProp('left', this.value)" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 8: Effects -->
+                <div class="sidebar-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        Effects <span class="chevron">▶</span>
+                    </div>
+                    <div class="section-body" id="effectsBody">
+                        <div class="prop-row">
+                            <span class="prop-label">Shadow</span>
+                            <input type="text" class="prop-input" id="propBoxShadow" placeholder="none"
+                                   onchange="applyProp('box-shadow', this.value)" />
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Transform</span>
+                            <input type="text" class="prop-input" id="propTransform" placeholder="none"
+                                   onchange="applyProp('transform', this.value)" />
+                        </div>
+                        <div class="prop-row">
+                            <span class="prop-label">Transition</span>
+                            <input type="text" class="prop-input" id="propTransition" placeholder="none"
+                                   onchange="applyProp('transition', this.value)" />
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for fallback -->
+    <input type="file" id="filePicker" accept=".html" style="display: none;" onchange="handleFilePick(event)" />
+
+    <script>
+    // ===================================================================
+    // SPACE-OPS 3030 NODE-BASED VISUAL EDITOR
+    // ===================================================================
+
+    // --- State ---
+    let originalFileContent = null;
+    let selectedElement = null;
+    let hoveredElement = null;
+    let currentSelector = '';
+    let expandedNodeId = null;
+    let selectedNodeId = null;
+    let iframeReady = false;
+
+    // --- Canvas State ---
+    let panX = 0, panY = 0, zoom = 1;
+    let isPanning = false, panStartX = 0, panStartY = 0, panStartPanX = 0, panStartPanY = 0;
+    let isDraggingNode = false, dragNodeId = null, dragStartX = 0, dragStartY = 0, dragNodeStartX = 0, dragNodeStartY = 0;
+
+    // --- Change Tracking ---
+    const changeLog = {
+        rules: new Map(),
+        history: []
+    };
+
+    // --- Design System Colors ---
+    const PALETTE = [
+        '#db8f00', '#FFD700', '#9CAF88', '#ff4444', '#FFA500',
+        '#4CAF50', '#4299e1', '#9f7aea', '#ff6b35', '#48bb78',
+        '#0a0a0a', '#1a1a1a', '#2a2a2a', '#333333', '#ffffff',
+        '#000000', '#8B0000', '#10B981', '#374151', '#f56565'
+    ];
+
+    // --- Node Definitions ---
+    const NAV_SECTIONS = [
+        { id: 'landingPage', label: 'Landing Page', type: 'page', icon: '🏠' },
+        { id: 'appInterface', label: 'App Interface', type: 'page', icon: '📱' },
+        { id: 'joinTab', label: 'Join / Create', type: 'tab', icon: '🔗' },
+        { id: 'sessionsTab', label: 'Sessions', type: 'tab', icon: '📋' },
+        { id: 'templatesTab', label: 'Templates', type: 'tab', icon: '📄' },
+        { id: 'gameTab', label: 'Game', type: 'tab', icon: '🎮' },
+        { id: 'toolsTab', label: 'Tools', type: 'tab', icon: '🔧' },
+        { id: 'gameArea', label: 'Game Area', type: 'page', icon: '⚔️' },
+        { id: 'transferModal', label: 'Transfer Item', type: 'modal', icon: '↔️' },
+        { id: 'createSessionModal', label: 'Create Session', type: 'modal', icon: '➕' },
+        { id: 'cloneSessionModal', label: 'Clone Session', type: 'modal', icon: '📑' },
+        { id: 'statusEffectModal', label: 'Status Effect', type: 'modal', icon: '⚡' },
+        { id: 'saveTemplateModal', label: 'Save Template', type: 'modal', icon: '💾' },
+        { id: 'characterModal', label: 'Character', type: 'modal', icon: '👤' },
+        { id: 'playerNameModal', label: 'Player Name', type: 'modal', icon: '✏️' },
+        { id: 'teamBuilderTab', label: 'Team Builder', type: 'view', icon: '🏗️' },
+        { id: 'myTeamsTab', label: 'My Teams', type: 'view', icon: '👥' },
+        { id: 'loreTab', label: 'Lore', type: 'view', icon: '📖' },
+        { id: 'loadTeamModal', label: 'Load Team', type: 'modal', icon: '📂' },
+    ];
+
+    // --- Connection Map (read-only UX flow) ---
+    const CONNECTIONS = [
+        { from: 'landingPage',    to: 'appInterface',       label: 'Enter App', type: 'nav' },
+        { from: 'landingPage',    to: 'playerNameModal',    label: 'Set Name', type: 'modal' },
+        { from: 'appInterface',   to: 'joinTab',            label: '', type: 'tab' },
+        { from: 'appInterface',   to: 'sessionsTab',        label: '', type: 'tab' },
+        { from: 'appInterface',   to: 'templatesTab',       label: '', type: 'tab' },
+        { from: 'appInterface',   to: 'gameTab',            label: '', type: 'tab' },
+        { from: 'appInterface',   to: 'toolsTab',           label: '', type: 'tab' },
+        { from: 'gameTab',        to: 'gameArea',            label: 'Enter', type: 'nav' },
+        { from: 'sessionsTab',    to: 'createSessionModal',  label: 'Create', type: 'modal' },
+        { from: 'sessionsTab',    to: 'cloneSessionModal',   label: 'Clone', type: 'modal' },
+        { from: 'gameArea',       to: 'characterModal',      label: 'Edit', type: 'modal' },
+        { from: 'gameArea',       to: 'statusEffectModal',   label: 'Status', type: 'modal' },
+        { from: 'gameArea',       to: 'transferModal',       label: 'Transfer', type: 'modal' },
+        { from: 'templatesTab',   to: 'saveTemplateModal',   label: 'Save', type: 'modal' },
+        { from: 'toolsTab',       to: 'teamBuilderTab',      label: '', type: 'tool' },
+        { from: 'toolsTab',       to: 'myTeamsTab',           label: '', type: 'tool' },
+        { from: 'toolsTab',       to: 'loreTab',              label: '', type: 'tool' },
+        { from: 'myTeamsTab',     to: 'loadTeamModal',        label: 'Load', type: 'modal' },
+    ];
+
+    // --- Node positions (will be loaded from localStorage or computed) ---
+    let nodePositions = {};
+
+    const STORAGE_KEY = 'spaceops-editor-changes';
+    const POSITIONS_KEY = 'spaceops-editor-positions';
+
+    // ===================================================================
+    // INITIALIZATION
+    // ===================================================================
+
+    const iframe = document.getElementById('previewFrame');
+
+    function init() {
+        loadFromLocalStorage();
+        loadNodePositions();
+        buildColorSwatches();
+        renderNodes();
+        renderConnections();
+        setupCanvasEvents();
+        loadOriginalFile();
+        fitToView();
+
+        // Fade out instructions after 5s
+        setTimeout(() => {
+            const instr = document.getElementById('canvasInstructions');
+            if (instr) instr.style.opacity = '0';
+            setTimeout(() => { if (instr) instr.style.display = 'none'; }, 500);
+        }, 6000);
+    }
+
+    init();
+
+    // ===================================================================
+    // DEFAULT NODE LAYOUT (tree structure)
+    // ===================================================================
+
+    function calculateDefaultLayout() {
+        const positions = {};
+
+        // Tree layout: landingPage at top, branching down
+        // Row 0: Landing
+        positions['landingPage'] = { x: 600, y: 50 };
+
+        // Row 1: App Interface
+        positions['appInterface'] = { x: 600, y: 200 };
+
+        // Row 2: Tabs (spread horizontally)
+        positions['joinTab'] = { x: 100, y: 380 };
+        positions['sessionsTab'] = { x: 320, y: 380 };
+        positions['templatesTab'] = { x: 540, y: 380 };
+        positions['gameTab'] = { x: 760, y: 380 };
+        positions['toolsTab'] = { x: 980, y: 380 };
+
+        // Row 2.5: Player Name Modal (off to the right of landing)
+        positions['playerNameModal'] = { x: 900, y: 100 };
+
+        // Row 3: Game Area (below Game Tab)
+        positions['gameArea'] = { x: 760, y: 560 };
+
+        // Row 3: Session Modals (below Sessions Tab)
+        positions['createSessionModal'] = { x: 220, y: 560 };
+        positions['cloneSessionModal'] = { x: 420, y: 560 };
+
+        // Row 3: Save Template (below Templates)
+        positions['saveTemplateModal'] = { x: 540, y: 560 };
+
+        // Row 3: Tool views (below Tools Tab)
+        positions['teamBuilderTab'] = { x: 900, y: 560 };
+        positions['myTeamsTab'] = { x: 1100, y: 560 };
+        positions['loreTab'] = { x: 1300, y: 560 };
+
+        // Row 4: Game Area modals
+        positions['characterModal'] = { x: 650, y: 740 };
+        positions['statusEffectModal'] = { x: 850, y: 740 };
+        positions['transferModal'] = { x: 1050, y: 740 };
+
+        // Row 4: Load Team (below My Teams)
+        positions['loadTeamModal'] = { x: 1100, y: 740 };
+
+        return positions;
+    }
+
+    function loadNodePositions() {
+        try {
+            const raw = localStorage.getItem(POSITIONS_KEY);
+            if (raw) {
+                nodePositions = JSON.parse(raw);
+                // Verify all nodes have positions
+                let valid = true;
+                NAV_SECTIONS.forEach(s => {
+                    if (!nodePositions[s.id]) valid = false;
+                });
+                if (!valid) nodePositions = calculateDefaultLayout();
+            } else {
+                nodePositions = calculateDefaultLayout();
+            }
+        } catch(e) {
+            nodePositions = calculateDefaultLayout();
+        }
+    }
+
+    function saveNodePositions() {
+        try {
+            localStorage.setItem(POSITIONS_KEY, JSON.stringify(nodePositions));
+        } catch(e) {}
+    }
+
+    // ===================================================================
+    // RENDER NODES
+    // ===================================================================
+
+    function renderNodes() {
+        const world = document.getElementById('canvasWorld');
+
+        NAV_SECTIONS.forEach(section => {
+            const node = document.createElement('div');
+            node.className = `canvas-node type-${section.type}`;
+            node.id = `node-${section.id}`;
+            node.dataset.nodeId = section.id;
+
+            const pos = nodePositions[section.id] || { x: 0, y: 0 };
+            node.style.left = pos.x + 'px';
+            node.style.top = pos.y + 'px';
+
+            node.innerHTML = `
+                <span class="node-icon">${section.icon}</span>
+                <span class="node-label">${section.label}</span>
+                <span class="node-type-badge">${section.type}</span>
+            `;
+
+            // Single click = select on canvas
+            node.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isDraggingNode) return;
+                selectNode(section.id);
+            });
+
+            // Double click = expand for editing
+            node.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                expandNode(section.id);
+            });
+
+            // Node dragging
+            node.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                e.stopPropagation();
+                startNodeDrag(e, section.id);
+            });
+
+            world.appendChild(node);
+        });
+    }
+
+    // ===================================================================
+    // RENDER CONNECTIONS (SVG)
+    // ===================================================================
+
+    function renderConnections() {
+        const svg = document.getElementById('connectionsSvg');
+
+        // Clear old paths (keep defs)
+        const defs = svg.querySelector('defs');
+        svg.innerHTML = '';
+        svg.appendChild(defs);
+
+        // Compute SVG bounds
+        let maxX = 0, maxY = 0;
+        NAV_SECTIONS.forEach(s => {
+            const pos = nodePositions[s.id] || { x: 0, y: 0 };
+            if (pos.x + 200 > maxX) maxX = pos.x + 200;
+            if (pos.y + 100 > maxY) maxY = pos.y + 100;
+        });
+
+        svg.setAttribute('width', maxX + 200);
+        svg.setAttribute('height', maxY + 200);
+
+        CONNECTIONS.forEach(conn => {
+            const fromPos = nodePositions[conn.from];
+            const toPos = nodePositions[conn.to];
+            if (!fromPos || !toPos) return;
+
+            // Node dimensions
+            const W = 180, H = 80;
+
+            // Compute centers
+            const fromCx = fromPos.x + W/2;
+            const fromCy = fromPos.y + H/2;
+            const toCx = toPos.x + W/2;
+            const toCy = toPos.y + H/2;
+
+            // Determine which edges to connect from
+            let x1, y1, x2, y2;
+
+            // From bottom/top based on relative position
+            if (toCy > fromCy) {
+                // Target is below
+                x1 = fromCx;
+                y1 = fromPos.y + H;
+                x2 = toCx;
+                y2 = toPos.y;
+            } else if (toCy < fromCy) {
+                // Target is above
+                x1 = fromCx;
+                y1 = fromPos.y;
+                x2 = toCx;
+                y2 = toPos.y + H;
+            } else {
+                // Same row — use left/right
+                if (toCx > fromCx) {
+                    x1 = fromPos.x + W;
+                    y1 = fromCy;
+                    x2 = toPos.x;
+                    y2 = toCy;
+                } else {
+                    x1 = fromPos.x;
+                    y1 = fromCy;
+                    x2 = toPos.x + W;
+                    y2 = toCy;
+                }
+            }
+
+            // Bezier control points
+            const midY = (y1 + y2) / 2;
+            const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', d);
+            path.setAttribute('class', `connection-line type-${conn.type}`);
+            path.setAttribute('marker-end', 'url(#arrowhead)');
+            svg.appendChild(path);
+
+            // Label
+            if (conn.label) {
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', (x1 + x2) / 2);
+                text.setAttribute('y', (y1 + y2) / 2 - 6);
+                text.setAttribute('class', 'connection-label');
+                text.setAttribute('text-anchor', 'middle');
+                text.textContent = conn.label;
+                svg.appendChild(text);
+            }
+        });
+    }
+
+    // ===================================================================
+    // CANVAS PAN/ZOOM
+    // ===================================================================
+
+    function setupCanvasEvents() {
+        const container = document.getElementById('canvasContainer');
+
+        // Pan: mousedown on canvas background
+        container.addEventListener('mousedown', (e) => {
+            // Only on canvas background (not on nodes)
+            if (e.target === container || e.target.classList.contains('canvas-world') ||
+                e.target.tagName === 'svg' || e.target.tagName === 'path') {
+                isPanning = true;
+                panStartX = e.clientX;
+                panStartY = e.clientY;
+                panStartPanX = panX;
+                panStartPanY = panY;
+                container.classList.add('panning');
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isPanning) {
+                panX = panStartPanX + (e.clientX - panStartX);
+                panY = panStartPanY + (e.clientY - panStartY);
+                updateCanvasTransform();
+            }
+
+            if (isDraggingNode && dragNodeId) {
+                const dx = (e.clientX - dragStartX) / zoom;
+                const dy = (e.clientY - dragStartY) / zoom;
+                nodePositions[dragNodeId] = {
+                    x: Math.round(dragNodeStartX + dx),
+                    y: Math.round(dragNodeStartY + dy)
+                };
+
+                const nodeEl = document.getElementById(`node-${dragNodeId}`);
+                if (nodeEl) {
+                    nodeEl.style.left = nodePositions[dragNodeId].x + 'px';
+                    nodeEl.style.top = nodePositions[dragNodeId].y + 'px';
+                }
+
+                // Update connections (throttled)
+                if (!isDraggingNode._rafId) {
+                    isDraggingNode._rafId = requestAnimationFrame(() => {
+                        renderConnections();
+                        isDraggingNode._rafId = null;
+                    });
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isPanning) {
+                isPanning = false;
+                container.classList.remove('panning');
+            }
+            if (isDraggingNode && dragNodeId) {
+                isDraggingNode = false;
+                saveNodePositions();
+                renderConnections();
+                dragNodeId = null;
+            }
+        });
+
+        // Zoom: scroll wheel
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+
+            const rect = container.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const oldZoom = zoom;
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoom = Math.max(0.15, Math.min(2.5, zoom * delta));
+
+            // Zoom toward mouse position
+            panX = mouseX - (mouseX - panX) * (zoom / oldZoom);
+            panY = mouseY - (mouseY - panY) * (zoom / oldZoom);
+
+            updateCanvasTransform();
+            document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%';
+        }, { passive: false });
+
+        // Click on canvas background = deselect
+        container.addEventListener('click', (e) => {
+            if (e.target === container || e.target.classList.contains('canvas-world')) {
+                deselectNode();
+            }
+        });
+    }
+
+    function updateCanvasTransform() {
+        const world = document.getElementById('canvasWorld');
+        world.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+    }
+
+    function fitToView() {
+        if (NAV_SECTIONS.length === 0) return;
+
+        const container = document.getElementById('canvasContainer');
+        const rect = container.getBoundingClientRect();
+
+        // Find bounds of all nodes
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        NAV_SECTIONS.forEach(s => {
+            const pos = nodePositions[s.id] || { x: 0, y: 0 };
+            if (pos.x < minX) minX = pos.x;
+            if (pos.y < minY) minY = pos.y;
+            if (pos.x + 180 > maxX) maxX = pos.x + 180;
+            if (pos.y + 80 > maxY) maxY = pos.y + 80;
+        });
+
+        const contentW = maxX - minX + 100;  // padding
+        const contentH = maxY - minY + 100;
+
+        const scaleX = rect.width / contentW;
+        const scaleY = rect.height / contentH;
+        zoom = Math.min(scaleX, scaleY, 1.2) * 0.85;  // Don't zoom in too much
+
+        panX = (rect.width - contentW * zoom) / 2 - minX * zoom + 50 * zoom;
+        panY = (rect.height - contentH * zoom) / 2 - minY * zoom + 50 * zoom;
+
+        updateCanvasTransform();
+        document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%';
+    }
+
+    // ===================================================================
+    // NODE DRAGGING
+    // ===================================================================
+
+    function startNodeDrag(e, nodeId) {
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragNodeId = nodeId;
+        const pos = nodePositions[nodeId] || { x: 0, y: 0 };
+        dragNodeStartX = pos.x;
+        dragNodeStartY = pos.y;
+
+        // Use a small threshold before actually dragging
+        const checkDrag = (e2) => {
+            const dx = Math.abs(e2.clientX - dragStartX);
+            const dy = Math.abs(e2.clientY - dragStartY);
+            if (dx > 4 || dy > 4) {
+                isDraggingNode = true;
+                document.removeEventListener('mousemove', checkDrag);
+            }
+        };
+        document.addEventListener('mousemove', checkDrag);
+        document.addEventListener('mouseup', () => {
+            document.removeEventListener('mousemove', checkDrag);
+        }, { once: true });
+    }
+
+    // ===================================================================
+    // NODE SELECTION / EXPANSION
+    // ===================================================================
+
+    function selectNode(nodeId) {
+        // Deselect previous
+        document.querySelectorAll('.canvas-node.selected').forEach(n => n.classList.remove('selected'));
+
+        selectedNodeId = nodeId;
+        const nodeEl = document.getElementById(`node-${nodeId}`);
+        if (nodeEl) nodeEl.classList.add('selected');
+
+        const section = NAV_SECTIONS.find(s => s.id === nodeId);
+        document.getElementById('toolbarNodeName').textContent = section ? section.label : '';
+    }
+
+    function deselectNode() {
+        document.querySelectorAll('.canvas-node.selected').forEach(n => n.classList.remove('selected'));
+        selectedNodeId = null;
+        document.getElementById('toolbarNodeName').textContent = '';
+    }
+
+    function expandNode(nodeId) {
+        // Highlight on canvas
+        document.querySelectorAll('.canvas-node.expanded').forEach(n => n.classList.remove('expanded'));
+        const nodeEl = document.getElementById(`node-${nodeId}`);
+        if (nodeEl) nodeEl.classList.add('expanded');
+
+        selectNode(nodeId);
+        expandedNodeId = nodeId;
+
+        const section = NAV_SECTIONS.find(s => s.id === nodeId);
+        document.getElementById('expandedTitle').textContent = section ? `${section.icon} ${section.label}` : nodeId;
+
+        // Open expanded view + sidebar
+        document.getElementById('expandedView').classList.add('open');
+        document.getElementById('sidebar').classList.add('open');
+
+        // Load iframe if needed, then show the right section
+        if (!iframeReady) {
+            iframe.src = 'space-ops-3030-v14.76.html';
+            iframe.addEventListener('load', () => {
+                iframeReady = true;
+                showNodeInExpanded(nodeId);
+            }, { once: true });
+        } else {
+            showNodeInExpanded(nodeId);
+        }
+    }
+
+    function closeExpandedView() {
+        expandedNodeId = null;
+        iframeReady = false;
+        iframe.src = '';
+
+        // Deselect element in sidebar
+        selectedElement = null;
+        currentSelector = '';
+        document.getElementById('sidebarEmpty').style.display = '';
+        document.getElementById('sidebarContent').style.display = 'none';
+
+        // Close panels
+        document.getElementById('expandedView').classList.remove('open');
+        document.getElementById('sidebar').classList.remove('open');
+
+        // Remove expanded highlight
+        document.querySelectorAll('.canvas-node.expanded').forEach(n => n.classList.remove('expanded'));
+
+        document.getElementById('statusBar').textContent = 'Double-click a node to edit its content';
+    }
+
+    // ===================================================================
+    // SHOW NODE IN EXPANDED VIEW (iframe injection)
+    // ===================================================================
+
+    function showNodeInExpanded(nodeId) {
+        const doc = iframe.contentDocument;
+        const win = iframe.contentWindow;
+
+        // 1. Disable tracker navigation
+        const noops = ['switchTab', 'returnToLanding', 'requirePlayerName',
+                        'showTeamBuilder', 'showMyTeams', 'showLore',
+                        'joinSession', 'createSession', 'leaveSession',
+                        'showCreateSessionModal', 'closeCreateSessionModal',
+                        'showCloneSessionModal', 'closeCloneSessionModal',
+                        'openEditModal', 'closeCharacterModal',
+                        'openTransferModal', 'closeTransferModal',
+                        'openStatusEffectModal', 'closeStatusEffectModal',
+                        'openSaveTemplateModal', 'closeSaveTemplateModal',
+                        'showLoadTeamModal', 'closeLoadTeamModal',
+                        'skipTutorial', 'nextTutorialStep',
+                        'savePlayerName', 'changePlayerName'];
+
+        noops.forEach(fn => {
+            try { win[fn] = function() {}; } catch(e) {}
+        });
+
+        // 2. Inject override stylesheet — hide everything, show only selected node
+        let overrideStyle = doc.getElementById('editor-override-styles');
+        if (!overrideStyle) {
+            overrideStyle = doc.createElement('style');
+            overrideStyle.id = 'editor-override-styles';
+            doc.head.appendChild(overrideStyle);
+        }
+
+        // Build visibility CSS: hide all sections, show only the target
+        const section = NAV_SECTIONS.find(s => s.id === nodeId);
+        const isModal = section && section.type === 'modal';
+
+        let hideCSS = `
+            /* Hide all sections by default */
+            .tab-content { display: none !important; }
+            .modal { display: none !important; }
+            .landing-page { display: none !important; }
+            #appInterface { display: none !important; }
+            #gameArea { display: none !important; }
+            .tutorial-overlay, .tutorial-spotlight, .tutorial-arrow { display: none !important; }
+            .help-tooltip { display: none !important; }
+        `;
+
+        // Show the selected section
+        if (isModal) {
+            hideCSS += `
+                #${nodeId} {
+                    display: block !important;
+                    position: relative !important;
+                    background: rgba(0, 0, 0, 0.8) !important;
+                    height: auto !important;
+                    width: 100% !important;
+                    z-index: auto !important;
+                    overflow: visible !important;
+                }
+                #${nodeId} .modal-content {
+                    position: relative !important;
+                    max-height: none !important;
+                    overflow: visible !important;
+                }
+            `;
+        } else if (nodeId === 'landingPage') {
+            hideCSS += `
+                .landing-page {
+                    display: flex !important;
+                    min-height: auto !important;
+                    padding: 60px 20px !important;
+                    position: relative !important;
+                }
+            `;
+        } else if (nodeId === 'appInterface') {
+            // Show appInterface but hide its tab contents (we'll show the right tab)
+            hideCSS += `
+                #appInterface { display: block !important; }
+            `;
+        } else if (nodeId === 'gameArea') {
+            hideCSS += `
+                #appInterface { display: block !important; }
+                #gameArea { display: block !important; }
+                .tab-content { display: none !important; }
+                #gameTab { display: block !important; }
+            `;
+        } else {
+            // It's a tab or view — show appInterface + the specific tab
+            hideCSS += `
+                #appInterface { display: block !important; }
+                #${nodeId} { display: block !important; }
+            `;
+        }
+
+        overrideStyle.textContent = hideCSS;
+
+        // 3. Force inline-hidden elements visible for this section
+        const forceVisible = [
+            'sessionInfoBar', 'campaignSection', 'sessionInfo', 'undoPanel',
+            'combatLogPanel', 'gameTabBtn', 'toolsTabBtn', 'playerNameDisplay',
+            'diceResult', 'currentPlayerInfo', 'teamsSummary', 'presetModelGroup',
+            'portraitPreview', 'teamEditingArea'
+        ];
+
+        forceVisible.forEach(id => {
+            const el = doc.getElementById(id);
+            if (el) {
+                if (getComputedStyle(el).display === 'none') {
+                    el.style.display = 'block';
+                }
+            }
+        });
+
+        // 4. Inject sample content for relevant sections
+        injectSampleContent(doc, nodeId);
+
+        // 5. Apply existing CSS changes
+        applyLiveChanges();
+
+        // 6. Enable click-to-select
+        enableClickToSelect(doc);
+
+        document.getElementById('statusBar').textContent = `Editing: ${section ? section.label : nodeId} — click elements to select`;
+    }
+
+    // ===================================================================
+    // SAMPLE CONTENT INJECTION
+    // ===================================================================
+
+    function injectSampleContent(doc, nodeId) {
+        // Only inject for sections that need dynamic content
+        if (nodeId === 'sessionsTab' || nodeId === 'gameArea' || nodeId === 'gameTab') {
+            const sessionsList = doc.getElementById('sessionsList');
+            if (sessionsList && sessionsList.children.length === 0) {
+                sessionsList.innerHTML = `
+                    <div class="session-card">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                            <div>
+                                <h3 style="color: #db8f00; margin: 0 0 5px 0;">Demo Session Alpha</h3>
+                                <div style="color: #9CAF88; font-size: 12px;">Campaign: First Contact</div>
+                            </div>
+                            <span style="background: #4CAF50; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">Active</span>
+                        </div>
+                        <p style="color: #aaa; font-size: 13px; margin-bottom: 10px;">A sample session for previewing card styles.</p>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-primary">Join</button>
+                            <button class="btn btn-secondary">Clone</button>
+                            <button class="btn btn-danger">Delete</button>
+                        </div>
+                    </div>
+                    <div class="session-card">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                            <div>
+                                <h3 style="color: #db8f00; margin: 0 0 5px 0;">Campaign Beta</h3>
+                                <div style="color: #9CAF88; font-size: 12px;">Campaign: Deep Space Recon</div>
+                            </div>
+                            <span style="background: #666; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">Archived</span>
+                        </div>
+                        <p style="color: #aaa; font-size: 13px; margin-bottom: 10px;">Archived session example.</p>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-primary">Join</button>
+                            <button class="btn btn-secondary">Clone</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        if (nodeId === 'gameArea') {
+            const teamsContainer = doc.getElementById('teamsContainer');
+            if (teamsContainer && teamsContainer.children.length === 0) {
+                teamsContainer.innerHTML = `
+                    <div class="team" style="border: 2px solid #db8f00; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h2 style="color: #db8f00; margin: 0;">Player 1's Team</h2>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-success">+ Add Model</button>
+                                <button class="btn btn-secondary">Compact</button>
+                            </div>
+                        </div>
+                        <div class="characters-grid">
+                            <div class="model-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px;">
+                                    <span class="status-indicator status-alive" style="flex: 0 0 auto;">alive</span>
+                                    <button class="btn btn-primary" style="flex: 0 0 auto; padding: 4px 12px; font-size: 12px;">Ready</button>
+                                </div>
+                                <div class="model-section-1">
+                                    <div class="model-header-top">
+                                        <div class="model-portrait-new" style="background: #db8f00; border: 4px solid #db8f00; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 600; color: white;">R</div>
+                                        <div class="model-header-info">
+                                            <div class="model-name-row"><h3 class="model-name-new">Ranger Alpha</h3></div>
+                                            <div class="model-role">Arc Ranger Captain</div>
+                                            <div style="display: flex; align-items: center; gap: 5px; margin-top: 8px;">
+                                                <button class="health-btn btn-danger" style="width: 30px; height: 30px; font-size: 14px;">-</button>
+                                                <div style="flex: 1; text-align: center; font-weight: 600; color: #48bb78; font-size: 13px;">15/15 HP</div>
+                                                <button class="health-btn btn-success" style="width: 30px; height: 30px; font-size: 14px;">+</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="model-stats-grid">
+                                        <div class="model-stat-box"><div class="model-stat-label">Speed</div><div class="model-stat-value">6"</div></div>
+                                        <div class="model-stat-box"><div class="model-stat-label">Shoot</div><div class="model-stat-value">4+</div></div>
+                                        <div class="model-stat-box"><div class="model-stat-label">Fight</div><div class="model-stat-value">3+</div></div>
+                                        <div class="model-stat-box"><div class="model-stat-label">Nerve</div><div class="model-stat-value">4+</div></div>
+                                        <div class="model-stat-box"><div class="model-stat-label">Health</div><div class="model-stat-value">15</div></div>
+                                    </div>
+                                    <div class="model-effects-field">
+                                        <div class="model-effects-label">Effects:</div>
+                                        <div class="model-effects-text">none</div>
+                                    </div>
+                                </div>
+                                <div class="model-section-2">
+                                    <div class="section-title">Special Actions</div>
+                                    <div class="special-action-item">
+                                        <div class="special-action-header">
+                                            <span class="special-action-name">Rally Cry</span>
+                                            <span class="special-action-uses">2/2 uses</span>
+                                        </div>
+                                        <div class="special-action-desc">Boost all allies within 6"</div>
+                                    </div>
+                                </div>
+                                <div class="model-section-3">
+                                    <div class="section-title">Equipment</div>
+                                    <div class="equipment-grid">
+                                        <div class="equipment-slot">
+                                            <div class="equipment-label">Weapon 1</div>
+                                            <div class="equipment-name">Plasma Rifle</div>
+                                            <div class="equipment-stats">Ranged | A2 P4 D3</div>
+                                        </div>
+                                        <div class="equipment-slot">
+                                            <div class="equipment-label">Weapon 2</div>
+                                            <div class="equipment-name">Combat Blade</div>
+                                            <div class="equipment-stats">Melee | A3 P3 D2</div>
+                                        </div>
+                                    </div>
+                                    <div style="margin-top: 15px; display: flex; gap: 5px; flex-wrap: wrap;">
+                                        <button class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 12px;">Edit</button>
+                                        <button class="btn btn-danger" style="flex: 1; padding: 8px; font-size: 12px;">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // ===================================================================
+    // CLICK-TO-SELECT (in expanded iframe)
+    // ===================================================================
+
+    function enableClickToSelect(doc) {
+        if (doc._editorClickEnabled) return;
+        doc._editorClickEnabled = true;
+
+        // Hover effect
+        doc.addEventListener('mouseover', (e) => {
+            const target = e.target;
+            if (target === doc.body || target === doc.documentElement) return;
+
+            if (hoveredElement && hoveredElement !== selectedElement) {
+                hoveredElement.style.outline = '';
+                hoveredElement.style.outlineOffset = '';
+            }
+            hoveredElement = target;
+            if (hoveredElement !== selectedElement) {
+                hoveredElement.style.outline = '2px dashed rgba(66, 153, 225, 0.5)';
+                hoveredElement.style.outlineOffset = '2px';
+            }
+        }, true);
+
+        doc.addEventListener('mouseout', (e) => {
+            if (hoveredElement && hoveredElement !== selectedElement) {
+                hoveredElement.style.outline = '';
+                hoveredElement.style.outlineOffset = '';
+            }
+        }, true);
+
+        // Click selection
+        doc.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            selectElement(e.target);
+        }, true);
+    }
+
+    function selectElement(element) {
+        if (selectedElement) {
+            selectedElement.style.outline = '';
+            selectedElement.style.outlineOffset = '';
+        }
+
+        selectedElement = element;
+        selectedElement.style.outline = '3px solid #4299e1';
+        selectedElement.style.outlineOffset = '2px';
+
+        currentSelector = getBestSelector(element);
+
+        document.getElementById('sidebarEmpty').style.display = 'none';
+        document.getElementById('sidebarContent').style.display = 'block';
+
+        populateElementInfo(element);
+        populateProperties(element);
+    }
+
+    // ===================================================================
+    // SELECTOR DETERMINATION
+    // ===================================================================
+
+    function getBestSelector(element) {
+        if (element.id && !element.id.startsWith('editor-')) {
+            return '#' + element.id;
+        }
+
+        const classes = Array.from(element.classList || [])
+            .filter(c => !c.startsWith('editor-') && c !== 'active');
+
+        if (classes.length > 0) {
+            return '.' + classes[0];
+        }
+
+        return buildSelectorPath(element);
+    }
+
+    function buildSelectorPath(element) {
+        const parts = [];
+        let current = element;
+        const doc = iframe.contentDocument;
+
+        while (current && current !== doc.body && parts.length < 4) {
+            let part = current.tagName.toLowerCase();
+            if (current.id) {
+                part = '#' + current.id;
+                parts.unshift(part);
+                break;
+            } else if (current.classList && current.classList.length > 0) {
+                const cls = Array.from(current.classList).filter(c => !c.startsWith('editor-') && c !== 'active')[0];
+                if (cls) part = '.' + cls;
+            }
+            parts.unshift(part);
+            current = current.parentElement;
+        }
+
+        return parts.join(' > ');
+    }
+
+    function getBreadcrumb(element) {
+        const parts = [];
+        let current = element;
+        const doc = iframe.contentDocument;
+
+        while (current && current !== doc.body) {
+            let part = current.tagName.toLowerCase();
+            if (current.id) part += '#' + current.id;
+            else if (current.classList && current.classList.length > 0) {
+                const cls = Array.from(current.classList).filter(c => !c.startsWith('editor-') && c !== 'active').slice(0, 2);
+                if (cls.length) part += '.' + cls.join('.');
+            }
+            parts.unshift(part);
+            current = current.parentElement;
+        }
+
+        return parts.join(' > ');
+    }
+
+    // ===================================================================
+    // ELEMENT INFO POPULATION
+    // ===================================================================
+
+    function populateElementInfo(el) {
+        document.getElementById('infoTag').textContent = '<' + el.tagName.toLowerCase() + '>';
+        document.getElementById('infoId').textContent = el.id || '(none)';
+        document.getElementById('infoId').className = 'info-value' + (el.id ? '' : ' muted');
+
+        const classes = Array.from(el.classList || []).filter(c => !c.startsWith('editor-') && c !== 'active');
+        document.getElementById('infoClasses').textContent = classes.length > 0 ? classes.join(', ') : '(none)';
+        document.getElementById('infoClasses').className = 'info-value' + (classes.length > 0 ? '' : ' muted');
+
+        document.getElementById('infoSelector').value = currentSelector;
+        document.getElementById('infoBreadcrumb').textContent = getBreadcrumb(el);
+    }
+
+    function updateSelector(newSelector) {
+        currentSelector = newSelector;
+    }
+
+    // ===================================================================
+    // PROPERTY POPULATION
+    // ===================================================================
+
+    function populateProperties(el) {
+        const cs = iframe.contentWindow.getComputedStyle(el);
+
+        // Typography
+        setSelectValue('propFontFamily', cs.fontFamily);
+        document.getElementById('propFontSize').value = parseFloat(cs.fontSize) || '';
+        setSelectValue('propFontWeight', cs.fontWeight);
+        const textColor = rgbToHex(cs.color);
+        document.getElementById('propColor').value = textColor;
+        document.getElementById('propColorHex').value = textColor;
+        setSelectValue('propTextTransform', cs.textTransform);
+        document.getElementById('propLetterSpacing').value = parseFloat(cs.letterSpacing) || 0;
+        document.getElementById('propLineHeight').value =
+            cs.lineHeight === 'normal' ? '' : (parseFloat(cs.lineHeight) / parseFloat(cs.fontSize)).toFixed(2);
+        updateBtnGroup('text-align', cs.textAlign);
+
+        // Background
+        const bgColor = rgbToHex(cs.backgroundColor);
+        document.getElementById('propBgColor').value = bgColor === '#rgba(0' ? '#000000' : bgColor;
+        document.getElementById('propBgColorHex').value = bgColor;
+        document.getElementById('propOpacity').value = cs.opacity;
+        document.getElementById('opacityVal').textContent = cs.opacity;
+
+        // Border
+        document.getElementById('propBorderWidth').value = parseFloat(cs.borderTopWidth) || 0;
+        const borderColor = rgbToHex(cs.borderTopColor);
+        document.getElementById('propBorderColor').value = borderColor;
+        document.getElementById('propBorderColorHex').value = borderColor;
+        setSelectValue('propBorderStyle', cs.borderTopStyle);
+        document.getElementById('propBorderRadius').value = parseFloat(cs.borderTopLeftRadius) || 0;
+
+        // Spacing
+        document.getElementById('propPaddingTop').value = parseFloat(cs.paddingTop) || 0;
+        document.getElementById('propPaddingRight').value = parseFloat(cs.paddingRight) || 0;
+        document.getElementById('propPaddingBottom').value = parseFloat(cs.paddingBottom) || 0;
+        document.getElementById('propPaddingLeft').value = parseFloat(cs.paddingLeft) || 0;
+        document.getElementById('propMarginTop').value = parseFloat(cs.marginTop) || 0;
+        document.getElementById('propMarginRight').value = parseFloat(cs.marginRight) || 0;
+        document.getElementById('propMarginBottom').value = parseFloat(cs.marginBottom) || 0;
+        document.getElementById('propMarginLeft').value = parseFloat(cs.marginLeft) || 0;
+
+        // Dimensions
+        document.getElementById('propWidth').value = el.style.width || cs.width;
+        document.getElementById('propHeight').value = el.style.height || cs.height;
+        document.getElementById('propMinWidth').value = cs.minWidth === '0px' ? '' : cs.minWidth;
+        document.getElementById('propMaxWidth').value = cs.maxWidth === 'none' ? '' : cs.maxWidth;
+        document.getElementById('propMinHeight').value = cs.minHeight === '0px' ? '' : cs.minHeight;
+        document.getElementById('propMaxHeight').value = cs.maxHeight === 'none' ? '' : cs.maxHeight;
+
+        // Layout
+        setSelectValue('propDisplay', cs.display);
+        setSelectValue('propFlexDirection', cs.flexDirection);
+        setSelectValue('propJustifyContent', cs.justifyContent);
+        setSelectValue('propAlignItems', cs.alignItems);
+        document.getElementById('propGap').value = parseFloat(cs.gap) || 0;
+        setSelectValue('propPosition', cs.position);
+
+        // Effects
+        document.getElementById('propBoxShadow').value = cs.boxShadow === 'none' ? '' : cs.boxShadow;
+        document.getElementById('propTransform').value = cs.transform === 'none' ? '' : cs.transform;
+        document.getElementById('propTransition').value = cs.transition === 'all 0s ease 0s' ? '' : cs.transition;
+
+        // Position offsets
+        togglePositionOffsets();
+    }
+
+    // ===================================================================
+    // APPLY PROPERTY CHANGES
+    // ===================================================================
+
+    function applyProp(property, value) {
+        if (!selectedElement || !currentSelector) return;
+
+        const cs = iframe.contentWindow.getComputedStyle(selectedElement);
+        const oldValue = cs.getPropertyValue(property);
+
+        recordChange(currentSelector, property, oldValue, value);
+        updateBtnGroup(property, value);
+    }
+
+    function recordChange(selector, property, oldValue, newValue) {
+        changeLog.history.push({ selector, property, oldValue, newValue });
+
+        if (!changeLog.rules.has(selector)) {
+            changeLog.rules.set(selector, {});
+        }
+        changeLog.rules.get(selector)[property] = newValue;
+
+        applyLiveChanges();
+        updateStatusBar();
+        saveToLocalStorage();
+
+        if (selectedElement) {
+            setTimeout(() => populateProperties(selectedElement), 50);
+        }
+    }
+
+    function applyLiveChanges() {
+        const doc = iframe.contentDocument;
+        if (!doc) return;
+
+        let css = '';
+        changeLog.rules.forEach((props, selector) => {
+            const declarations = Object.entries(props)
+                .map(([prop, val]) => `    ${prop}: ${val} !important;`)
+                .join('\n');
+            css += `${selector} {\n${declarations}\n}\n`;
+        });
+
+        let liveStyle = doc.getElementById('editor-live-changes');
+        if (!liveStyle) {
+            liveStyle = doc.createElement('style');
+            liveStyle.id = 'editor-live-changes';
+            doc.head.appendChild(liveStyle);
+        }
+        liveStyle.textContent = css;
+    }
+
+    // ===================================================================
+    // UNDO SYSTEM
+    // ===================================================================
+
+    function undoLast() {
+        const last = changeLog.history.pop();
+        if (!last) return;
+
+        const props = changeLog.rules.get(last.selector);
+        if (!props) return;
+
+        delete props[last.property];
+
+        if (Object.keys(props).length === 0) {
+            changeLog.rules.delete(last.selector);
+        }
+
+        applyLiveChanges();
+        updateStatusBar();
+        saveToLocalStorage();
+
+        if (selectedElement) populateProperties(selectedElement);
+    }
+
+    function undoAll() {
+        if (changeLog.history.length === 0) return;
+        if (!confirm('Undo all changes? This cannot be reversed.')) return;
+
+        changeLog.rules.clear();
+        changeLog.history = [];
+
+        applyLiveChanges();
+        updateStatusBar();
+        saveToLocalStorage();
+
+        if (selectedElement) populateProperties(selectedElement);
+    }
+
+    function resetElement() {
+        if (!currentSelector) return;
+
+        changeLog.rules.delete(currentSelector);
+        changeLog.history = changeLog.history.filter(h => h.selector !== currentSelector);
+
+        applyLiveChanges();
+        updateStatusBar();
+        saveToLocalStorage();
+
+        if (selectedElement) populateProperties(selectedElement);
+    }
+
+    // ===================================================================
+    // EXPORT CLEAN HTML
+    // ===================================================================
+
+    function loadOriginalFile() {
+        fetch('space-ops-3030-v14.76.html')
+            .then(r => {
+                if (!r.ok) throw new Error('Fetch failed');
+                return r.text();
+            })
+            .then(text => {
+                originalFileContent = text;
+                console.log('[Editor] Original file loaded (' + text.length + ' chars)');
+            })
+            .catch(err => {
+                console.warn('[Editor] Fetch failed, will use file picker:', err);
+            });
+    }
+
+    function exportCleanHTML() {
+        if (changeLog.rules.size === 0) {
+            alert('No changes to export.');
+            return;
+        }
+
+        if (!originalFileContent) {
+            alert('Could not auto-load the original file. Please select the tracker HTML file.');
+            document.getElementById('filePicker').click();
+            return;
+        }
+
+        doExport(originalFileContent);
+    }
+
+    function handleFilePick(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            originalFileContent = e.target.result;
+            doExport(originalFileContent);
+        };
+        reader.readAsText(file);
+    }
+
+    function doExport(html) {
+        let overrideCSS = '\n\n        /* ===== EDITOR MODIFICATIONS ===== */\n';
+
+        changeLog.rules.forEach((props, selector) => {
+            overrideCSS += `        ${selector} {\n`;
+            Object.entries(props).forEach(([prop, val]) => {
+                overrideCSS += `            ${prop}: ${val};\n`;
+            });
+            overrideCSS += `        }\n\n`;
+        });
+
+        const styleCloseIdx = html.lastIndexOf('</style>');
+        if (styleCloseIdx === -1) {
+            alert('Error: Could not find </style> tag.');
+            return;
+        }
+
+        const modifiedHTML = html.slice(0, styleCloseIdx) + overrideCSS + html.slice(styleCloseIdx);
+
+        const blob = new Blob([modifiedHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'space-ops-3030-v14.76.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        document.getElementById('statusBar').textContent = 'Exported! ' + changeLog.rules.size + ' rule(s) saved.';
+    }
+
+    // ===================================================================
+    // PREVIEW — Opens real working app in new tab with CSS injected
+    // ===================================================================
+
+    function togglePreview() {
+        const previewTab = window.open('space-ops-3030-v14.76.html', '_blank');
+
+        if (!previewTab) {
+            alert('Popup blocked — please allow popups for localhost.');
+            return;
+        }
+
+        if (changeLog.rules.size === 0) return;
+
+        let css = '/* === Editor Preview Changes === */\n';
+        changeLog.rules.forEach((props, selector) => {
+            css += `${selector} {\n`;
+            Object.entries(props).forEach(([prop, val]) => {
+                css += `    ${prop}: ${val} !important;\n`;
+            });
+            css += `}\n`;
+        });
+
+        let attempts = 0;
+        const tryInject = () => {
+            attempts++;
+            try {
+                const doc = previewTab.document;
+                if (!doc || !doc.head || !doc.head.querySelector('style')) {
+                    if (attempts < 50) setTimeout(tryInject, 200);
+                    return;
+                }
+                if (doc.getElementById('editor-preview-changes')) return;
+
+                const style = doc.createElement('style');
+                style.id = 'editor-preview-changes';
+                style.textContent = css;
+                doc.head.appendChild(style);
+            } catch (e) {
+                if (attempts < 50) setTimeout(tryInject, 200);
+            }
+        };
+
+        setTimeout(tryInject, 300);
+    }
+
+    // ===================================================================
+    // LOCAL STORAGE PERSISTENCE
+    // ===================================================================
+
+    function saveToLocalStorage() {
+        const data = {};
+        changeLog.rules.forEach((props, selector) => {
+            data[selector] = props;
+        });
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (e) {}
+    }
+
+    function loadFromLocalStorage() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return;
+
+            const data = JSON.parse(raw);
+            Object.entries(data).forEach(([selector, props]) => {
+                changeLog.rules.set(selector, props);
+            });
+
+            if (changeLog.rules.size > 0) {
+                updateStatusBar();
+            }
+        } catch (e) {}
+    }
+
+    // ===================================================================
+    // UI HELPERS
+    // ===================================================================
+
+    function toggleSection(headerEl) {
+        headerEl.classList.toggle('open');
+        const body = headerEl.nextElementSibling;
+        body.classList.toggle('open');
+    }
+
+    function updateStatusBar() {
+        const count = changeLog.rules.size;
+        const bar = document.getElementById('statusBar');
+        if (count === 0 && !expandedNodeId) {
+            bar.textContent = 'Double-click a node to edit its content';
+            bar.classList.remove('has-changes');
+        } else if (count === 0) {
+            bar.textContent = 'No changes — click elements to edit';
+            bar.classList.remove('has-changes');
+        } else {
+            const totalProps = Array.from(changeLog.rules.values())
+                .reduce((sum, props) => sum + Object.keys(props).length, 0);
+            bar.textContent = `${totalProps} change${totalProps !== 1 ? 's' : ''} across ${count} selector${count !== 1 ? 's' : ''}`;
+            bar.classList.add('has-changes');
+        }
+    }
+
+    function rgbToHex(rgb) {
+        if (!rgb || rgb === 'transparent') return '#000000';
+        if (rgb.startsWith('#')) return rgb;
+
+        const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (!match) return '#000000';
+
+        const [_, r, g, b] = match;
+        return '#' + [r, g, b].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+    }
+
+    function setSelectValue(selectId, value) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === value) {
+                select.selectedIndex = i;
+                return;
+            }
+        }
+
+        for (let i = 0; i < select.options.length; i++) {
+            if (value.includes(select.options[i].value.split(',')[0].replace(/'/g, '').trim())) {
+                select.selectedIndex = i;
+                return;
+            }
+        }
+    }
+
+    function updateBtnGroup(property, value) {
+        document.querySelectorAll(`.btn-group button[data-prop="${property}"]`).forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.val === value);
+        });
+    }
+
+    function buildColorSwatches() {
+        ['textColorSwatches', 'bgColorSwatches'].forEach(containerId => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const isText = containerId === 'textColorSwatches';
+            PALETTE.forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch';
+                swatch.style.background = color;
+                swatch.title = color;
+                swatch.onclick = () => {
+                    if (isText) {
+                        applyProp('color', color);
+                        document.getElementById('propColor').value = color;
+                        document.getElementById('propColorHex').value = color;
+                    } else {
+                        applyProp('background-color', color);
+                        document.getElementById('propBgColor').value = color;
+                        document.getElementById('propBgColorHex').value = color;
+                    }
+                };
+                container.appendChild(swatch);
+            });
+        });
+    }
+
+    function togglePositionOffsets() {
+        const posSelect = document.getElementById('propPosition');
+        const offsets = document.getElementById('positionOffsets');
+        if (!posSelect || !offsets) return;
+
+        const show = posSelect.value !== 'static';
+        offsets.style.display = show ? '' : 'none';
+
+        if (show && selectedElement) {
+            const cs = iframe.contentWindow.getComputedStyle(selectedElement);
+            document.getElementById('propTop').value = cs.top === 'auto' ? '' : cs.top;
+            document.getElementById('propRight').value = cs.right === 'auto' ? '' : cs.right;
+            document.getElementById('propBottom').value = cs.bottom === 'auto' ? '' : cs.bottom;
+            document.getElementById('propLeft').value = cs.left === 'auto' ? '' : cs.left;
+        }
+    }
+
+    // ===================================================================
+    // KEYBOARD SHORTCUTS
+    // ===================================================================
+
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+Z — undo
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            e.preventDefault();
+            undoLast();
+        }
+        // Ctrl+S — export
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            exportCleanHTML();
+        }
+        // F — fit to view (only when not in an input)
+        if (e.key === 'f' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+            fitToView();
+        }
+        // Escape — close expanded view or deselect
+        if (e.key === 'Escape') {
+            if (expandedNodeId) {
+                closeExpandedView();
+            } else if (selectedElement) {
+                selectedElement.style.outline = '';
+                selectedElement.style.outlineOffset = '';
+                selectedElement = null;
+                currentSelector = '';
+                document.getElementById('sidebarEmpty').style.display = '';
+                document.getElementById('sidebarContent').style.display = 'none';
+            } else {
+                deselectNode();
+            }
+        }
+    });
+
+    </script>
+</body>
+</html>

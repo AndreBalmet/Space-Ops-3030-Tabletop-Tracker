@@ -1,0 +1,6 @@
+Name,Faction,Type,Attacks,Power,Damage,Effects,Description
+Plasma Carbine,Arc Rangers,Ranged,2,4,2,Rapid Fire,Standard issue energy carbine
+Arc Blade,Arc Rangers,Melee,2,3,1,Precise,Close combat energy blade
+Heavy Plasma Cannon,Arc Rangers,Ranged,3,5,3,Unwieldy,High-powered suppression weapon
+Thermal Lance,Space-Wyrm,Melee,3,5,3,Overheating,Solar-powered melee weapon
+Sun Cannon,Space-Wyrm,Ranged,2,6,4,"Blast, Overheating",Devastating solar energy weapon

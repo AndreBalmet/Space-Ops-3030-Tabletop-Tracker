@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space-Ops 3030 — Node Builder</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="builder.css">
+    <link rel="stylesheet" href="visual-editor.css">
+</head>
+<body>
+    <!-- Top Bar -->
+    <div id="topBar">
+        <div class="top-bar-left">
+            <span class="logo-text">SPACE-OPS 3030</span>
+            <span class="separator">|</span>
+            <span class="tool-name">Node Builder</span>
+        </div>
+        <div class="top-bar-center">
+            <button id="btnCanvasView" class="view-btn active" onclick="showCanvasView()">Canvas</button>
+            <button id="btnEditView" class="view-btn" onclick="showEditView()">Edit</button>
+        </div>
+        <div class="top-bar-right">
+            <button id="firebaseToggle" class="firebase-btn" onclick="toggleFirebase()" title="Toggle Firebase live data in previews">Firebase: OFF</button>
+            <button class="action-btn" onclick="exportProject()" title="Export to single HTML file">Export</button>
+            <button class="action-btn" onclick="saveAllNodes()" title="Save all node positions">Save</button>
+            <span id="statusIndicator" class="status">Ready</span>
+        </div>
+    </div>
+
+    <!-- Canvas View -->
+    <div id="canvasView">
+        <!-- Toolbar -->
+        <div id="canvasToolbar">
+            <button onclick="zoomIn()" title="Zoom In">+</button>
+            <button onclick="zoomOut()" title="Zoom Out">−</button>
+            <button onclick="resetView()" title="Reset View">⊞</button>
+            <span id="zoomLevel">100%</span>
+            <div class="toolbar-separator"></div>
+            <button onclick="toggleMinimap()" title="Toggle Minimap">◫</button>
+            <button onclick="autoLayout()" title="Auto-arrange nodes">Auto</button>
+        </div>
+
+        <!-- SVG layer for connection lines -->
+        <svg id="connectionsSvg"></svg>
+
+        <!-- Canvas (pannable/zoomable) -->
+        <div id="canvas">
+            <!-- Nodes rendered here by JS -->
+        </div>
+
+        <!-- Minimap -->
+        <div id="minimap" class="hidden">
+            <canvas id="minimapCanvas" width="200" height="150"></canvas>
+            <div id="minimapViewport"></div>
+        </div>
+
+        <!-- Node Info Panel (shows on hover/select) -->
+        <div id="nodeInfoPanel" class="hidden">
+            <h3 id="nodeInfoName"></h3>
+            <span id="nodeInfoType" class="node-type-badge"></span>
+            <p id="nodeInfoDesc"></p>
+            <div id="nodeInfoConnections"></div>
+            <button onclick="openNodeEditor(selectedNodeId)" class="edit-node-btn">Edit Node</button>
+        </div>
+    </div>
+
+    <!-- Edit View (Split: Preview + Code) -->
+    <div id="editView" class="hidden">
+        <div id="editHeader">
+            <button onclick="showCanvasView()" class="back-btn">← Back to Canvas</button>
+            <h2 id="editNodeName">Node Name</h2>
+            <div class="edit-tabs">
+                <button class="edit-tab active" data-tab="html" onclick="switchEditTab('html')">HTML</button>
+                <button class="edit-tab" data-tab="css" onclick="switchEditTab('css')">CSS</button>
+                <button class="edit-tab" data-tab="js" onclick="switchEditTab('js')">JS</button>
+            </div>
+            <button id="visualEditBtn" class="visual-edit-btn" onclick="toggleVisualEdit()">Visual</button>
+            <button onclick="applyChanges()" class="apply-btn">Apply</button>
+        </div>
+        <div id="editSplit">
+            <div id="previewPanel">
+                <iframe id="previewFrame" sandbox="allow-scripts allow-same-origin"></iframe>
+                <div id="visualOverlay"></div>
+            </div>
+            <div id="resizeHandle"></div>
+            <div id="codePanel">
+                <textarea id="codeEditor" spellcheck="false"></textarea>
+            </div>
+            <div id="propertyPanel"></div>
+        </div>
+        <!-- AI Description Input -->
+        <div id="aiPanel">
+            <input type="text" id="aiInput" placeholder="Describe a change for Claude to make..." />
+            <button onclick="sendToAI()" class="ai-btn">Send to Claude</button>
+        </div>
+    </div>
+
+    <script src="default-content.js"></script>
+    <script src="builder.js"></script>
+    <script src="visual-editor.js"></script>
+</body>
+</html>

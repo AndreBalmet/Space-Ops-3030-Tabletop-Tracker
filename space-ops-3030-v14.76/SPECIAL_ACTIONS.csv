@@ -1,0 +1,6 @@
+Name,Faction,Description,Effects,MaxUses,Type
+Jump Boost,Arc Rangers,Uses jet pack to boost 6 inches. Ignores terrain.,Dangerous terrain test required,1,Movement
+Tactical Scanner,Arc Rangers,Reveal enemy positions and weaknesses.,Squad +1 to hit this turn,2,Support
+Suppressing Fire,Arc Rangers,Pin enemy units with sustained fire.,Enemy -1 movement this turn,3,Combat
+Solar Frenzy,Space-Wyrm,Channel Sun God wrath for extra attacks.,"+2 attacks, risk Overheating",2,Combat
+Divine Vision,Space-Wyrm,Heat-induced prophetic guidance.,Re-roll one failed test,1,Support

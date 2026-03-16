@@ -1,0 +1,473 @@
+/* ============================================
+   Visual Element Positioning Tool — Styles
+   ============================================ */
+
+/* --- Overlay --- */
+#visualOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    pointer-events: none;
+    display: none;
+    overflow: hidden;
+}
+
+#visualOverlay.active {
+    display: block;
+    pointer-events: all;
+    cursor: crosshair;
+}
+
+/* When visual edit is active, block iframe clicks */
+#previewPanel.visual-edit-active {
+    position: relative;
+}
+
+#previewPanel.visual-edit-active #previewFrame {
+    pointer-events: none;
+}
+
+/* --- Visual Edit Toggle Button --- */
+.visual-edit-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 5px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    transition: all 0.2s ease;
+}
+
+.visual-edit-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.visual-edit-btn.active {
+    background: var(--gold-subtle);
+    border-color: var(--gold);
+    color: var(--gold);
+    box-shadow: 0 0 12px var(--gold-glow);
+}
+
+/* --- Hover Outline --- */
+.ve-hover-outline {
+    position: absolute;
+    border: 1px dashed rgba(59, 130, 246, 0.5);
+    pointer-events: none;
+    z-index: 11;
+    transition: all 0.05s ease;
+}
+
+/* --- Element Label (on hover) --- */
+.ve-element-label {
+    position: absolute;
+    background: rgba(59, 130, 246, 0.9);
+    color: white;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 15;
+    white-space: nowrap;
+    transform: translateY(-100%);
+    margin-top: -4px;
+}
+
+/* --- Selection Box --- */
+.ve-selection-box {
+    position: absolute;
+    border: 2px solid #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+    pointer-events: none;
+    z-index: 12;
+}
+
+.ve-selection-box.dragging {
+    border-style: dashed;
+    background: rgba(59, 130, 246, 0.1);
+    opacity: 0.8;
+}
+
+/* --- Selection Info (dimensions) --- */
+.ve-selection-info {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #e8e9ed;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* --- Resize Handles --- */
+.ve-resize-handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #3b82f6;
+    border: 1px solid white;
+    z-index: 13;
+    pointer-events: all;
+    cursor: pointer;
+}
+
+.ve-resize-handle.ve-handle-n  { top: -4px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+.ve-resize-handle.ve-handle-ne { top: -4px; right: -4px; cursor: ne-resize; }
+.ve-resize-handle.ve-handle-e  { top: 50%; right: -4px; transform: translateY(-50%); cursor: e-resize; }
+.ve-resize-handle.ve-handle-se { bottom: -4px; right: -4px; cursor: se-resize; }
+.ve-resize-handle.ve-handle-s  { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+.ve-resize-handle.ve-handle-sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+.ve-resize-handle.ve-handle-w  { top: 50%; left: -4px; transform: translateY(-50%); cursor: w-resize; }
+.ve-resize-handle.ve-handle-nw { top: -4px; left: -4px; cursor: nw-resize; }
+
+/* --- Snap Guide Lines --- */
+.ve-snap-guide {
+    position: absolute;
+    z-index: 14;
+    pointer-events: none;
+}
+
+.ve-snap-guide.vertical {
+    width: 1px;
+    top: 0;
+    bottom: 0;
+    background: #f43f5e;
+}
+
+.ve-snap-guide.horizontal {
+    height: 1px;
+    left: 0;
+    right: 0;
+    background: #06b6d4;
+}
+
+/* --- Distance Indicator --- */
+.ve-distance {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: #f43f5e;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 1px 4px;
+    border-radius: 2px;
+    z-index: 15;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* --- Property Panel --- */
+#propertyPanel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg-base);
+    overflow-y: auto;
+    font-family: var(--font);
+    color: var(--text-primary);
+}
+
+#propertyPanel.active {
+    display: flex;
+}
+
+/* Hide code panel when visual edit is on */
+.visual-edit-active-split #codePanel {
+    display: none;
+}
+
+.visual-edit-active-split #resizeHandle {
+    display: none;
+}
+
+.prop-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prop-header .prop-icon {
+    color: var(--gold);
+}
+
+.prop-section {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.prop-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.prop-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.prop-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    min-width: 55px;
+    font-weight: 500;
+}
+
+.prop-value {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-primary);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 8px;
+    flex: 1;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.prop-value:focus {
+    border-color: var(--gold);
+}
+
+.prop-value.readonly {
+    background: transparent;
+    border-color: transparent;
+    cursor: default;
+}
+
+.prop-select {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-primary);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 4px;
+    flex: 1;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.prop-select:focus {
+    border-color: var(--gold);
+}
+
+.prop-color {
+    width: 28px !important;
+    min-width: 28px;
+    flex: 0 !important;
+    padding: 1px 2px !important;
+    height: 24px;
+    cursor: pointer;
+}
+
+.prop-unit {
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 18px;
+}
+
+.prop-selector {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--gold);
+    word-break: break-all;
+    padding: 4px 0;
+}
+
+/* Box model diagram */
+.box-model {
+    position: relative;
+    width: 100%;
+    max-width: 220px;
+    margin: 8px auto;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.box-model-margin {
+    border: 1px dashed rgba(255, 165, 0, 0.4);
+    padding: 12px;
+    background: rgba(255, 165, 0, 0.04);
+    border-radius: 4px;
+}
+
+.box-model-padding {
+    border: 1px dashed rgba(59, 130, 246, 0.4);
+    padding: 12px;
+    background: rgba(59, 130, 246, 0.04);
+    border-radius: 3px;
+}
+
+.box-model-content {
+    background: var(--bg-elevated);
+    padding: 8px 4px;
+    border-radius: 2px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.box-model-label {
+    position: absolute;
+    font-size: 8px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.box-model-label.margin-label { top: 2px; left: 4px; color: rgba(255, 165, 0, 0.6); }
+.box-model-label.padding-label { top: 18px; left: 18px; color: rgba(59, 130, 246, 0.6); }
+
+.box-model-value {
+    display: inline-block;
+    min-width: 20px;
+    cursor: pointer;
+}
+
+.box-model-value:hover {
+    color: var(--gold);
+}
+
+/* CSS Preview in property panel */
+.prop-css-preview {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: #c9d1d9;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+
+.prop-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.prop-action-btn {
+    flex: 1;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.prop-action-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.prop-action-btn.primary {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #000;
+}
+
+.prop-action-btn.primary:hover {
+    background: var(--gold-bright);
+}
+
+.prop-action-btn.danger {
+    border-color: #f43f5e;
+    color: #f43f5e;
+}
+
+.prop-action-btn.danger:hover {
+    background: #f43f5e;
+    color: #fff;
+}
+
+/* Element cycle info */
+.prop-cycle-info {
+    padding: 8px 16px;
+    background: rgba(59, 130, 246, 0.1);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    color: #3b82f6;
+    font-weight: 500;
+}
+
+/* Empty state */
+.prop-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 12px;
+    gap: 8px;
+    padding: 40px;
+    text-align: center;
+}
+
+.prop-empty-icon {
+    font-size: 32px;
+    opacity: 0.3;
+}
+
+/* Nudge indicator */
+.ve-nudge-indicator {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.ve-nudge-indicator.visible {
+    opacity: 1;
+}
