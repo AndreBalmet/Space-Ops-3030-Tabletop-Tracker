@@ -490,8 +490,8 @@
         }
 
         .team-builder-content {
-            padding: 3% 8% 5% 8%;
-            max-width: 1200px;
+            padding: 3% 4% 5% 4%;
+            max-width: 1600px;
             margin: 0 auto;
         }
 
@@ -1424,7 +1424,7 @@
         .main-content {
             padding: 0;
             background: var(--white);
-            max-width: 1200px;
+            max-width: 1600px;
             margin: 0 auto;
         }
 
@@ -2722,7 +2722,7 @@
 
         .model-stats-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
             gap: 0;
             margin-top: 10px;
             border-radius: 6px;
@@ -3212,7 +3212,7 @@
 
     <div class="main-content">
     <!-- Player Display (like My Teams) -->
-    <div style="text-align: center; margin: 20px auto; max-width: 1200px; padding: 0 20px;">
+    <div style="text-align: center; margin: 20px auto; max-width: 1600px; padding: 0 20px;">
         <div style="background: var(--off-white); border-left: 4px solid var(--accent); padding: 12px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
             <span style="color: var(--text-muted); font-family: var(--font-heading); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Current Player:</span>
             <span id="sessionPlayerName" style="color: var(--black); font-family: var(--font-heading); font-size: 14px; font-weight: 700;"></span>
@@ -3561,18 +3561,10 @@
                     <label>Role/Class</label>
                     <input type="text" id="charRole" placeholder="e.g., Space Marine Captain" />
                 </div>
-                <div class="form-group">
-                    <label>Portrait Image</label>
-                    <div style="display: flex; gap: 10px; align-items: flex-start;">
-                        <div style="flex: 1;">
-                            <input type="url" id="charPortrait" placeholder="Paste URL or drag image here..." style="margin-bottom: 5px;" />
-                            <div id="portraitDropZone" style="border: 2px dashed var(--border); border-radius: 5px; padding: 20px; text-align: center; background: var(--surface); cursor: pointer; min-height: 80px; display: flex; align-items: center; justify-content: center;">
-                                <span style="color: var(--text-secondary); font-size: 13px;">🖼️ Drag image from web browser here<br>or paste URL above</span>
-                            </div>
-                        </div>
-                        <div id="portraitPreview" style="width: 100px; height: 100px; border: 2px solid var(--border); border-radius: 5px; background: var(--surface); display: none; background-size: cover; background-position: center;"></div>
-                    </div>
-                </div>
+                <!-- Portrait removed -->
+                <input type="hidden" id="charPortrait" value="" />
+                <div id="portraitDropZone" style="display:none;"></div>
+                <div id="portraitPreview" style="display:none;"></div>
                 
                 <h3 style="color: var(--accent); margin: 20px 0 10px 0;">Stats</h3>
                 <div class="form-group">
@@ -6941,64 +6933,44 @@
             var factionData = (gameData.factions || []).find(function(f) { return f.name === faction; });
             if (factionData) fColor = factionData.primaryColor || fColor;
             var charName = char.name || 'Unknown';
-            var portraitUrl = char.portrait || '';
-            var portraitPreviewStyle = portraitUrl ? 'background-image:url(' + portraitUrl + ');' : '';
-            var portraitClass = portraitUrl ? 'tb-edit-portrait-preview' : 'tb-edit-portrait-preview empty';
             var escTeam = teamId.replace(/'/g, "\\'");
             var escChar = charId.replace(/'/g, "\\'");
 
-            // --- Identity section ---
+            // --- Identity section (no portrait) ---
             var identityHTML = '<div class="tb-edit-section">' +
                 '<div class="tb-edit-section-title">Identity</div>' +
-                '<div class="tb-edit-portrait-row">' +
-                    '<div class="' + portraitClass + '" id="sePortrait_' + charId + '" style="' + portraitPreviewStyle + '"></div>' +
-                    '<div style="flex:1;">' +
-                        '<div class="tb-edit-input-row">' +
-                            '<label>Name</label>' +
-                            '<input class="tb-edit-input" type="text" value="' + charName.replace(/"/g, '&quot;') + '" onchange="updateSessionCharField(\'' + escTeam + '\',\'' + escChar + '\',\'name\',this.value)" />' +
-                            '<button class="tb-edit-randomize-btn" onclick="randomizeSessionCharName(\'' + escTeam + '\',\'' + escChar + '\')" title="Random name">&#127922;</button>' +
-                        '</div>' +
-                        '<div class="tb-edit-input-row">' +
-                            '<label>Portrait</label>' +
-                            '<input class="tb-edit-input" type="url" placeholder="Image URL" value="' + (portraitUrl).replace(/"/g, '&quot;') + '" onchange="updateSessionCharField(\'' + escTeam + '\',\'' + escChar + '\',\'portrait\',this.value); var p=document.getElementById(\'sePortrait_' + charId + '\'); if(this.value){p.style.backgroundImage=\'url(\'+this.value+\')\';p.className=\'tb-edit-portrait-preview\';}else{p.style.backgroundImage=\'\';p.className=\'tb-edit-portrait-preview empty\';}" />' +
-                        '</div>' +
-                        '<div class="tb-edit-input-row">' +
-                            '<label>Role</label>' +
-                            '<input class="tb-edit-input" type="text" value="' + (char.role || '').replace(/"/g, '&quot;') + '" onchange="updateSessionCharField(\'' + escTeam + '\',\'' + escChar + '\',\'role\',this.value)" />' +
-                        '</div>' +
-                    '</div>' +
+                '<div class="tb-edit-input-row">' +
+                    '<label>Name</label>' +
+                    '<input class="tb-edit-input" type="text" value="' + charName.replace(/"/g, '&quot;') + '" onchange="updateSessionCharField(\'' + escTeam + '\',\'' + escChar + '\',\'name\',this.value)" />' +
+                    '<button class="tb-edit-randomize-btn" onclick="randomizeSessionCharName(\'' + escTeam + '\',\'' + escChar + '\')" title="Random name">&#127922;</button>' +
+                '</div>' +
+                '<div class="tb-edit-input-row">' +
+                    '<label>Role</label>' +
+                    '<input class="tb-edit-input" type="text" value="' + (char.role || '').replace(/"/g, '&quot;') + '" onchange="updateSessionCharField(\'' + escTeam + '\',\'' + escChar + '\',\'role\',this.value)" />' +
                 '</div>' +
             '</div>';
 
-            // --- Stats section ---
-            var statFields = [
-                { key: 'speed', label: 'SPD' },
-                { key: 'shoot', label: 'SHT' },
-                { key: 'fight', label: 'FGT' },
-                { key: 'defense', label: 'DEF', fallbacks: ['nerve'] },
-                { key: 'grit', label: 'GRT', fallbacks: ['nerve'] },
-                { key: 'maxHealth', label: 'HP' }
+            // --- Stats section (same visual as card stat blocks) ---
+            var sessionStatDefs = [
+                { key: 'speed', label: 'Speed', fallbacks: null },
+                { key: 'shoot', label: 'Shoot', fallbacks: null },
+                { key: 'fight', label: 'Fight', fallbacks: null },
+                { key: 'defense', label: 'Defense', fallbacks: ['nerve'] },
+                { key: 'grit', label: 'Grit', fallbacks: ['nerve'] },
             ];
-            var statGridHTML = '<div class="tb-edit-stat-grid">';
-            statFields.forEach(function(sf) {
+            var statsHTML = '<div class="model-stats-grid">';
+            sessionStatDefs.forEach(function(sf) {
                 var val = char[sf.key] || '';
                 if (!val && sf.fallbacks) {
                     sf.fallbacks.forEach(function(fb) { if (!val) val = char[fb] || ''; });
                 }
                 if (!val && val !== 0) return;
-                statGridHTML += '<div class="tb-edit-stat-cell">' +
-                    '<label>' + sf.label + '</label>' +
-                    '<input type="text" value="' + val + '" onchange="updateSessionCharField(\'' + escTeam + '\',\'' + escChar + '\',\'' + sf.key + '\',this.value)" />' +
+                statsHTML += '<div class="model-stat-box">' +
+                    '<div class="model-stat-label">' + sf.label + '</div>' +
+                    '<div class="model-stat-value">' + val + '</div>' +
                 '</div>';
             });
-            statGridHTML += '</div>';
-            var statsHTML = '<div class="tb-edit-section">' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-                    '<div class="tb-edit-section-title" style="margin-bottom:0;">Stats</div>' +
-                    '<button class="tb-edit-reset-btn" onclick="resetSessionCharStats(\'' + escTeam + '\',\'' + escChar + '\')">Reset to Base</button>' +
-                '</div>' +
-                '<div style="margin-top:8px;">' + statGridHTML + '</div>' +
-            '</div>';
+            statsHTML += '</div>';
 
             // --- Health section ---
             var healthHTML = '<div class="tb-edit-section">' +
@@ -7016,16 +6988,22 @@
             '</div>';
 
             // --- Unified Equipment (4 Slots) ---
-            var isVehicleSession = (char.name || '').toLowerCase().indexOf('vehicle') !== -1 || (char.name || '').toLowerCase().indexOf('tank') !== -1 || (char.name || '').toLowerCase().indexOf('trv') !== -1 || (char.name || '').toLowerCase().indexOf('platform') !== -1;
+            var isVehicleSession = _isModelVehicle(char);
             var allItemsSession = getAllWeaponsAndEquipment(faction, isVehicleSession);
             var allWeaponsSession = allItemsSession.weapons;
             var allEquipSession = allItemsSession.equipment;
+            var equipGroupsSession = allItemsSession.equipGroups;
 
             // Pad weapons to 4 slots
             if (!char.weapons) char.weapons = [];
             while (char.weapons.length < 4) char.weapons.push(null);
 
-            var weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Equipment (4 Slots)</div>';
+            var weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Gear (4 Slots)</div>';
+
+            // Default gear banner
+            if (char.defaultInventory && char.defaultInventory.length > 0) {
+                weaponHTML += '<div style="background:rgba(219,143,0,0.1);border:1px solid rgba(219,143,0,0.3);border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px;"><span style="color:#db8f00;font-weight:600;">Default Gear:</span> <span style="color:#666;">' + char.defaultInventory.map(function(g) { return wrapEquipWithTooltip(g); }).join(', ') + '</span></div>';
+            }
 
             // Check for melee warning
             var hasSessionMelee = (char.weapons || []).some(function(w) { return w && _isSlotWeapon(w) && _isWeaponMelee(w); });
@@ -7043,7 +7021,7 @@
                     '<option value=""' + (!sItem ? ' selected' : '') + '>-- Empty --</option>';
 
                 // Weapons optgroup
-                weaponHTML += '<optgroup label="\u2694 Weapons">';
+                weaponHTML += '<optgroup label="Weapons">';
                 var sCurInWeapons = sItem ? allWeaponsSession.find(function(w) { return w.name === sItem.name; }) : null;
                 if (sItem && sIsWeapon && !sCurInWeapons) {
                     weaponHTML += '<option value="w:' + sItem.name + '" selected>' + _formatWeaponLabel(sItem) + '</option>';
@@ -7054,17 +7032,24 @@
                 });
                 weaponHTML += '</optgroup>';
 
-                // Equipment optgroup
-                weaponHTML += '<optgroup label="\uD83D\uDEE1 Equipment">';
+                // Gear optgroups by category
                 var sCurInEquip = sItem ? allEquipSession.find(function(e) { return e.name === sItem.name; }) : null;
-                if (sItem && !sIsWeapon && sItem.type === 'Equipment' && !sCurInEquip) {
-                    weaponHTML += '<option value="e:' + sItem.name + '" selected>' + _formatEquipLabel(sItem) + '</option>';
-                }
-                allEquipSession.forEach(function(e) {
-                    var sel = (sItem && e.name === sItem.name && !sIsWeapon) ? ' selected' : '';
-                    weaponHTML += '<option value="e:' + e.name + '"' + sel + '>' + _formatEquipLabel(e) + '</option>';
+                var sOrphanAdded = false;
+                Object.keys(equipGroupsSession).sort().forEach(function(cat) {
+                    weaponHTML += '<optgroup label="' + cat + '">';
+                    if (!sOrphanAdded && sItem && !sIsWeapon && sItem.type === 'Equipment' && !sCurInEquip) {
+                        weaponHTML += '<option value="e:' + sItem.name + '" selected>' + _formatEquipLabel(sItem) + '</option>';
+                        sOrphanAdded = true;
+                    }
+                    equipGroupsSession[cat].forEach(function(e) {
+                        var sel = (sItem && e.name === sItem.name && !sIsWeapon) ? ' selected' : '';
+                        weaponHTML += '<option value="e:' + e.name + '"' + sel + '>' + _formatEquipLabel(e) + '</option>';
+                    });
+                    weaponHTML += '</optgroup>';
                 });
-                weaponHTML += '</optgroup>';
+                if (!sOrphanAdded && sItem && !sIsWeapon && sItem.type === 'Equipment' && !sCurInEquip) {
+                    weaponHTML += '<optgroup label="Other"><option value="e:' + sItem.name + '" selected>' + _formatEquipLabel(sItem) + '</option></optgroup>';
+                }
 
                 weaponHTML += '</select></div>';
 
@@ -7550,16 +7535,6 @@ if (sessionEditingChars[_editKey]) {
 if (currentView === 'tiny') {
     teamHTML += `
         <div class="model-card tiny ${char.status === 'dead' ? 'dead' : ''}" id="model-card-${teamId}-${charId}">
-            ${char.portrait ? `
-                <img src="${char.portrait}" 
-                     alt="${char.name}" 
-                     class="model-portrait-new"
-                     style="border: 3px solid ${char.color || '#E8441E'};"
-                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div class="model-portrait-new" style="display: none; background: ${char.portraitColor || char.color || '#E8441E'}; border: 3px solid ${char.color || '#E8441E'}; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: white;">${char.name[0]}</div>
-            ` : `
-                <div class="model-portrait-new" style="background: ${char.portraitColor || char.color || '#E8441E'}; border: 3px solid ${char.color || '#E8441E'}; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: white;">${char.name[0]}</div>
-            `}
             <div style="display: flex; justify-content: space-between; align-items: center; margin: 3px 0; gap: 3px;">
                 <span class="status-indicator status-${char.status}" style="font-size: 0.6em; padding: 2px 4px; flex: 1; text-align: center;">${char.status}</span>
                 <button class="btn ${char.turnTaken ? 'btn-secondary' : 'btn-primary'}" style="padding: 2px 6px; font-size: 0.6em; flex: 1;" onclick="toggleTurnStatus('${teamId}', '${charId}')">
@@ -7583,22 +7558,10 @@ teamHTML += `
             </button>
         </div>
         
-        <!-- SECTION 1: Header - Portrait, Name, Stats, Effects -->
+        <!-- SECTION 1: Header - Name, Stats, Effects -->
         <div class="model-section-1">
             <div class="model-header-top">
-                ${char.portrait ? `
-                    <img src="${char.portrait}" 
-                         alt="${char.name}" 
-                         class="model-portrait-new"
-                         style="border: 4px solid ${char.color || '#E8441E'};"
-                         onclick="editPortrait('${teamId}', '${charId}')"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                         title="Click to change portrait">
-                    <div class="model-portrait-new" style="display: none; background: ${char.portraitColor || char.color || '#E8441E'}; border: 4px solid ${char.color || '#E8441E'}; align-items: center; justify-content: center; font-size: 48px; font-weight: 600; color: white; cursor: pointer;" onclick="editPortrait('${teamId}', '${charId}')" title="Click to change portrait">${char.name[0]}</div>
-                ` : `
-                    <div class="model-portrait-new" style="background: ${char.portraitColor || char.color || '#E8441E'}; border: 4px solid ${char.color || '#E8441E'}; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 600; color: white; cursor: pointer;" onclick="editPortrait('${teamId}', '${charId}')" title="Click to change color">${char.name[0]}</div>
-                `}
-                <div class="model-header-info">
+                <div class="model-header-info" style="flex: 1;">
                     <div class="model-name-row">
                         <h3 class="model-name-new">${char.name}</h3>
                     </div>
@@ -7672,9 +7635,15 @@ teamHTML += `
             ${renderUniqueActions(char)}
         </div>
         
-        <!-- SECTION 3: Equipment -->
+        <!-- SECTION 3: Gear -->
         <div class="model-section-3">
-            <div class="section-title">Equipment</div>
+            <div class="section-title">Gear</div>
+            ${(char.defaultInventory && char.defaultInventory.length > 0) || (char.inventory && char.inventory.length > 0) ? `
+                <div style="background:rgba(219,143,0,0.1);border:1px solid rgba(219,143,0,0.3);border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px;">
+                    <span style="color:#db8f00;font-weight:600;">Default Gear:</span>
+                    <span style="color:#ccc;">${(char.defaultInventory || char.inventory || []).map(function(g) { return wrapEquipWithTooltip(g); }).join(', ')}</span>
+                </div>
+            ` : ''}
             <div class="equipment-grid">
                 ${[0,1,2,3].map(function(si) {
                     var slot = char.weapons && char.weapons[si] ? char.weapons[si] : null;
@@ -8614,8 +8583,18 @@ teamHTML += `
             });
         }
 
+        // Detect vehicle from model type field (from XLSX), falling back to name heuristic
+        function _isModelVehicle(model) {
+            if (!model) return false;
+            var t = (model.type || model.role || '').toLowerCase();
+            if (t === 'vehicle') return true;
+            // Fallback: name-based detection for older data
+            var n = (model.name || '').toLowerCase();
+            return n.indexOf('vehicle') !== -1 || n.indexOf('tank') !== -1 || n.indexOf('trv') !== -1 || n.indexOf('platform') !== -1;
+        }
+
         function getAvailableEquipment(faction, isVehicle) {
-            // Primary: use gameData.equipment if available (from Firebase CSV upload)
+            // Primary: use gameData.equipment if available (from Firebase XLSX upload)
             if (gameData.equipment && gameData.equipment.length > 0) {
                 return gameData.equipment.filter(function(e) {
                     if (e.faction && e.faction !== faction) return false;
@@ -8623,8 +8602,9 @@ teamHTML += `
                     // Exclude default loadout items (those come pre-installed)
                     if (et.indexOf('default') !== -1) return false;
                     if (isVehicle) return et.indexOf('vehicle') !== -1;
-                    // Include "Operator Equipment", "Cyberdeck Upgrades", and items with no type set
-                    return et === '' || et.indexOf('operator') !== -1 || et.indexOf('cyberdeck') !== -1;
+                    // For non-vehicles: exclude vehicle equipment
+                    if (et.indexOf('vehicle') !== -1) return false;
+                    return true;
                 });
             }
             // Fallback: equipment-type weapons from game data
@@ -8633,14 +8613,26 @@ teamHTML += `
             });
         }
 
-        // Returns { weapons: [...], equipment: [...] } for building unified slot dropdowns
+        // Group equipment by equipmentType for categorized dropdowns
+        function _groupEquipmentByType(equipList) {
+            var groups = {};
+            equipList.forEach(function(e) {
+                var cat = e.equipmentType || 'General';
+                if (!groups[cat]) groups[cat] = [];
+                groups[cat].push(e);
+            });
+            return groups;
+        }
+
+        // Returns { weapons: [...], equipment: [...], equipGroups: {...} } for building unified slot dropdowns
         function getAllWeaponsAndEquipment(faction, isVehicle) {
             var allWeapons = (gameData.weapons || []).filter(function(w) {
                 if (w.type === 'Equipment') return false;
                 return true;
             });
             var allEquip = getAvailableEquipment(faction, isVehicle);
-            return { weapons: allWeapons, equipment: allEquip };
+            var equipGroups = _groupEquipmentByType(allEquip);
+            return { weapons: allWeapons, equipment: allEquip, equipGroups: equipGroups };
         }
 
         // Check if a slot item is a weapon (has real attack stats, not equipment)
@@ -8728,6 +8720,7 @@ teamHTML += `
                                                 </div>
                                                 <div class="tb-model-meta">${metaParts.join(' · ')}</div>
                                                 ${statGrid}
+                                                ${model.loadout ? '<div style="background:rgba(219,143,0,0.1);border:1px solid rgba(219,143,0,0.3);border-radius:4px;padding:3px 8px;margin-top:4px;font-size:11px;"><span style="color:#db8f00;font-weight:600;">Default Gear:</span> <span style="color:#666;">' + model.loadout.split(',').map(function(g) { return wrapEquipWithTooltip(g.trim()); }).join(', ') + '</span></div>' : ''}
                                                 ${gear ? '<div class="tb-model-meta" style="margin-top:4px;">' + gear + (slots ? ' · ' + slots : '') + '</div>' : ''}
                                             </div>
                                         </div>`;
@@ -8775,7 +8768,7 @@ teamHTML += `
                 loadout = modelData.loadout.split(',').map(s => s.trim()).filter(Boolean);
             }
 
-            // Build 4 unified equipment slots: default weapons first, then loadout items as equipment, pad with null
+            // Build 4 gear slots: default weapons only, loadout goes to defaultInventory (shown separately)
             var slotItems = startWeapons.map(function(w) {
                 return {
                     name: w.name,
@@ -8787,20 +8780,8 @@ teamHTML += `
                     points: w.points || ''
                 };
             });
-            // Add loadout items as equipment-type entries
-            loadout.forEach(function(itemName) {
-                var equipData = lookupEquipData(itemName);
-                slotItems.push({
-                    name: itemName,
-                    type: 'Equipment',
-                    attacks: '-',
-                    power: '-',
-                    damage: '-',
-                    effects: equipData ? (equipData.passiveAbility || equipData.passioveAbility || equipData.actionName || '') : '',
-                    points: equipData ? (equipData.points || '') : ''
-                });
-            });
-            // Pad to exactly 4 slots
+            // Loadout items (Jetpack, Company Badge, etc.) are default gear — NOT slotted
+            // Pad weapon slots to exactly 4
             while (slotItems.length < 4) slotItems.push(null);
             if (slotItems.length > 4) slotItems = slotItems.slice(0, 4);
 
@@ -8887,6 +8868,7 @@ teamHTML += `
                 '</div>' +
                 '<div class="tb-roster-meta">' + modelType + (role || '') + '</div>' +
                 statGrid +
+                (model.defaultInventory && model.defaultInventory.length > 0 ? '<div style="background:rgba(219,143,0,0.1);border:1px solid rgba(219,143,0,0.3);border-radius:4px;padding:4px 8px;margin-top:6px;font-size:11px;"><span style="color:#db8f00;font-weight:600;">Default Gear:</span> <span style="color:#666;">' + model.defaultInventory.map(function(g) { return wrapEquipWithTooltip(g); }).join(', ') + '</span></div>' : '') +
                 (equippedItems ? '<div class="tb-roster-meta" style="margin-top:4px;">\u2694 ' + equippedItems + '</div>' : '') +
                 (notesText ? '<div class="tb-roster-meta" style="margin-top:4px;color:#9CAF88;font-style:italic;font-size:12px;">\u{1F4DD} ' + notesText.replace(/</g, '&lt;') + '</div>' : '') +
             '</div>';
@@ -8897,76 +8879,51 @@ teamHTML += `
             var baseModel = (gameData.models || []).find(function(m) { return m.name === model.name && m.faction === model.faction; });
             var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
             var totalDelta = (model.weaponPointsDelta || 0) + (model.equipmentPointsDelta || 0);
-            var isVehicle = (model.name || '').toLowerCase().indexOf('vehicle') !== -1 || (model.name || '').toLowerCase().indexOf('tank') !== -1 || (model.name || '').toLowerCase().indexOf('trv') !== -1 || (model.name || '').toLowerCase().indexOf('platform') !== -1;
+            var isVehicle = _isModelVehicle(model);
             var customName = model.customName || model.name;
             var portraitUrl = model.portrait || '';
 
-            // --- Portrait + Name section ---
-            var portraitPreviewStyle = portraitUrl ? 'background-image:url(' + portraitUrl + ');' : '';
-            var portraitClass = portraitUrl ? 'tb-edit-portrait-preview' : 'tb-edit-portrait-preview empty';
+            // --- Name section ---
             var identityHTML = '<div class="tb-edit-section">' +
                 '<div class="tb-edit-section-title">Identity</div>' +
-                '<div class="tb-edit-portrait-row">' +
-                    '<div class="' + portraitClass + '" id="tbPortrait_' + model.id + '" style="' + portraitPreviewStyle + '"></div>' +
-                    '<div style="flex:1;">' +
-                        '<div class="tb-edit-input-row">' +
-                            '<label>Name</label>' +
-                            '<input class="tb-edit-input" type="text" value="' + customName.replace(/"/g, '&quot;') + '" onchange="updateModelField(' + model.id + ',\'customName\',this.value)" />' +
-                            '<button class="tb-edit-randomize-btn" onclick="randomizeModelName(' + model.id + ')" title="Random name">&#127922;</button>' +
-                        '</div>' +
-                        '<div class="tb-edit-input-row">' +
-                            '<label>Portrait</label>' +
-                            '<input class="tb-edit-input" type="url" placeholder="Image URL" value="' + portraitUrl.replace(/"/g, '&quot;') + '" onchange="updateModelField(' + model.id + ',\'portrait\',this.value); var p=document.getElementById(\'tbPortrait_' + model.id + '\'); if(this.value){p.style.backgroundImage=\'url(\'+this.value+\')\';p.className=\'tb-edit-portrait-preview\';}else{p.style.backgroundImage=\'\';p.className=\'tb-edit-portrait-preview empty\';}" />' +
-                        '</div>' +
-                    '</div>' +
+                '<div class="tb-edit-input-row">' +
+                    '<label>Name</label>' +
+                    '<input class="tb-edit-input" type="text" value="' + customName.replace(/"/g, '&quot;') + '" onchange="updateModelField(' + model.id + ',\'customName\',this.value)" />' +
+                    '<button class="tb-edit-randomize-btn" onclick="randomizeModelName(' + model.id + ')" title="Random name">&#127922;</button>' +
                 '</div>' +
             '</div>';
 
-            // --- Stats section ---
-            var statFields = [
-                { key: 'speed', label: 'SPD' },
-                { key: 'shoot', label: 'SHT' },
-                { key: 'fight', label: 'FGT' },
-                { key: 'defense', label: 'DEF', fallbacks: ['nerve'] },
-                { key: 'grit', label: 'GRT', fallbacks: ['nerve'] },
-                { key: 'health', label: 'HP' },
-                { key: 'firewall', label: 'FW' }
+            // --- Stats section (same visual as collapsed card) ---
+            var editStatDefs = [
+                { key: 'speed', label: 'Speed', fallbacks: null },
+                { key: 'shoot', label: 'Shoot', fallbacks: null },
+                { key: 'fight', label: 'Fight', fallbacks: null },
+                { key: 'defense', label: 'Defense', fallbacks: ['nerve'] },
+                { key: 'grit', label: 'Grit', fallbacks: ['nerve'] },
+                { key: 'health', label: 'Health', fallbacks: null },
+                { key: 'firewall', label: 'Firewall', fallbacks: null }
             ];
-            var baseStats = baseModel || {};
-            var hasModifiedStat = false;
-            var statGridHTML = '<div class="tb-edit-stat-grid">';
-            statFields.forEach(function(sf) {
+            var statsHTML = '<div class="model-stats-grid">';
+            editStatDefs.forEach(function(sf) {
                 var val = model.stats ? (model.stats[sf.key] || '') : (model[sf.key] || '');
-                var baseVal = baseStats[sf.key] || '';
                 if (!val && sf.fallbacks) {
                     sf.fallbacks.forEach(function(fb) {
                         if (!val) val = model.stats ? (model.stats[fb] || '') : (model[fb] || '');
-                        if (!baseVal) baseVal = baseStats[fb] || '';
                     });
                 }
-                if (val === '-' && !baseVal) return; // skip fields like firewall='-'
-                if (!val && !baseVal) return;
-                var modified = String(val) !== String(baseVal) && baseVal !== '';
-                if (modified) hasModifiedStat = true;
-                statGridHTML += '<div class="tb-edit-stat-cell">' +
-                    '<label>' + sf.label + '</label>' +
-                    '<input type="text" value="' + val + '"' + (modified ? ' class="modified"' : '') +
-                    ' onchange="updateModelStat(' + model.id + ',\'' + sf.key + '\',this.value)" />' +
+                if (val === '-' || (!val && val !== 0)) return;
+                statsHTML += '<div class="model-stat-box">' +
+                    '<div class="model-stat-label">' + sf.label + '</div>' +
+                    '<div class="model-stat-value">' + val + '</div>' +
                 '</div>';
             });
-            statGridHTML += '</div>';
-            var statsHTML = '<div class="tb-edit-section">' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-                    '<div class="tb-edit-section-title" style="margin-bottom:0;">Stats</div>' +
-                    '<button class="tb-edit-reset-btn" onclick="resetModelStats(' + model.id + ')">Reset to Base</button>' +
-                '</div>' +
-                '<div style="margin-top:8px;">' + statGridHTML + '</div>' +
-            '</div>';
+            statsHTML += '</div>';
 
             // --- Unified Equipment (4 Slots) ---
             var allItems = getAllWeaponsAndEquipment(model.faction, isVehicle);
             var allWeapons = allItems.weapons;
             var allEquip = allItems.equipment;
+            var equipGroups = allItems.equipGroups;
 
             // Ensure weapons array is padded to 4
             while ((model.weapons || []).length < 4) {
@@ -8978,7 +8935,12 @@ teamHTML += `
                 model.defaultWeapons.push(null);
             }
 
-            var weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Equipment (4 Slots)</div>';
+            var weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Gear (4 Slots)</div>';
+
+            // Default gear banner
+            if (model.defaultInventory && model.defaultInventory.length > 0) {
+                weaponHTML += '<div style="background:rgba(219,143,0,0.1);border:1px solid rgba(219,143,0,0.3);border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px;"><span style="color:#db8f00;font-weight:600;">Default Gear:</span> <span style="color:#666;">' + model.defaultInventory.map(function(g) { return wrapEquipWithTooltip(g); }).join(', ') + '</span></div>';
+            }
 
             // Check for melee warning
             var hasMelee = (model.weapons || []).some(function(w) { return w && _isSlotWeapon(w) && _isWeaponMelee(w); });
@@ -9011,7 +8973,7 @@ teamHTML += `
                     '<option value=""' + (!slotItem ? ' selected' : '') + '>-- Empty --</option>';
 
                 // Weapons optgroup
-                weaponHTML += '<optgroup label="\u2694 Weapons">';
+                weaponHTML += '<optgroup label="Weapons">';
                 var currentInWeapons = slotItem ? allWeapons.find(function(w) { return w.name === slotItem.name; }) : null;
                 if (slotItem && slotIsWeapon && !currentInWeapons) {
                     weaponHTML += '<option value="w:' + slotItem.name + '" selected>' + _formatWeaponLabel(slotItem) + '</option>';
@@ -9022,17 +8984,24 @@ teamHTML += `
                 });
                 weaponHTML += '</optgroup>';
 
-                // Equipment optgroup
-                weaponHTML += '<optgroup label="\uD83D\uDEE1 Equipment">';
+                // Gear optgroups by category
                 var currentInEquip = slotItem ? allEquip.find(function(e) { return e.name === slotItem.name; }) : null;
-                if (slotItem && !slotIsWeapon && slotItem.type === 'Equipment' && !currentInEquip) {
-                    weaponHTML += '<option value="e:' + slotItem.name + '" selected>' + _formatEquipLabel(slotItem) + '</option>';
-                }
-                allEquip.forEach(function(e) {
-                    var sel = (slotItem && e.name === slotItem.name && !slotIsWeapon) ? ' selected' : '';
-                    weaponHTML += '<option value="e:' + e.name + '"' + sel + '>' + _formatEquipLabel(e) + '</option>';
+                var orphanAdded = false;
+                Object.keys(equipGroups).sort().forEach(function(cat) {
+                    weaponHTML += '<optgroup label="' + cat + '">';
+                    if (!orphanAdded && slotItem && !slotIsWeapon && slotItem.type === 'Equipment' && !currentInEquip) {
+                        weaponHTML += '<option value="e:' + slotItem.name + '" selected>' + _formatEquipLabel(slotItem) + '</option>';
+                        orphanAdded = true;
+                    }
+                    equipGroups[cat].forEach(function(e) {
+                        var sel = (slotItem && e.name === slotItem.name && !slotIsWeapon) ? ' selected' : '';
+                        weaponHTML += '<option value="e:' + e.name + '"' + sel + '>' + _formatEquipLabel(e) + '</option>';
+                    });
+                    weaponHTML += '</optgroup>';
                 });
-                weaponHTML += '</optgroup>';
+                if (!orphanAdded && slotItem && !slotIsWeapon && slotItem.type === 'Equipment' && !currentInEquip) {
+                    weaponHTML += '<optgroup label="Other"><option value="e:' + slotItem.name + '" selected>' + _formatEquipLabel(slotItem) + '</option></optgroup>';
+                }
 
                 weaponHTML += '</select>';
 
@@ -9207,7 +9176,7 @@ teamHTML += `
             } else if (value.indexOf('e:') === 0) {
                 // Equipment
                 var equipName = value.substring(2);
-                var isVehicle = (model.name || '').toLowerCase().indexOf('vehicle') !== -1 || (model.name || '').toLowerCase().indexOf('tank') !== -1 || (model.name || '').toLowerCase().indexOf('trv') !== -1 || (model.name || '').toLowerCase().indexOf('platform') !== -1;
+                var isVehicle = _isModelVehicle(model);
                 var availEquip = getAvailableEquipment(model.faction, isVehicle);
                 var newEquip = availEquip.find(function(e) { return e.name === equipName; });
                 if (!newEquip) {
@@ -9722,11 +9691,10 @@ teamHTML += `
             return `
                 <div class="model-card" style="border: 1px solid var(--border);">
                     
-                    <!-- SECTION 1: Header - Portrait, Name, Stats -->
+                    <!-- SECTION 1: Header - Name, Stats -->
                     <div class="model-section-1">
                         <div class="model-header-top">
-                            <div class="model-portrait-new" style="background: ${model.color || faction?.primaryColor || '#E8441E'}; border: 4px solid ${model.color || faction?.primaryColor || '#E8441E'}; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 600; color: white;">${model.name[0]}</div>
-                            <div class="model-header-info">
+                            <div class="model-header-info" style="flex: 1;">
                                 <div class="model-name-row">
                                     <h3 class="model-name-new">${model.name}</h3>
                                 </div>
@@ -9778,45 +9746,30 @@ teamHTML += `
                         </div>
                     </div>
                     
-                    <!-- SECTION 2: Equipment -->
+                    <!-- SECTION 2: Gear -->
                     <div class="model-section-3">
-                        <div class="section-title">Equipment</div>
+                        <div class="section-title">Gear</div>
+                        ${(model.defaultInventory && model.defaultInventory.length > 0) || (model.inventory && model.inventory.length > 0) ? `
+                            <div style="background:rgba(219,143,0,0.1);border:1px solid rgba(219,143,0,0.3);border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px;">
+                                <span style="color:#db8f00;font-weight:600;">Default Gear:</span>
+                                <span style="color:#ccc;">${(model.defaultInventory || model.inventory || []).map(function(g) { return wrapEquipWithTooltip(g); }).join(', ')}</span>
+                            </div>
+                        ` : ''}
                         <div class="equipment-grid">
-                            <!-- Weapon Slot 1 -->
-                            <div class="equipment-slot ${!model.weapons || !model.weapons[0] ? 'empty' : ''}">
-                                <div class="equipment-label">Weapon 1</div>
-                                ${model.weapons && model.weapons[0] ? `
-                                    <div class="equipment-name">${wrapWeaponWithTooltip(model.weapons[0])}</div>
-                                    <div class="equipment-stats">${weaponStatsLine(model.weapons[0])}</div>
-                                    ${weaponEffects(model.weapons[0]) ? `<div class="equipment-effects">${wrapTraitsWithTooltips(weaponEffects(model.weapons[0]))}</div>` : ''}
-                                ` : '<div style="color: #666;">Empty</div>'}
-                            </div>
-
-                            <!-- Weapon Slot 2 -->
-                            <div class="equipment-slot ${!model.weapons || !model.weapons[1] ? 'empty' : ''}">
-                                <div class="equipment-label">Weapon 2</div>
-                                ${model.weapons && model.weapons[1] ? `
-                                    <div class="equipment-name">${wrapWeaponWithTooltip(model.weapons[1])}</div>
-                                    <div class="equipment-stats">${weaponStatsLine(model.weapons[1])}</div>
-                                    ${weaponEffects(model.weapons[1]) ? `<div class="equipment-effects">${wrapTraitsWithTooltips(weaponEffects(model.weapons[1]))}</div>` : ''}
-                                ` : '<div style="color: #666;">Empty</div>'}
-                            </div>
-
-                            <!-- Inventory Slot 1 -->
-                            <div class="equipment-slot ${!model.inventory || !model.inventory[0] ? 'empty' : ''}">
-                                <div class="equipment-label">Inventory 1</div>
-                                ${model.inventory && model.inventory[0] ? `
-                                    <div class="equipment-name">${wrapEquipWithTooltip(model.inventory[0])}</div>
-                                ` : '<div style="color: #666;">Empty</div>'}
-                            </div>
-
-                            <!-- Inventory Slot 2 -->
-                            <div class="equipment-slot ${!model.inventory || !model.inventory[1] ? 'empty' : ''}">
-                                <div class="equipment-label">Inventory 2</div>
-                                ${model.inventory && model.inventory[1] ? `
-                                    <div class="equipment-name">${wrapEquipWithTooltip(model.inventory[1])}</div>
-                                ` : '<div style="color: #666;">Empty</div>'}
-                            </div>
+                            ${[0,1,2,3].map(function(si) {
+                                var slot = model.weapons && model.weapons[si] ? model.weapons[si] : null;
+                                var isWeapon = slot && _isSlotWeapon(slot);
+                                var isEmpty = !slot;
+                                return '<div class="equipment-slot ' + (isEmpty ? 'empty' : '') + '">' +
+                                    '<div class="equipment-label">Slot ' + (si + 1) + '</div>' +
+                                    (isEmpty ? '<div style="color: #666;">Empty</div>' :
+                                        isWeapon ? '<div class="equipment-name">' + wrapWeaponWithTooltip(slot) + '</div>' +
+                                            '<div class="equipment-stats">' + weaponStatsLine(slot) + '</div>' +
+                                            (weaponEffects(slot) ? '<div class="equipment-effects">' + wrapTraitsWithTooltips(weaponEffects(slot)) + '</div>' : '')
+                                        : '<div class="equipment-name">' + wrapEquipWithTooltip(slot.name) + '</div>'
+                                    ) +
+                                '</div>';
+                            }).join('')}
                         </div>
                         
                         <!-- Notes Display -->
@@ -10158,15 +10111,16 @@ teamHTML += `
                                     grit: model.grit || '',
                                     nerve: model.nerve || model.grit || model.defense || '',
                                     firewall: model.firewall || '',
-                                    portrait: model.portrait || '',
+                                    portrait: '',
                                     color: model.color || '',
-                                    portraitColor: model.portraitColor || '',
+                                    portraitColor: '',
                                     status: 'alive',
                                     turnTaken: false,
                                     weapons: model.weapons || [],
                                     consumables: model.consumables || [],
                                     specialActions: model.specialActions || [],
                                     inventory: model.inventory || [],
+                                    defaultInventory: model.defaultInventory || model.inventory || [],
                                     notes: model.notes || '',
                                     owner: currentPlayer
                                 });
