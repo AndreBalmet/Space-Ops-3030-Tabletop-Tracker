@@ -3528,8 +3528,12 @@
                     <input type="text" id="charFight" placeholder="e.g., 3+" />
                 </div>
                 <div class="form-group">
-                    <label>Nerve</label>
-                    <input type="text" id="charNerve" placeholder="e.g., 4+" />
+                    <label>Defense</label>
+                    <input type="text" id="charDefense" placeholder="e.g., 4+" />
+                </div>
+                <div class="form-group">
+                    <label>Grit</label>
+                    <input type="text" id="charGrit" placeholder="e.g., 4+" />
                 </div>
                 <div class="form-group">
                     <label>Health*</label>
@@ -3770,19 +3774,19 @@
             ],
             models: [
                 // Arc Rangers
-                { name: 'Veteran Captain', faction: 'Arc Rangers', type: 'Captain', speed: 8, shoot: '3+', fight: '4+', nerve: '3+', health: 20, points: 40, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Experienced leader with tactical expertise' },
-                { name: 'Arc Ranger', faction: 'Arc Rangers', type: 'Trooper', speed: 8, shoot: '4+', fight: '5+', nerve: '4+', health: 15, points: 15, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Standard operative with balanced capabilities' },
-                { name: 'Scout Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 10, shoot: '4+', fight: '5+', nerve: '3+', health: 12, points: 18, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Fast reconnaissance specialist' },
-                { name: 'Heavy Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 6, shoot: '3+', fight: '5+', nerve: '4+', health: 18, points: 22, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Armored fire support unit' },
-                { name: 'Tech Specialist', faction: 'Arc Rangers', type: 'Specialist', speed: 7, shoot: '4+', fight: '5+', nerve: '4+', health: 14, points: 20, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Technical expert with scanner abilities' },
-                { name: 'Medic Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 7, shoot: '5+', fight: '5+', nerve: '4+', health: 14, points: 16, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Field medic with healing capabilities' },
+                { name: 'Veteran Captain', faction: 'Arc Rangers', type: 'Captain', speed: 8, shoot: '3+', fight: '4+', grit: '3+', health: 20, points: 40, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Experienced leader with tactical expertise' },
+                { name: 'Arc Ranger', faction: 'Arc Rangers', type: 'Trooper', speed: 8, shoot: '4+', fight: '5+', grit: '4+', health: 15, points: 15, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Standard operative with balanced capabilities' },
+                { name: 'Scout Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 10, shoot: '4+', fight: '5+', grit: '3+', health: 12, points: 18, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Fast reconnaissance specialist' },
+                { name: 'Heavy Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 6, shoot: '3+', fight: '5+', grit: '4+', health: 18, points: 22, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Armored fire support unit' },
+                { name: 'Tech Specialist', faction: 'Arc Rangers', type: 'Specialist', speed: 7, shoot: '4+', fight: '5+', grit: '4+', health: 14, points: 20, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Technical expert with scanner abilities' },
+                { name: 'Medic Ranger', faction: 'Arc Rangers', type: 'Specialist', speed: 7, shoot: '5+', fight: '5+', grit: '4+', health: 14, points: 16, portrait: 'https://spaceops3030.com/cdn/shop/articles/AR-with-Carbines_wide.jpg', description: 'Field medic with healing capabilities' },
                 // Space-Wyrm
-                { name: 'Solar Priest', faction: 'Space-Wyrm', type: 'Leader', speed: 5, shoot: '4+', fight: '3+', nerve: '2+', health: 22, points: 45, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Priest', description: 'High-ranking religious commander' },
-                { name: 'Wyrm Zealot', faction: 'Space-Wyrm', type: 'Warrior', speed: 6, shoot: '4+', fight: '3+', nerve: '2+', health: 18, points: 20, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Zealot', description: 'Fanatical Sun God devotee' },
-                { name: 'Wyrm Hatchling', faction: 'Space-Wyrm', type: 'Trooper', speed: 7, shoot: '5+', fight: '4+', nerve: '3+', health: 10, points: 12, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Hatchling', description: 'Young warrior from The Garden' },
-                { name: 'Wyrm Hunter', faction: 'Space-Wyrm', type: 'Specialist', speed: 8, shoot: '3+', fight: '4+', nerve: '3+', health: 15, points: 18, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Hunter', description: 'Swift ambush predator' },
-                { name: 'Wyrm Brute', faction: 'Space-Wyrm', type: 'Warrior', speed: 5, shoot: '5+', fight: '2+', nerve: '2+', health: 24, points: 25, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Brute', description: 'Heavily mutated warrior' },
-                { name: 'Solar Cultist', faction: 'Space-Wyrm', type: 'Trooper', speed: 6, shoot: '4+', fight: '4+', nerve: '3+', health: 12, points: 14, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Cultist', description: 'Devoted follower with basic solar weapons' }
+                { name: 'Solar Priest', faction: 'Space-Wyrm', type: 'Leader', speed: 5, shoot: '4+', fight: '3+', grit: '2+', health: 22, points: 45, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Priest', description: 'High-ranking religious commander' },
+                { name: 'Wyrm Zealot', faction: 'Space-Wyrm', type: 'Warrior', speed: 6, shoot: '4+', fight: '3+', grit: '2+', health: 18, points: 20, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Zealot', description: 'Fanatical Sun God devotee' },
+                { name: 'Wyrm Hatchling', faction: 'Space-Wyrm', type: 'Trooper', speed: 7, shoot: '5+', fight: '4+', grit: '3+', health: 10, points: 12, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Hatchling', description: 'Young warrior from The Garden' },
+                { name: 'Wyrm Hunter', faction: 'Space-Wyrm', type: 'Specialist', speed: 8, shoot: '3+', fight: '4+', grit: '3+', health: 15, points: 18, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Hunter', description: 'Swift ambush predator' },
+                { name: 'Wyrm Brute', faction: 'Space-Wyrm', type: 'Warrior', speed: 5, shoot: '5+', fight: '2+', grit: '2+', health: 24, points: 25, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Brute', description: 'Heavily mutated warrior' },
+                { name: 'Solar Cultist', faction: 'Space-Wyrm', type: 'Trooper', speed: 6, shoot: '4+', fight: '4+', grit: '3+', health: 12, points: 14, portrait: 'https://via.placeholder.com/100/FFD700/8B0000?text=Cultist', description: 'Devoted follower with basic solar weapons' }
             ],
             weapons: [
                 // Arc Rangers
@@ -3815,7 +3819,7 @@
                 { name: 'Divine Vision', faction: 'Space-Wyrm', description: 'Heat-induced prophetic guidance.', effects: 'Re-roll one failed test', maxUses: 1, type: 'Support' },
                 { name: 'Hatchery Rage', faction: 'Space-Wyrm', description: 'Primal berserker fury from hatchery memories.', effects: '+3 attacks, -1 defense for 2 turns', maxUses: 1, type: 'Combat' },
                 { name: 'Solar Surge', faction: 'Space-Wyrm', description: 'Overload solar cells for power boost.', effects: '+1 to all solar weapons this turn', maxUses: 2, type: 'Combat' },
-                { name: 'Zealot\'s Prayer', faction: 'Space-Wyrm', description: 'Invoke Sun God protection.', effects: 'Ignore next wound on Nerve test', maxUses: 2, type: 'Defense' },
+                { name: 'Zealot\'s Prayer', faction: 'Space-Wyrm', description: 'Invoke Sun God protection.', effects: 'Ignore next wound on Grit test', maxUses: 2, type: 'Defense' },
                 { name: 'Thermal Vent', faction: 'Space-Wyrm', description: 'Emergency heat dissipation.', effects: 'Remove Overheating status', maxUses: 3, type: 'Support' }
             ],
             starterSquads: [
@@ -3929,7 +3933,7 @@
             'Rapid Fire': 'Re-roll one failed hit die when shooting',
             'Precise': '+1 to hit in melee combat',
             'Unwieldy': 'Cannot move and shoot in the same turn',
-            'Stun': 'Target must pass Nerve test or lose next action',
+            'Stun': 'Target must pass Grit test or lose next action',
             'Long Range': 'No penalty for shooting beyond 12 inches',
             'Mobility': 'Allows vertical movement up to 6 inches',
             'Healing': 'Restore D3 health to an adjacent ally',
@@ -3939,7 +3943,7 @@
             'Defense +1': '+1 to armor save rolls',
             'Ignite': 'Target takes 1 damage at start of their next turn',
             'Solar Charge': 'Gains +1 damage after not shooting for a turn',
-            'Faith': 'Re-roll one failed Nerve test per game'
+            'Faith': 'Re-roll one failed Grit test per game'
         };
 
         function wrapTraitsWithTooltips(traitsStr) {
@@ -4864,7 +4868,7 @@
                 }
                 
                 // Build CSV content
-                let csv = 'Team Name,Faction,Model Name,Role,Speed,Shoot,Fight,Nerve,Max HP,Current HP,Weapons,Inventory 1,Inventory 2,Portrait,Notes\n';
+                let csv = 'Team Name,Faction,Model Name,Role,Speed,Shoot,Fight,Defense,Grit,Max HP,Current HP,Weapons,Inventory 1,Inventory 2,Portrait,Notes\n';
                 
                 Object.values(teams).forEach(team => {
                     team.models.forEach(model => {
@@ -4901,7 +4905,7 @@
                         };
                         
                         csv += `${escapeCsv(team.name)},${escapeCsv(team.faction)},${escapeCsv(model.name)},${escapeCsv(model.type || model.role)},`;
-                        csv += `${escapeCsv(model.speed)},${escapeCsv(model.shoot)},${escapeCsv(model.fight)},${escapeCsv(model.nerve)},`;
+                        csv += `${escapeCsv(model.speed)},${escapeCsv(model.shoot)},${escapeCsv(model.fight)},${escapeCsv(model.defense || '')},${escapeCsv(model.grit || '')},`;
                         csv += `${model.health},${model.currentHealth || model.health},${escapeCsv(weaponsStr)},${escapeCsv(inv1)},${escapeCsv(inv2)},${escapeCsv(model.portrait || '')},${escapeCsv(model.notes || '')}\n`;
                     });
                 });
@@ -4978,8 +4982,8 @@
                         }
                         values.push(current);
                         
-                        if (values.length < 8) continue; // Need at least team through nerve
-                        
+                        if (values.length < 9) continue; // Need at least team through grit
+
                         const teamName = values[0] || 'Unnamed Team';
                         const faction = values[1] || 'Unknown';
                         const modelName = values[2] || 'Unnamed Model';
@@ -4987,14 +4991,15 @@
                         const speed = values[4] || '6';
                         const shoot = values[5] || '4+';
                         const fight = values[6] || '5+';
-                        const nerve = values[7] || '4+';
-                        const maxHP = parseInt(values[8]) || 15;
-                        const currentHP = parseInt(values[9]) || maxHP;
-                        const weaponsStr = values[10] || '';
-                        const inv1 = values[11] || '';
-                        const inv2 = values[12] || '';
-                        const portrait = values[13] || ''; // Portrait URL
-                        const notes = values[14] || values[11] || ''; // Notes column moved to 14, fallback to old format
+                        const defense = values[7] || '';
+                        const grit = values[8] || '4+';
+                        const maxHP = parseInt(values[9]) || 15;
+                        const currentHP = parseInt(values[10]) || maxHP;
+                        const weaponsStr = values[11] || '';
+                        const inv1 = values[12] || '';
+                        const inv2 = values[13] || '';
+                        const portrait = values[14] || '';
+                        const notes = values[15] || '';
                         
                         if (!teams[teamName]) {
                             teams[teamName] = {
@@ -5018,12 +5023,13 @@
                             speed: speed,
                             shoot: shoot,
                             fight: fight,
-                            nerve: nerve,
+                            defense: defense,
+                            grit: grit,
                             health: maxHP,
                             currentHealth: currentHP,
                             weapons: weapons,
                             inventory: inventory,
-                            portrait: portrait, // Add portrait URL
+                            portrait: portrait,
                             notes: notes,
                             points: 15
                         });
@@ -5992,7 +5998,8 @@
                                         speed: char.speed,
                                         shoot: char.shoot,
                                         fight: char.fight,
-                                        nerve: char.nerve,
+                                        defense: char.defense || '',
+                                        grit: char.grit || '',
                                         health: char.maxHealth,
                                         currentHealth: char.currentHealth,
                                         weapons: weaponsArray,
@@ -6438,9 +6445,10 @@
             document.getElementById('charSpeed').value = model.speed;
             document.getElementById('charShoot').value = model.shoot;
             document.getElementById('charFight').value = model.fight;
-            document.getElementById('charNerve').value = model.nerve;
+            document.getElementById('charDefense').value = model.defense || '';
+            document.getElementById('charGrit').value = model.grit || '';
             document.getElementById('charHealth').value = model.health;
-            
+
             // Get faction-specific weapons and add first one
             const factionWeapons = gameData.weapons.filter(w => w.faction === factionName);
             if (factionWeapons.length > 0 && weaponFields.length === 1 && !weaponFields[0].name) {
@@ -6657,7 +6665,8 @@
             document.getElementById('charSpeed').value = character.speed || '';
             document.getElementById('charShoot').value = character.shoot || '';
             document.getElementById('charFight').value = character.fight || '';
-            document.getElementById('charNerve').value = character.nerve || '';
+            document.getElementById('charDefense').value = character.defense || '';
+            document.getElementById('charGrit').value = character.grit || '';
             document.getElementById('charHealth').value = character.maxHealth || 15;
             document.getElementById('charColor').value = character.color || generateRandomColor();
             updateColorPreview();
@@ -6697,7 +6706,8 @@
                     speed: document.getElementById('charSpeed').value.trim(),
                     shoot: document.getElementById('charShoot').value.trim(),
                     fight: document.getElementById('charFight').value.trim(),
-                    nerve: document.getElementById('charNerve').value.trim(),
+                    defense: document.getElementById('charDefense').value.trim(),
+                    grit: document.getElementById('charGrit').value.trim(),
                     health: parseInt(document.getElementById('charHealth').value),
                     currentHealth: parseInt(document.getElementById('charHealth').value),
                     weapons: weaponFields.filter(w => w.name && w.attacks && w.power && w.damage),
@@ -6737,7 +6747,8 @@
                 speed: document.getElementById('charSpeed').value.trim(),
                 shoot: document.getElementById('charShoot').value.trim(),
                 fight: document.getElementById('charFight').value.trim(),
-                nerve: document.getElementById('charNerve').value.trim(),
+                defense: document.getElementById('charDefense').value.trim(),
+                grit: document.getElementById('charGrit').value.trim(),
                 maxHealth: parseInt(document.getElementById('charHealth').value),
                 currentHealth: parseInt(document.getElementById('charHealth').value),
                 color: document.getElementById('charColor').value,
@@ -7206,9 +7217,10 @@
             // --- Stats section ---
             var statFields = [
                 { key: 'speed', label: 'SPD' },
-                { key: 'shoot', label: 'SHT' },
                 { key: 'fight', label: 'FGT' },
-                { key: 'nerve', label: 'NRV' },
+                { key: 'shoot', label: 'SHT' },
+                { key: 'defense', label: 'DEF' },
+                { key: 'grit', label: 'GRT' },
                 { key: 'maxHealth', label: 'HP' }
             ];
             var statGridHTML = '<div class="tb-edit-stat-grid">';
@@ -7396,7 +7408,8 @@
                 speed: baseModel.speed || '',
                 shoot: baseModel.shoot || '',
                 fight: baseModel.fight || '',
-                nerve: baseModel.nerve || baseModel.grit || '',
+                defense: baseModel.defense || '',
+                grit: baseModel.grit || '',
                 maxHealth: parseInt(baseModel.health) || char.maxHealth
             };
             database.ref('sessions/' + currentSession + '/teams/' + teamId + '/characters/' + charId).update(updates);
@@ -7818,22 +7831,28 @@ teamHTML += `
                         <div class="model-stat-value">${char.speed}</div>
                     </div>
                 ` : ''}
-                ${char.shoot ? `
-                    <div class="model-stat-box">
-                        <div class="model-stat-label">Shoot</div>
-                        <div class="model-stat-value">${char.shoot}</div>
-                    </div>
-                ` : ''}
                 ${char.fight ? `
                     <div class="model-stat-box">
                         <div class="model-stat-label">Fight</div>
                         <div class="model-stat-value">${char.fight}</div>
                     </div>
                 ` : ''}
-                ${char.nerve ? `
+                ${char.shoot ? `
                     <div class="model-stat-box">
-                        <div class="model-stat-label">Nerve</div>
-                        <div class="model-stat-value">${char.nerve}</div>
+                        <div class="model-stat-label">Shoot</div>
+                        <div class="model-stat-value">${char.shoot}</div>
+                    </div>
+                ` : ''}
+                ${char.defense ? `
+                    <div class="model-stat-box">
+                        <div class="model-stat-label">Defense</div>
+                        <div class="model-stat-value">${char.defense}</div>
+                    </div>
+                ` : ''}
+                ${char.grit ? `
+                    <div class="model-stat-box">
+                        <div class="model-stat-label">Grit</div>
+                        <div class="model-stat-value">${char.grit}</div>
                     </div>
                 ` : ''}
                 <div class="model-stat-box">
@@ -8574,7 +8593,8 @@ teamHTML += `
                 speed: modelData.speed,
                 shoot: modelData.shoot,
                 fight: modelData.fight,
-                nerve: modelData.nerve,
+                defense: modelData.defense || '',
+                grit: modelData.grit || '',
                 firewall: modelData.firewall || '',
                 portrait: modelData.portrait,
                 status: 'alive',
@@ -8755,7 +8775,7 @@ teamHTML += `
             if (model.shoot && model.shoot !== '-') parts.push('SHT ' + model.shoot);
             if (model.fight && model.fight !== '-') parts.push('FGT ' + model.fight);
             if (model.defense) parts.push('DEF ' + model.defense);
-            if (model.grit || model.nerve) parts.push('GRT ' + (model.grit || model.nerve));
+            if (model.grit) parts.push('GRT ' + model.grit);
             if (model.health) parts.push('HP ' + model.health);
             if (model.firewall && model.firewall !== '-') parts.push('FW ' + model.firewall);
             return parts.join('  ');
@@ -9069,8 +9089,8 @@ teamHTML += `
             // --- Stats section ---
             var statFields = [
                 { key: 'speed', label: 'SPD' },
-                { key: 'shoot', label: 'SHT' },
                 { key: 'fight', label: 'FGT' },
+                { key: 'shoot', label: 'SHT' },
                 { key: 'defense', label: 'DEF' },
                 { key: 'grit', label: 'GRT' },
                 { key: 'health', label: 'HP' },
@@ -9319,7 +9339,7 @@ teamHTML += `
                     shoot: model.shoot || '',
                     fight: model.fight || '',
                     defense: model.defense || '',
-                    grit: model.grit || model.nerve || '',
+                    grit: model.grit || '',
                     health: model.health || '',
                     firewall: model.firewall || ''
                 };
@@ -9759,22 +9779,28 @@ teamHTML += `
                                     <div class="model-stat-value">${model.speed}</div>
                                 </div>
                             ` : ''}
-                            ${model.shoot ? `
-                                <div class="model-stat-box">
-                                    <div class="model-stat-label">Shoot</div>
-                                    <div class="model-stat-value">${model.shoot}</div>
-                                </div>
-                            ` : ''}
                             ${model.fight ? `
                                 <div class="model-stat-box">
                                     <div class="model-stat-label">Fight</div>
                                     <div class="model-stat-value">${model.fight}</div>
                                 </div>
                             ` : ''}
-                            ${model.nerve ? `
+                            ${model.shoot ? `
                                 <div class="model-stat-box">
-                                    <div class="model-stat-label">Nerve</div>
-                                    <div class="model-stat-value">${model.nerve}</div>
+                                    <div class="model-stat-label">Shoot</div>
+                                    <div class="model-stat-value">${model.shoot}</div>
+                                </div>
+                            ` : ''}
+                            ${model.defense ? `
+                                <div class="model-stat-box">
+                                    <div class="model-stat-label">Defense</div>
+                                    <div class="model-stat-value">${model.defense}</div>
+                                </div>
+                            ` : ''}
+                            ${model.grit ? `
+                                <div class="model-stat-box">
+                                    <div class="model-stat-label">Grit</div>
+                                    <div class="model-stat-value">${model.grit}</div>
                                 </div>
                             ` : ''}
                             <div class="model-stat-box">
@@ -9871,7 +9897,8 @@ teamHTML += `
                     charSpeed: document.getElementById('charSpeed'),
                     charShoot: document.getElementById('charShoot'),
                     charFight: document.getElementById('charFight'),
-                    charNerve: document.getElementById('charNerve'),
+                    charDefense: document.getElementById('charDefense'),
+                    charGrit: document.getElementById('charGrit'),
                     charHealth: document.getElementById('charHealth'),
                     charColor: document.getElementById('charColor'),
                     charInventory: document.getElementById('charInventory'),
@@ -9892,7 +9919,8 @@ teamHTML += `
                 if (elements.charSpeed) elements.charSpeed.value = '6';
                 if (elements.charShoot) elements.charShoot.value = '4+';
                 if (elements.charFight) elements.charFight.value = '5+';
-                if (elements.charNerve) elements.charNerve.value = '4+';
+                if (elements.charDefense) elements.charDefense.value = '';
+                if (elements.charGrit) elements.charGrit.value = '4+';
                 if (elements.charHealth) elements.charHealth.value = '15';
                 if (elements.charColor) elements.charColor.value = generateRandomColor();
                 updateColorPreview();
@@ -10007,7 +10035,8 @@ teamHTML += `
                     document.getElementById('charSpeed').value = model.speed || '';
                     document.getElementById('charShoot').value = model.shoot || '';
                     document.getElementById('charFight').value = model.fight || '';
-                    document.getElementById('charNerve').value = model.nerve || '';
+                    document.getElementById('charDefense').value = model.defense || '';
+                    document.getElementById('charGrit').value = model.grit || '';
                     document.getElementById('charHealth').value = model.health || 15;
                     document.getElementById('charColor').value = model.color || generateRandomColor();
                     updateColorPreview();
@@ -10157,7 +10186,8 @@ teamHTML += `
                                     speed: model.speed || '6"',
                                     shoot: model.shoot || '4+',
                                     fight: model.fight || '4+',
-                                    nerve: model.nerve || '4+',
+                                    defense: model.defense || '',
+                                    grit: model.grit || '4+',
                                     firewall: model.firewall || '',
                                     portrait: model.portrait || '',
                                     color: model.color || '',
@@ -10480,7 +10510,7 @@ teamHTML += `
                 // --- Stat boxes: SPEED, FIGHT, SHOOT, DEFENSE, GRIT ---
                 var statLabels = ['SPEED', 'FIGHT', 'SHOOT', 'DEFENSE', 'GRIT'];
                 var statKeys = ['speed', 'fight', 'shoot', 'defense', 'grit'];
-                var statFallbacks = [null, null, null, 'nerve', null];
+                var statFallbacks = [null, null, null, null, null];
                 var numStats = statLabels.length;
                 var boxW = (cardW - pad * 2 - (numStats - 1) * 2) / numStats;
                 var boxH = 10;
