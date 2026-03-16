@@ -7248,65 +7248,73 @@
                 '</div>' +
             '</div>';
 
-            // --- Weapon dropdowns ---
-            var weaponHTML = '';
-            if (char.weapons && char.weapons.length > 0) {
-                weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Weapons</div>';
-                char.weapons.forEach(function(weapon, idx) {
-                    if (!weapon || !weapon.name) return;
-                    var isMelee = _isWeaponMelee(weapon);
-                    var available = getAvailableWeapons(faction, isMelee);
-                    var label = isMelee ? 'Melee' : 'Ranged';
+            // --- Unified Equipment (4 Slots) ---
+            var isVehicleSession = (char.name || '').toLowerCase().indexOf('vehicle') !== -1 || (char.name || '').toLowerCase().indexOf('tank') !== -1 || (char.name || '').toLowerCase().indexOf('trv') !== -1 || (char.name || '').toLowerCase().indexOf('platform') !== -1;
+            var allItemsSession = getAllWeaponsAndEquipment(faction, isVehicleSession);
+            var allWeaponsSession = allItemsSession.weapons;
+            var allEquipSession = allItemsSession.equipment;
 
-                    weaponHTML += '<div class="tb-edit-slot">' +
-                        '<span class="tb-edit-slot-label">' + label + ':</span>' +
-                        '<select class="tb-edit-select" onchange="updateSessionCharWeapon(\'' + escTeam + '\',\'' + escChar + '\',' + idx + ',this.value)">';
-                    var currentInList = available.find(function(w) { return w.name === weapon.name; });
-                    if (!currentInList) {
-                        weaponHTML += '<option value="' + weapon.name + '" selected>' + _formatWeaponLabel(weapon) + '</option>';
-                    }
-                    available.forEach(function(w) {
-                        var sel = w.name === weapon.name ? ' selected' : '';
-                        weaponHTML += '<option value="' + w.name + '"' + sel + '>' + _formatWeaponLabel(w) + '</option>';
-                    });
-                    weaponHTML += '</select></div>';
-                    var ew = _enrichWeapon(weapon);
-                    var wStats = [];
-                    wStats.push('A' + (ew.attacks != null ? ew.attacks : '?'));
-                    wStats.push('P' + (ew.power != null ? ew.power : '?'));
-                    wStats.push('D' + (ew.damage != null ? ew.damage : '?'));
-                    var wTraits = ew.effects || '';
-                    if (wTraits) wStats.push(wrapTraitsWithTooltips(wTraits));
-                    if (wStats.length) weaponHTML += '<div class="tb-edit-stats">' + wStats.join(' \u00b7 ') + '</div>';
-                });
-                weaponHTML += '</div>';
-            } else {
-                weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Weapons</div><div style="font-size:14px;color:var(--text-muted);">No weapons assigned</div></div>';
+            // Pad weapons to 4 slots
+            if (!char.weapons) char.weapons = [];
+            while (char.weapons.length < 4) char.weapons.push(null);
+
+            var weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Equipment (4 Slots)</div>';
+
+            // Check for melee warning
+            var hasSessionMelee = (char.weapons || []).some(function(w) { return w && _isSlotWeapon(w) && _isWeaponMelee(w); });
+            if (!hasSessionMelee) {
+                weaponHTML += '<div style="background:rgba(255,165,0,0.15);border:1px solid #FFA500;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:#FFA500;">\u26A0 No melee weapon equipped \u2014 this model will be unable to fight in close combat</div>';
             }
 
-            // --- Equipment / Inventory ---
-            var equipHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Equipment</div>';
-            var available = getAvailableEquipment(faction, false);
-            var inventory = char.inventory || [];
-            // Show 2 equipment slots (matching existing card layout)
-            for (var s = 0; s < 2; s++) {
-                var currentItem = inventory[s] || '';
-                var currentEquipObj = currentItem ? available.find(function(e) { return e.name === currentItem; }) : null;
-                equipHTML += '<div class="tb-edit-slot">' +
-                    '<span class="tb-edit-slot-label">Slot ' + (s + 1) + ':</span>' +
-                    '<select class="tb-edit-select" onchange="updateSessionCharEquipment(\'' + escTeam + '\',\'' + escChar + '\',' + s + ',this.value)">' +
-                    '<option value="">-- Select Equipment --</option>';
-                available.forEach(function(e) {
-                    var sel = (e.name === currentItem) ? ' selected' : '';
-                    equipHTML += '<option value="' + e.name + '"' + sel + '>' + _formatEquipLabel(e) + '</option>';
-                });
-                // If current item isn't in available list, still show it
-                if (currentItem && !currentEquipObj) {
-                    equipHTML += '<option value="' + currentItem + '" selected>' + currentItem + '</option>';
+            for (var sIdx = 0; sIdx < 4; sIdx++) {
+                var sItem = char.weapons[sIdx];
+                var sIsWeapon = sItem && _isSlotWeapon(sItem);
+
+                weaponHTML += '<div class="tb-edit-slot">' +
+                    '<span class="tb-edit-slot-label">Slot ' + (sIdx + 1) + ':</span>' +
+                    '<select class="tb-edit-select" onchange="updateSessionCharSlot(\'' + escTeam + '\',\'' + escChar + '\',' + sIdx + ',this.value)">' +
+                    '<option value=""' + (!sItem ? ' selected' : '') + '>-- Empty --</option>';
+
+                // Weapons optgroup
+                weaponHTML += '<optgroup label="\u2694 Weapons">';
+                var sCurInWeapons = sItem ? allWeaponsSession.find(function(w) { return w.name === sItem.name; }) : null;
+                if (sItem && sIsWeapon && !sCurInWeapons) {
+                    weaponHTML += '<option value="w:' + sItem.name + '" selected>' + _formatWeaponLabel(sItem) + '</option>';
                 }
-                equipHTML += '</select></div>';
+                allWeaponsSession.forEach(function(w) {
+                    var sel = (sItem && w.name === sItem.name && sIsWeapon) ? ' selected' : '';
+                    weaponHTML += '<option value="w:' + w.name + '"' + sel + '>' + _formatWeaponLabel(w) + '</option>';
+                });
+                weaponHTML += '</optgroup>';
+
+                // Equipment optgroup
+                weaponHTML += '<optgroup label="\uD83D\uDEE1 Equipment">';
+                var sCurInEquip = sItem ? allEquipSession.find(function(e) { return e.name === sItem.name; }) : null;
+                if (sItem && !sIsWeapon && sItem.type === 'Equipment' && !sCurInEquip) {
+                    weaponHTML += '<option value="e:' + sItem.name + '" selected>' + _formatEquipLabel(sItem) + '</option>';
+                }
+                allEquipSession.forEach(function(e) {
+                    var sel = (sItem && e.name === sItem.name && !sIsWeapon) ? ' selected' : '';
+                    weaponHTML += '<option value="e:' + e.name + '"' + sel + '>' + _formatEquipLabel(e) + '</option>';
+                });
+                weaponHTML += '</optgroup>';
+
+                weaponHTML += '</select></div>';
+
+                // Show stats line for weapons
+                if (sItem && sIsWeapon) {
+                    var sew = _enrichWeapon(sItem);
+                    var sStats = [];
+                    sStats.push('A' + (sew.attacks != null ? sew.attacks : '?'));
+                    sStats.push('P' + (sew.power != null ? sew.power : '?'));
+                    sStats.push('D' + (sew.damage != null ? sew.damage : '?'));
+                    var sTraits = sew.effects || '';
+                    if (sTraits) sStats.push(wrapTraitsWithTooltips(sTraits));
+                    if (sStats.length) weaponHTML += '<div class="tb-edit-stats">' + sStats.join(' \u00b7 ') + '</div>';
+                }
             }
-            equipHTML += '</div>';
+            weaponHTML += '</div>';
+            var equipHTML = '';
 
             // --- Notes section ---
             var notesHTML = '<div class="tb-edit-section">' +
@@ -7347,44 +7355,68 @@
             }
         }
 
-        function updateSessionCharWeapon(teamId, charId, slotIndex, weaponName) {
-            if (!currentSession) return;
-            var wNorm = _normName(weaponName);
-            var newWeapon = (gameData.weapons || []).find(function(w) { return w.name === weaponName; })
-                         || (gameData.weapons || []).find(function(w) { return _normName(w.name) === wNorm; });
-            if (!newWeapon) return;
-            var weaponData = {
-                name: newWeapon.name,
-                type: newWeapon.type || (newWeapon.range === 'Melee' ? 'Melee' : 'Ranged'),
-                attacks: newWeapon.attacks || '',
-                power: newWeapon.power || '',
-                damage: newWeapon.damage || '',
-                effects: newWeapon.traits || newWeapon.effects || ''
-            };
-            database.ref('sessions/' + currentSession + '/teams/' + teamId + '/characters/' + charId + '/weapons/' + slotIndex).set(weaponData);
-            // Update local cache
-            var key = teamId + '_' + charId;
-            if (sessionEditingChars[key] && sessionEditingChars[key].weapons) {
-                sessionEditingChars[key].weapons[slotIndex] = weaponData;
-            }
-        }
-
-        function updateSessionCharEquipment(teamId, charId, slotIndex, equipName) {
+        // Unified session slot update: value is "w:WeaponName", "e:EquipName", or "" for empty
+        function updateSessionCharSlot(teamId, charId, slotIndex, value) {
             if (!currentSession) return;
             var key = teamId + '_' + charId;
             var char = sessionEditingChars[key];
             if (!char) return;
-            var inventory = char.inventory ? char.inventory.slice() : [];
-            if (equipName) {
-                inventory[slotIndex] = equipName;
-            } else {
-                inventory[slotIndex] = null;
+            if (!char.weapons) char.weapons = [null, null, null, null];
+            while (char.weapons.length < 4) char.weapons.push(null);
+
+            var slotData = null;
+            if (!value || value === '') {
+                slotData = null;
+            } else if (value.indexOf('w:') === 0) {
+                var weaponName = value.substring(2);
+                var wNorm = _normName(weaponName);
+                var newWeapon = (gameData.weapons || []).find(function(w) { return w.name === weaponName; })
+                             || (gameData.weapons || []).find(function(w) { return _normName(w.name) === wNorm; });
+                if (!newWeapon) return;
+                slotData = {
+                    name: newWeapon.name,
+                    type: newWeapon.type || (newWeapon.range === 'Melee' ? 'Melee' : 'Ranged'),
+                    attacks: newWeapon.attacks || '',
+                    power: newWeapon.power || '',
+                    damage: newWeapon.damage || '',
+                    effects: newWeapon.traits || newWeapon.effects || ''
+                };
+            } else if (value.indexOf('e:') === 0) {
+                var equipName = value.substring(2);
+                var faction = char.faction || '';
+                var equipData = lookupEquipData(equipName);
+                slotData = {
+                    name: equipName,
+                    type: 'Equipment',
+                    attacks: '-',
+                    power: '-',
+                    damage: '-',
+                    effects: equipData ? (equipData.passiveAbility || equipData.passioveAbility || equipData.actionName || '') : ''
+                };
             }
-            // Clean up nulls at the end
-            inventory = inventory.filter(function(item) { return item; });
-            database.ref('sessions/' + currentSession + '/teams/' + teamId + '/characters/' + charId + '/inventory').set(inventory);
-            if (sessionEditingChars[key]) {
-                sessionEditingChars[key].inventory = inventory;
+
+            // Update weapons array in Firebase
+            char.weapons[slotIndex] = slotData;
+            database.ref('sessions/' + currentSession + '/teams/' + teamId + '/characters/' + charId + '/weapons').set(char.weapons);
+
+            // Update inventory to reflect equipment items
+            var newInventory = [];
+            (char.weapons || []).forEach(function(w) {
+                if (w && w.type === 'Equipment') newInventory.push(w.name);
+            });
+            char.inventory = newInventory;
+            database.ref('sessions/' + currentSession + '/teams/' + teamId + '/characters/' + charId + '/inventory').set(newInventory);
+        }
+
+        function updateSessionCharWeapon(teamId, charId, slotIndex, weaponName) {
+            updateSessionCharSlot(teamId, charId, slotIndex, 'w:' + weaponName);
+        }
+
+        function updateSessionCharEquipment(teamId, charId, slotIndex, equipName) {
+            if (!equipName) {
+                updateSessionCharSlot(teamId, charId, slotIndex, '');
+            } else {
+                updateSessionCharSlot(teamId, charId, slotIndex, 'e:' + equipName);
             }
         }
 
@@ -7442,6 +7474,7 @@
 
         window.toggleSessionModelEdit = toggleSessionModelEdit;
         window.updateSessionCharField = updateSessionCharField;
+        window.updateSessionCharSlot = updateSessionCharSlot;
         window.updateSessionCharWeapon = updateSessionCharWeapon;
         window.updateSessionCharEquipment = updateSessionCharEquipment;
         window.resetSessionCharStats = resetSessionCharStats;
@@ -7880,42 +7913,28 @@ teamHTML += `
         <div class="model-section-3">
             <div class="section-title">Equipment</div>
             <div class="equipment-grid">
-                <!-- Weapon Slot 1 -->
-                <div class="equipment-slot ${!char.weapons || !char.weapons[0] ? 'empty' : ''}">
-                    <div class="equipment-label">Weapon 1</div>
-                    ${char.weapons && char.weapons[0] ? `
-                        <div class="equipment-name">${wrapWeaponWithTooltip(char.weapons[0])}</div>
-                        <div class="equipment-stats">${weaponStatsLine(char.weapons[0])}</div>
-                        ${weaponEffects(char.weapons[0]) ? `<div class="equipment-effects">${wrapTraitsWithTooltips(weaponEffects(char.weapons[0]))}</div>` : ''}
-                    ` : '<div style="color: #666;">Empty</div>'}
-                </div>
-
-                <!-- Weapon Slot 2 -->
-                <div class="equipment-slot ${!char.weapons || !char.weapons[1] ? 'empty' : ''}">
-                    <div class="equipment-label">Weapon 2</div>
-                    ${char.weapons && char.weapons[1] ? `
-                        <div class="equipment-name">${wrapWeaponWithTooltip(char.weapons[1])}</div>
-                        <div class="equipment-stats">${weaponStatsLine(char.weapons[1])}</div>
-                        ${weaponEffects(char.weapons[1]) ? `<div class="equipment-effects">${wrapTraitsWithTooltips(weaponEffects(char.weapons[1]))}</div>` : ''}
-                    ` : '<div style="color: #666;">Empty</div>'}
-                </div>
-                
-                <!-- Inventory Slot 1 -->
-                <div class="equipment-slot ${!char.inventory || !char.inventory[0] ? 'empty' : ''}">
-                    <div class="equipment-label">Inventory 1</div>
-                    ${char.inventory && char.inventory[0] ? `
-                        <div class="equipment-name">${wrapEquipWithTooltip(char.inventory[0])}</div>
-                    ` : '<div style="color: #666;">Empty</div>'}
-                </div>
-
-                <!-- Inventory Slot 2 -->
-                <div class="equipment-slot ${!char.inventory || !char.inventory[1] ? 'empty' : ''}">
-                    <div class="equipment-label">Inventory 2</div>
-                    ${char.inventory && char.inventory[1] ? `
-                        <div class="equipment-name">${wrapEquipWithTooltip(char.inventory[1])}</div>
-                    ` : '<div style="color: #666;">Empty</div>'}
-                </div>
+                ${[0,1,2,3].map(function(si) {
+                    var slot = char.weapons && char.weapons[si] ? char.weapons[si] : null;
+                    var isWeapon = slot && _isSlotWeapon(slot);
+                    var isEmpty = !slot;
+                    return `
+                    <div class="equipment-slot ${isEmpty ? 'empty' : ''}">
+                        <div class="equipment-label">Slot ${si + 1}</div>
+                        ${isEmpty ? '<div style="color: #666;">Empty</div>' :
+                            isWeapon ? `
+                                <div class="equipment-name">${wrapWeaponWithTooltip(slot)}</div>
+                                <div class="equipment-stats">${weaponStatsLine(slot)}</div>
+                                ${weaponEffects(slot) ? '<div class="equipment-effects">' + wrapTraitsWithTooltips(weaponEffects(slot)) + '</div>' : ''}
+                            ` : `
+                                <div class="equipment-name">${wrapEquipWithTooltip(slot.name)}</div>
+                            `
+                        }
+                    </div>`;
+                }).join('')}
             </div>
+            ${!(char.weapons || []).some(function(w) { return w && _isSlotWeapon(w) && _isWeaponMelee(w); }) ? `
+                <div style="background:rgba(255,165,0,0.15);border:1px solid #FFA500;border-radius:4px;padding:6px 10px;margin-top:8px;font-size:12px;color:#FFA500;">\u26A0 No melee weapon equipped</div>
+            ` : ''}
             
             <!-- Notes Display -->
             ${char.notes ? `
@@ -8853,6 +8872,24 @@ teamHTML += `
             });
         }
 
+        // Returns { weapons: [...], equipment: [...] } for building unified slot dropdowns
+        function getAllWeaponsAndEquipment(faction, isVehicle) {
+            var allWeapons = (gameData.weapons || []).filter(function(w) {
+                if (w.type === 'Equipment') return false;
+                return true;
+            });
+            var allEquip = getAvailableEquipment(faction, isVehicle);
+            return { weapons: allWeapons, equipment: allEquip };
+        }
+
+        // Check if a slot item is a weapon (has real attack stats, not equipment)
+        function _isSlotWeapon(item) {
+            if (!item) return false;
+            if (item.type === 'Equipment') return false;
+            if (item.attacks === '-' && item.power === '-' && item.damage === '-') return false;
+            return true;
+        }
+
         function _formatWeaponLabel(w) {
             var ew = _enrichWeapon(w);
             var parts = [w.name];
@@ -8860,21 +8897,17 @@ teamHTML += `
             stats.push('A' + (ew.attacks != null ? ew.attacks : '?'));
             stats.push('P' + (ew.power != null ? ew.power : '?'));
             stats.push('D' + (ew.damage != null ? ew.damage : '?'));
-            if (stats.length) parts.push(stats.join(' '));
-            if (ew.effects) parts.push(ew.effects);
+            if (stats.length) parts.push(stats.join('/'));
             var pts = parseInt(ew.points) || 0;
-            if (pts) parts.push(pts + ' pt' + (pts !== 1 ? 's' : ''));
-            return parts.join(' \u2014 ');
+            if (pts) parts.push(pts + 'pts');
+            return parts.join(' — ');
         }
 
         function _formatEquipLabel(e) {
             var parts = [e.name];
-            var desc = e.passiveAbility || e.passioveAbility || e.actionName || e.effects || '';
-            if (desc && desc.length > 50) desc = desc.substring(0, 47) + '...';
-            if (desc) parts.push(desc);
             var pts = parseInt(e.points) || 0;
-            if (pts) parts.push(pts + ' pt' + (pts !== 1 ? 's' : ''));
-            return parts.join(' \u2014 ');
+            if (pts) parts.push(pts + 'pts');
+            return parts.join(' — ');
         }
 
         function showTeamBuildingInterface() {
@@ -8981,25 +9014,47 @@ teamHTML += `
                 loadout = modelData.loadout.split(',').map(s => s.trim()).filter(Boolean);
             }
 
+            // Build 4 unified equipment slots: default weapons first, then loadout items as equipment, pad with null
+            var slotItems = startWeapons.map(function(w) {
+                return {
+                    name: w.name,
+                    type: w.type || w.range || '?',
+                    attacks: w.attacks != null ? w.attacks : '?',
+                    power: w.power != null ? w.power : '?',
+                    damage: w.damage != null ? w.damage : '?',
+                    effects: w.effects || w.traits || '',
+                    points: w.points || ''
+                };
+            });
+            // Add loadout items as equipment-type entries
+            loadout.forEach(function(itemName) {
+                var equipData = lookupEquipData(itemName);
+                slotItems.push({
+                    name: itemName,
+                    type: 'Equipment',
+                    attacks: '-',
+                    power: '-',
+                    damage: '-',
+                    effects: equipData ? (equipData.passiveAbility || equipData.passioveAbility || equipData.actionName || '') : '',
+                    points: equipData ? (equipData.points || '') : ''
+                });
+            });
+            // Pad to exactly 4 slots
+            while (slotItems.length < 4) slotItems.push(null);
+            if (slotItems.length > 4) slotItems = slotItems.slice(0, 4);
+
+            // Build default names array (4 elements, null for empty defaults)
+            var defaultSlotNames = slotItems.map(function(s) { return s ? s.name : null; });
+
             const modelInstance = {
                 ...modelData,
                 id: Math.floor(Date.now() * 1000 + Math.random() * 1000),
                 currentHealth: parseInt(modelData.health) || 0,
                 status: 'alive',
-                weapons: startWeapons.map(function(w) {
-                    return {
-                        name: w.name,
-                        type: w.type || w.range || '?',
-                        attacks: w.attacks != null ? w.attacks : '?',
-                        power: w.power != null ? w.power : '?',
-                        damage: w.damage != null ? w.damage : '?',
-                        effects: w.effects || w.traits || '',
-                        points: w.points || ''
-                    };
-                }),
+                weapons: slotItems,
                 specialActions: [],
                 inventory: loadout.slice(),
-                defaultWeapons: startWeapons.map(function(w) { return w.name; }),
+                defaultWeapons: defaultSlotNames,
                 defaultInventory: loadout.slice(),
                 addedEquipment: [],
                 weaponPointsDelta: 0,
@@ -9051,11 +9106,15 @@ teamHTML += `
             var hp = model.stats ? model.stats.health || model.health : model.health;
             var statGrid = _modelStatGrid(model.stats || model, hp);
             var displayName = model.customName || model.name;
-            var weaponNames = (model.weapons || []).map(function(w) { return wrapWeaponWithTooltip(w); }).filter(Boolean).join(', ');
-            var gearNames = (model.inventory || []).map(function(g) { return wrapEquipWithTooltip(g); }).join(', ');
+            // Unified: show all non-null items from weapons array (4 slots)
+            var equippedItems = (model.weapons || []).filter(Boolean).map(function(w) {
+                if (_isSlotWeapon(w)) return wrapWeaponWithTooltip(w);
+                return wrapEquipWithTooltip(w.name);
+            }).filter(Boolean).join(', ');
             var totalDelta = (model.weaponPointsDelta || 0) + (model.equipmentPointsDelta || 0);
             var deltaStr = totalDelta > 0 ? ' (+' + totalDelta + ')' : totalDelta < 0 ? ' (' + totalDelta + ')' : '';
             var modelType = (model.customName && model.customName !== model.name) ? model.name + ' \u00b7 ' : '';
+            var notesText = model.notes || '';
             return '<div class="tb-roster-card" style="flex-direction:column;align-items:stretch;">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;">' +
                     '<div class="tb-roster-name">' + displayName + '</div>' +
@@ -9067,8 +9126,8 @@ teamHTML += `
                 '</div>' +
                 '<div class="tb-roster-meta">' + modelType + (role || '') + '</div>' +
                 statGrid +
-                (weaponNames ? '<div class="tb-roster-meta" style="margin-top:4px;">\u2694 ' + weaponNames + '</div>' : '') +
-                (gearNames ? '<div class="tb-roster-meta" style="margin-top:1px;color:var(--text-muted);">\u2699 ' + gearNames + '</div>' : '') +
+                (equippedItems ? '<div class="tb-roster-meta" style="margin-top:4px;">\u2694 ' + equippedItems + '</div>' : '') +
+                (notesText ? '<div class="tb-roster-meta" style="margin-top:4px;color:#9CAF88;font-style:italic;font-size:12px;">\u{1F4DD} ' + notesText.replace(/</g, '&lt;') + '</div>' : '') +
             '</div>';
         }
 
@@ -9137,31 +9196,87 @@ teamHTML += `
                 '<div style="margin-top:8px;">' + statGridHTML + '</div>' +
             '</div>';
 
-            // --- Weapon dropdowns ---
-            var weaponHTML = '';
-            if (model.weapons && model.weapons.length > 0) {
-                weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Weapons</div>';
-                model.weapons.forEach(function(weapon, idx) {
-                    var isMelee = _isWeaponMelee(weapon);
-                    var available = getAvailableWeapons(model.faction, isMelee);
-                    var label = isMelee ? 'Melee' : 'Ranged';
-                    var wPts = parseInt(weapon.points) || 0;
+            // --- Unified Equipment (4 Slots) ---
+            var allItems = getAllWeaponsAndEquipment(model.faction, isVehicle);
+            var allWeapons = allItems.weapons;
+            var allEquip = allItems.equipment;
 
-                    weaponHTML += '<div class="tb-edit-slot">' +
-                        '<span class="tb-edit-slot-label">' + label + ':</span>' +
-                        '<select class="tb-edit-select" onchange="updateModelWeapon(' + model.id + ',' + idx + ',this.value)">';
-                    var currentInList = available.find(function(w) { return w.name === weapon.name; });
-                    if (!currentInList) {
-                        weaponHTML += '<option value="' + weapon.name + '" selected>' + _formatWeaponLabel(weapon) + '</option>';
+            // Ensure weapons array is padded to 4
+            while ((model.weapons || []).length < 4) {
+                if (!model.weapons) model.weapons = [];
+                model.weapons.push(null);
+            }
+            while ((model.defaultWeapons || []).length < 4) {
+                if (!model.defaultWeapons) model.defaultWeapons = [];
+                model.defaultWeapons.push(null);
+            }
+
+            var weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Equipment (4 Slots)</div>';
+
+            // Check for melee warning
+            var hasMelee = (model.weapons || []).some(function(w) { return w && _isSlotWeapon(w) && _isWeaponMelee(w); });
+            if (!hasMelee) {
+                weaponHTML += '<div style="background:rgba(255,165,0,0.15);border:1px solid #FFA500;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:#FFA500;">\u26A0 No melee weapon equipped \u2014 this model will be unable to fight in close combat</div>';
+            }
+
+            for (var slotIdx = 0; slotIdx < 4; slotIdx++) {
+                var slotItem = model.weapons[slotIdx];
+                var defaultName = (model.defaultWeapons || [])[slotIdx] || null;
+                var slotIsWeapon = slotItem && _isSlotWeapon(slotItem);
+                var slotPts = slotItem ? (parseInt(slotItem.points) || 0) : 0;
+
+                // Calculate per-slot delta vs default
+                var defaultPts = 0;
+                if (defaultName) {
+                    var defW = (gameData.weapons || []).find(function(gw) { return gw.name === defaultName; });
+                    if (!defW) {
+                        var defE = lookupEquipData(defaultName);
+                        defaultPts = defE ? (parseInt(defE.points) || 0) : 0;
+                    } else {
+                        defaultPts = parseInt(defW.points) || 0;
                     }
-                    available.forEach(function(w) {
-                        var sel = w.name === weapon.name ? ' selected' : '';
-                        weaponHTML += '<option value="' + w.name + '"' + sel + '>' + _formatWeaponLabel(w) + '</option>';
-                    });
-                    weaponHTML += '</select>';
-                    if (wPts) weaponHTML += '<span class="tb-edit-pts-delta">' + wPts + ' pts</span>';
-                    weaponHTML += '</div>';
-                    var ew = _enrichWeapon(weapon);
+                }
+                var slotDelta = slotPts - defaultPts;
+
+                weaponHTML += '<div class="tb-edit-slot">' +
+                    '<span class="tb-edit-slot-label">Slot ' + (slotIdx + 1) + ':</span>' +
+                    '<select class="tb-edit-select" onchange="updateModelSlot(' + model.id + ',' + slotIdx + ',this.value)">' +
+                    '<option value=""' + (!slotItem ? ' selected' : '') + '>-- Empty --</option>';
+
+                // Weapons optgroup
+                weaponHTML += '<optgroup label="\u2694 Weapons">';
+                var currentInWeapons = slotItem ? allWeapons.find(function(w) { return w.name === slotItem.name; }) : null;
+                if (slotItem && slotIsWeapon && !currentInWeapons) {
+                    weaponHTML += '<option value="w:' + slotItem.name + '" selected>' + _formatWeaponLabel(slotItem) + '</option>';
+                }
+                allWeapons.forEach(function(w) {
+                    var sel = (slotItem && w.name === slotItem.name) ? ' selected' : '';
+                    weaponHTML += '<option value="w:' + w.name + '"' + sel + '>' + _formatWeaponLabel(w) + '</option>';
+                });
+                weaponHTML += '</optgroup>';
+
+                // Equipment optgroup
+                weaponHTML += '<optgroup label="\uD83D\uDEE1 Equipment">';
+                var currentInEquip = slotItem ? allEquip.find(function(e) { return e.name === slotItem.name; }) : null;
+                if (slotItem && !slotIsWeapon && slotItem.type === 'Equipment' && !currentInEquip) {
+                    weaponHTML += '<option value="e:' + slotItem.name + '" selected>' + _formatEquipLabel(slotItem) + '</option>';
+                }
+                allEquip.forEach(function(e) {
+                    var sel = (slotItem && e.name === slotItem.name && !slotIsWeapon) ? ' selected' : '';
+                    weaponHTML += '<option value="e:' + e.name + '"' + sel + '>' + _formatEquipLabel(e) + '</option>';
+                });
+                weaponHTML += '</optgroup>';
+
+                weaponHTML += '</select>';
+
+                // Show point delta
+                if (slotDelta > 0) weaponHTML += '<span class="tb-edit-pts-delta positive">+' + slotDelta + ' pts</span>';
+                else if (slotDelta < 0) weaponHTML += '<span class="tb-edit-pts-delta negative">' + slotDelta + ' pts</span>';
+                weaponHTML += '</div>';
+
+                // Show stats/description line for the selected item
+                if (slotItem && slotIsWeapon) {
+                    var ew = _enrichWeapon(slotItem);
                     var wStats = [];
                     wStats.push('A' + (ew.attacks != null ? ew.attacks : '?'));
                     wStats.push('P' + (ew.power != null ? ew.power : '?'));
@@ -9169,48 +9284,21 @@ teamHTML += `
                     var wTraits = ew.effects || '';
                     if (wTraits) wStats.push(wrapTraitsWithTooltips(wTraits));
                     if (wStats.length) weaponHTML += '<div class="tb-edit-stats">' + wStats.join(' \u00b7 ') + '</div>';
-                });
-                weaponHTML += '</div>';
-            } else {
-                weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Weapons</div><div style="font-size:14px;color:var(--text-muted);">No weapons assigned</div></div>';
-            }
-
-            // --- Default loadout (locked) ---
-            var defaultGear = model.defaultInventory || [];
-            var loadoutHTML = '';
-            if (defaultGear.length > 0) {
-                loadoutHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Default Loadout</div>';
-                loadoutHTML += '<div class="tb-edit-locked">' + defaultGear.join(' \u00b7 ') + '</div>';
-                loadoutHTML += '</div>';
-            }
-
-            // --- Open equipment slots ---
-            var openSlots = parseInt(model.openSlots) || 0;
-            var equipHTML = '';
-            if (openSlots > 0) {
-                var available = getAvailableEquipment(model.faction, isVehicle);
-                equipHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Equipment (' + openSlots + ' open slot' + (openSlots !== 1 ? 's' : '') + ')</div>';
-                for (var s = 0; s < openSlots; s++) {
-                    var currentEquip = (model.addedEquipment || [])[s];
-                    var alreadyEquipped = (model.addedEquipment || []).map(function(e, i) { return (e && i !== s) ? e.name : null; }).filter(Boolean);
-                    equipHTML += '<div class="tb-edit-slot">' +
-                        '<span class="tb-edit-slot-label">Slot ' + (s + 1) + ':</span>' +
-                        '<select class="tb-edit-select" onchange="updateModelEquipment(' + model.id + ',' + s + ',this.value)">' +
-                        '<option value="">-- Select Equipment --</option>';
-                    available.forEach(function(e) {
-                        if (alreadyEquipped.indexOf(e.name) !== -1) return;
-                        var sel = (currentEquip && currentEquip.name === e.name) ? ' selected' : '';
-                        equipHTML += '<option value="' + e.name + '"' + sel + '>' + _formatEquipLabel(e) + '</option>';
-                    });
-                    equipHTML += '</select>';
-                    if (currentEquip) {
-                        var ePts = parseInt(currentEquip.points) || 0;
-                        if (ePts) equipHTML += '<span class="tb-edit-pts-delta positive">+' + ePts + ' pts</span>';
+                } else if (slotItem && !slotIsWeapon) {
+                    // Equipment item — show description from gameData
+                    var eqData = (gameData.equipment || []).find(function(e) { return e.name === slotItem.name; });
+                    var eqDesc = '';
+                    if (eqData) {
+                        eqDesc = eqData.passiveAbility || eqData.passioveAbility || eqData.actionName || eqData.effects || '';
                     }
-                    equipHTML += '</div>';
+                    if (!eqDesc) eqDesc = slotItem.effects || '';
+                    if (eqDesc) weaponHTML += '<div class="tb-edit-stats" style="color:var(--accent);">' + eqDesc + '</div>';
                 }
-                equipHTML += '</div>';
             }
+            weaponHTML += '</div>';
+
+            var loadoutHTML = '';
+            var equipHTML = '';
 
             // --- Notes section ---
             var notesVal = (model.notes || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -9268,29 +9356,40 @@ teamHTML += `
 
         // Recalculate all model points in currentTeam from current gameData.
         // Call after loading a saved team so updated CSV costs propagate.
+        // Helper to get default points for a slot (weapon or equipment)
+        function _getDefaultSlotPts(defaultName) {
+            if (!defaultName) return 0;
+            var defW = (gameData.weapons || []).find(function(gw) { return gw.name === defaultName; });
+            if (defW) return parseInt(defW.points) || 0;
+            var defE = lookupEquipData(defaultName);
+            if (defE) return parseInt(defE.points) || 0;
+            return 0;
+        }
+
         function recalculateAllTeamPoints() {
             currentTeam.points = 0;
             (currentTeam.models || []).forEach(function(model) {
+                // Backward compat: pad weapons and defaultWeapons to 4 slots
+                if (!model.weapons) model.weapons = [];
+                while (model.weapons.length < 4) model.weapons.push(null);
+                if (!model.defaultWeapons) model.defaultWeapons = [];
+                while (model.defaultWeapons.length < 4) model.defaultWeapons.push(null);
+
                 var baseModel = (gameData.models || []).find(function(g) { return g.name === model.name && g.faction === model.faction; });
                 var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
 
-                var weaponDelta = 0;
+                // Unified 4-slot delta calculation
+                var slotDelta = 0;
                 (model.weapons || []).forEach(function(w, i) {
-                    var currentPts = parseInt(w.points) || 0;
-                    var defaultName = (model.defaultWeapons || [])[i];
-                    var defaultWeapon = defaultName ? (gameData.weapons || []).find(function(gw) { return gw.name === defaultName; }) : null;
-                    var defaultPts = parseInt(defaultWeapon ? defaultWeapon.points : 0) || 0;
-                    weaponDelta += (currentPts - defaultPts);
+                    var currentPts = w ? (parseInt(w.points) || 0) : 0;
+                    var defaultName = (model.defaultWeapons || [])[i] || null;
+                    var defaultPts = _getDefaultSlotPts(defaultName);
+                    slotDelta += (currentPts - defaultPts);
                 });
 
-                var equipDelta = 0;
-                (model.addedEquipment || []).forEach(function(eq) {
-                    if (eq) equipDelta += (parseInt(eq.points) || 0);
-                });
-
-                model.weaponPointsDelta = weaponDelta;
-                model.equipmentPointsDelta = equipDelta;
-                model.points = Math.max(basePts, basePts + weaponDelta + equipDelta);
+                model.weaponPointsDelta = slotDelta;
+                model.equipmentPointsDelta = 0;
+                model.points = Math.max(basePts, basePts + slotDelta);
                 currentTeam.points += model.points;
             });
         }
@@ -9299,71 +9398,92 @@ teamHTML += `
             var baseModel = (gameData.models || []).find(function(m) { return m.name === model.name && m.faction === model.faction; });
             var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
 
-            var weaponDelta = 0;
+            // Unified 4-slot delta calculation
+            var slotDelta = 0;
             (model.weapons || []).forEach(function(w, i) {
-                var currentPts = parseInt(w.points) || 0;
-                var defaultName = (model.defaultWeapons || [])[i];
-                var defaultWeapon = defaultName ? (gameData.weapons || []).find(function(gw) { return gw.name === defaultName; }) : null;
-                var defaultPts = parseInt(defaultWeapon ? defaultWeapon.points : 0) || 0;
-                weaponDelta += (currentPts - defaultPts);
-            });
-
-            var equipDelta = 0;
-            (model.addedEquipment || []).forEach(function(eq) {
-                if (eq) equipDelta += (parseInt(eq.points) || 0);
+                var currentPts = w ? (parseInt(w.points) || 0) : 0;
+                var defaultName = (model.defaultWeapons || [])[i] || null;
+                var defaultPts = _getDefaultSlotPts(defaultName);
+                slotDelta += (currentPts - defaultPts);
             });
 
             var oldPoints = model.points || 0;
-            model.weaponPointsDelta = weaponDelta;
-            model.equipmentPointsDelta = equipDelta;
-            model.points = Math.max(basePts, basePts + weaponDelta + equipDelta);
+            model.weaponPointsDelta = slotDelta;
+            model.equipmentPointsDelta = 0;
+            model.points = Math.max(basePts, basePts + slotDelta);
             currentTeam.points += (model.points - oldPoints);
         }
 
-        function updateModelWeapon(modelId, slotIndex, weaponName) {
+        // Unified slot update: value is "w:WeaponName", "e:EquipName", or "" for empty
+        function updateModelSlot(modelId, slotIndex, value) {
             var model = currentTeam.models.find(function(m) { return m.id === modelId; });
-            if (!model || !model.weapons[slotIndex]) return;
+            if (!model) return;
+            if (!model.weapons) model.weapons = [null, null, null, null];
 
-            var isMelee = _isWeaponMelee(model.weapons[slotIndex]);
-            var newWeapon = (gameData.weapons || []).find(function(w) { return w.name === weaponName; });
-            if (!newWeapon) return;
+            if (!value || value === '') {
+                // Clear the slot
+                model.weapons[slotIndex] = null;
+            } else if (value.indexOf('w:') === 0) {
+                // Weapon
+                var weaponName = value.substring(2);
+                var newWeapon = (gameData.weapons || []).find(function(w) { return w.name === weaponName; });
+                if (!newWeapon) return;
+                model.weapons[slotIndex] = {
+                    name: newWeapon.name,
+                    type: newWeapon.type || newWeapon.range || '?',
+                    attacks: newWeapon.attacks != null ? newWeapon.attacks : '?',
+                    power: newWeapon.power != null ? newWeapon.power : '?',
+                    damage: newWeapon.damage != null ? newWeapon.damage : '?',
+                    effects: newWeapon.effects || newWeapon.traits || '',
+                    points: newWeapon.points || ''
+                };
+            } else if (value.indexOf('e:') === 0) {
+                // Equipment
+                var equipName = value.substring(2);
+                var isVehicle = (model.name || '').toLowerCase().indexOf('vehicle') !== -1 || (model.name || '').toLowerCase().indexOf('tank') !== -1 || (model.name || '').toLowerCase().indexOf('trv') !== -1 || (model.name || '').toLowerCase().indexOf('platform') !== -1;
+                var availEquip = getAvailableEquipment(model.faction, isVehicle);
+                var newEquip = availEquip.find(function(e) { return e.name === equipName; });
+                if (!newEquip) {
+                    // Try lookup
+                    var lookupE = lookupEquipData(equipName);
+                    if (lookupE) newEquip = lookupE;
+                    else return;
+                }
+                model.weapons[slotIndex] = {
+                    name: newEquip.name,
+                    type: 'Equipment',
+                    attacks: '-',
+                    power: '-',
+                    damage: '-',
+                    effects: newEquip.passiveAbility || newEquip.passioveAbility || newEquip.actionName || '',
+                    points: newEquip.points || ''
+                };
+            }
 
-            model.weapons[slotIndex] = {
-                name: newWeapon.name,
-                type: newWeapon.type || newWeapon.range || '?',
-                attacks: newWeapon.attacks != null ? newWeapon.attacks : '?',
-                power: newWeapon.power != null ? newWeapon.power : '?',
-                damage: newWeapon.damage != null ? newWeapon.damage : '?',
-                effects: newWeapon.effects || newWeapon.traits || '',
-                points: newWeapon.points || ''
-            };
+            // Update inventory to reflect current equipment items
+            model.inventory = [];
+            (model.weapons || []).forEach(function(w) {
+                if (w && w.type === 'Equipment') model.inventory.push(w.name);
+            });
+
             recalculateModelPoints(model);
             renderCurrentTeam();
             updateTeamPoints();
+        }
+        window.updateModelSlot = updateModelSlot;
+
+        // Keep old functions as wrappers for backward compatibility
+        function updateModelWeapon(modelId, slotIndex, weaponName) {
+            updateModelSlot(modelId, slotIndex, 'w:' + weaponName);
         }
         window.updateModelWeapon = updateModelWeapon;
 
         function updateModelEquipment(modelId, slotIndex, equipmentName) {
-            var model = currentTeam.models.find(function(m) { return m.id === modelId; });
-            if (!model) return;
-            if (!model.addedEquipment) model.addedEquipment = [];
-
-            if (!equipmentName || equipmentName === '') {
-                model.addedEquipment[slotIndex] = null;
+            if (!equipmentName) {
+                updateModelSlot(modelId, slotIndex, '');
             } else {
-                var available = getAvailableEquipment(model.faction, (model.name || '').toLowerCase().indexOf('vehicle') !== -1 || (model.name || '').toLowerCase().indexOf('tank') !== -1 || (model.name || '').toLowerCase().indexOf('trv') !== -1);
-                var newItem = available.find(function(e) { return e.name === equipmentName; });
-                if (newItem) model.addedEquipment[slotIndex] = Object.assign({}, newItem);
+                updateModelSlot(modelId, slotIndex, 'e:' + equipmentName);
             }
-
-            model.inventory = (model.defaultInventory || []).slice();
-            model.addedEquipment.forEach(function(eq) {
-                if (eq) model.inventory.push(eq.name);
-            });
-
-            recalculateModelPoints(model);
-            renderCurrentTeam();
-            updateTeamPoints();
         }
         window.updateModelEquipment = updateModelEquipment;
 
