@@ -4,7 +4,8 @@
 Space-Ops 3030 is a single-file HTML tabletop gaming tracker (~7,500 lines) for managing teams, characters, combat sessions, and game data for a sci-fi tabletop game. The latest stable version is **v14.76**.
 
 ### Active Version Location
-`/Users/andrebalmet/Documents/SpaceOps_3030 Tracker/space-ops-3030-v14.76/space-ops-3030-v14.76.html`
+`/Users/andrebalmet/Documents/SpaceOps_3030 Tracker/index.html`
+*(This is the root file served by GitHub Pages. Always edit this file for commits/pushes.)*
 
 ### Tech Stack
 - Single HTML file (no framework) — all CSS, JS, and HTML inline
@@ -143,7 +144,7 @@ This creates a design-to-code round-trip pipeline.
 | Item | Path |
 |------|------|
 | Project root | `/Users/andrebalmet/Documents/SpaceOps_3030 Tracker/` |
-| Latest HTML | `./space-ops-3030-v14.76/space-ops-3030-v14.76.html` |
+| Latest HTML | `./index.html` (root — served by GitHub Pages) |
 | TalkToFigma repo | `~/Documents/cursor-talk-to-figma-mcp/` |
 | Figma docs | `./figma-integration/` |
 | Logo (local) | `./Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png` |

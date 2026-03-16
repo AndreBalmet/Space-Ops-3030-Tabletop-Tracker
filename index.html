@@ -4666,14 +4666,11 @@
                     document.head.appendChild(s);
                 }
 
+                // Status sections (no CSV dropzones — XLSX handles everything)
                 var sections = _cats.map(function(cat) {
                     return '<div class="_sec" id="_sec_' + cat.key + '"><h3>' + cat.label + '</h3>' +
                         '<div id="_st_' + cat.key + '" style="color:var(--text-secondary);font-size:12px;margin-bottom:10px;">Loading...</div>' +
-                        '<div class="_dz" id="_dz_' + cat.key + '">' +
-                        '<div style="font-family:var(--font-heading);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Drop CSV here or click to browse</div>' +
-                        '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">.csv from Google Sheets</div></div>' +
-                        '<input type="file" id="_fi_' + cat.key + '" accept=".csv" style="display:none" />' +
-                        '<div id="_pv_' + cat.key + '"></div></div>';
+                        '</div>';
                 }).join('');
 
                 var xlsxSection =
@@ -4685,9 +4682,7 @@
                     '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Sheets: Factions, Models, Weapons, Equipment, Traits, Actions, Action Categories, Conditions</div></div>' +
                     '<input type="file" id="_fi_xlsx" accept=".xlsx,.xls" style="display:none" />' +
                     '<div id="_xlsx_status"></div>' +
-                    '</div>' +
-                    '<hr style="margin:20px 0;border:0;border-top:1px solid var(--border);">' +
-                    '<div style="color:var(--text-muted);font-size:12px;text-align:center;margin-bottom:15px;">— OR upload individual CSV files below —</div>';
+                    '</div>';
 
                 _injectModal(
                     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid var(--accent);">' +
@@ -4704,20 +4699,7 @@
 
                 document.getElementById('_cpnl').onclick = _removeModal;
 
-                _cats.forEach(function(cat) {
-                    var dz = document.getElementById('_dz_' + cat.key);
-                    var fi = document.getElementById('_fi_' + cat.key);
-                    dz.onclick = function() { fi.click(); };
-                    dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('_ov'); });
-                    dz.addEventListener('dragleave', function() { dz.classList.remove('_ov'); });
-                    dz.addEventListener('drop', function(e) {
-                        e.preventDefault(); dz.classList.remove('_ov');
-                        var f = e.dataTransfer.files[0];
-                        if (f && f.name.endsWith('.csv')) _handleFile(cat, f);
-                    });
-                    fi.onchange = function() { if (fi.files[0]) _handleFile(cat, fi.files[0]); fi.value = ''; };
-                    _loadStatus(cat.key);
-                });
+                _cats.forEach(function(cat) { _loadStatus(cat.key); });
 
                 // XLSX upload wiring
                 var xlDz = document.getElementById('_dz_xlsx');
@@ -4746,16 +4728,6 @@
                     alert('All game data cleared.');
                     _cats.forEach(function(c) { _loadStatus(c.key); });
                 };
-            }
-
-            function _handleFile(cat, file) {
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    var rows = parseCSV(e.target.result);
-                    if (rows.length === 0) { alert('CSV appears empty or invalid.'); return; }
-                    _showPreview(cat, rows);
-                };
-                reader.readAsText(file);
             }
 
             function _handleXlsx(file) {
@@ -4823,46 +4795,6 @@
                     }
                 };
                 reader.readAsArrayBuffer(file);
-            }
-
-            function _showPreview(cat, rows) {
-                var mapped = _mapRows(rows, cat.nameCol);
-                if (mapped.length === 0) { alert('No valid data rows found after cleaning.'); return; }
-                var headers = Object.keys(mapped[0]);
-                var preview = mapped.slice(0, 3);
-                var tbl = '<div class="_pv"><table><thead><tr>' +
-                    headers.map(function(h) { return '<th>' + _escHtml(h) + '</th>'; }).join('') +
-                    '</tr></thead><tbody>' +
-                    preview.map(function(r) {
-                        return '<tr>' + headers.map(function(h) { return '<td>' + _escHtml(r[h] || '') + '</td>'; }).join('') + '</tr>';
-                    }).join('') + '</tbody></table></div>';
-
-                var pvEl = document.getElementById('_pv_' + cat.key);
-                pvEl.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">' +
-                    mapped.length + ' rows, ' + headers.length + ' columns' +
-                    (mapped.length > 3 ? ' (showing first 3)' : '') + '</div>' + tbl +
-                    '<div style="display:flex;gap:8px;margin-top:10px;">' +
-                    '<button class="btn btn-success" id="_up_' + cat.key + '">Upload ' + mapped.length + ' items</button>' +
-                    '<button class="btn btn-secondary" id="_cn_' + cat.key + '">Cancel</button></div>';
-
-                document.getElementById('_dz_' + cat.key).classList.add('_ok');
-                document.getElementById('_up_' + cat.key).onclick = function() { _upload(cat, mapped); };
-                document.getElementById('_cn_' + cat.key).onclick = function() {
-                    pvEl.innerHTML = '';
-                    document.getElementById('_dz_' + cat.key).classList.remove('_ok');
-                };
-            }
-
-            async function _upload(cat, data) {
-                try {
-                    await database.ref('gameData/' + cat.key).set(data);
-                    await database.ref('gameData/lastUpdated').set(firebase.database.ServerValue.TIMESTAMP);
-                    if (!gameData) gameData = {};
-                    gameData[cat.key] = data;
-                    _loadStatus(cat.key);
-                    var pvEl = document.getElementById('_pv_' + cat.key);
-                    if (pvEl) pvEl.innerHTML = '<div style="color:var(--success);font-weight:700;padding:6px 0;">Uploaded ' + data.length + ' items.</div>';
-                } catch (e) { alert('Upload failed: ' + e.message); }
             }
 
             async function _loadStatus(key) {
@@ -9334,6 +9266,35 @@ teamHTML += `
         }
         window.toggleModelEdit = toggleModelEdit;
 
+        // Recalculate all model points in currentTeam from current gameData.
+        // Call after loading a saved team so updated CSV costs propagate.
+        function recalculateAllTeamPoints() {
+            currentTeam.points = 0;
+            (currentTeam.models || []).forEach(function(model) {
+                var baseModel = (gameData.models || []).find(function(g) { return g.name === model.name && g.faction === model.faction; });
+                var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
+
+                var weaponDelta = 0;
+                (model.weapons || []).forEach(function(w, i) {
+                    var currentPts = parseInt(w.points) || 0;
+                    var defaultName = (model.defaultWeapons || [])[i];
+                    var defaultWeapon = defaultName ? (gameData.weapons || []).find(function(gw) { return gw.name === defaultName; }) : null;
+                    var defaultPts = parseInt(defaultWeapon ? defaultWeapon.points : 0) || 0;
+                    weaponDelta += (currentPts - defaultPts);
+                });
+
+                var equipDelta = 0;
+                (model.addedEquipment || []).forEach(function(eq) {
+                    if (eq) equipDelta += (parseInt(eq.points) || 0);
+                });
+
+                model.weaponPointsDelta = weaponDelta;
+                model.equipmentPointsDelta = equipDelta;
+                model.points = basePts + weaponDelta + equipDelta;
+                currentTeam.points += model.points;
+            });
+        }
+
         function recalculateModelPoints(model) {
             var baseModel = (gameData.models || []).find(function(m) { return m.name === model.name && m.faction === model.faction; });
             var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
@@ -9554,9 +9515,26 @@ teamHTML += `
                     picker.innerHTML = matches.map(function(m) {
                         var t = m.team;
                         var count = (t.models || []).length;
+                        // Recalculate points from current gameData
+                        var freshPts = 0;
+                        (t.models || []).forEach(function(md) {
+                            var bm = (gameData.models || []).find(function(g) { return g.name === md.name && g.faction === md.faction; });
+                            var bp = parseInt(bm ? bm.points : md.points) || 0;
+                            var wd = 0;
+                            (md.weapons || []).forEach(function(w, i) {
+                                var cp = parseInt(w.points) || 0;
+                                var dn = (md.defaultWeapons || [])[i];
+                                var dw = dn ? (gameData.weapons || []).find(function(gw) { return gw.name === dn; }) : null;
+                                var dp = parseInt(dw ? dw.points : 0) || 0;
+                                wd += (cp - dp);
+                            });
+                            var ed = 0;
+                            (md.addedEquipment || []).forEach(function(eq) { if (eq) ed += (parseInt(eq.points) || 0); });
+                            freshPts += bp + wd + ed;
+                        });
                         return '<div class="tb-load-picker-item" onclick="event.stopPropagation(); loadSavedTeamIntoBuilder(\'' + m.id + '\')">' +
                             '<div class="team-pick-name">' + (t.name || 'Unnamed') + '</div>' +
-                            '<div class="team-pick-meta">' + (t.points || 0) + ' pts · ' + count + ' model' + (count !== 1 ? 's' : '') + '</div>' +
+                            '<div class="team-pick-meta">' + freshPts + ' pts · ' + count + ' model' + (count !== 1 ? 's' : '') + '</div>' +
                             '</div>';
                     }).join('');
                 }
@@ -9596,8 +9574,9 @@ teamHTML += `
                     models: (team.models || []).map(function(m) {
                         return Object.assign({}, m, { isExpanded: false });
                     }),
-                    points: team.points || 0
+                    points: 0
                 };
+                recalculateAllTeamPoints();
                 showTeamBuildingInterface();
             });
         }
@@ -9756,12 +9735,29 @@ teamHTML += `
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 0 20px;">
                             ${teamsList.map(([teamId, team]) => {
                                 const faction = gameData.factions.find(f => f.name === team.faction);
+                                // Recalculate points from current gameData instead of using stale saved values
+                                let freshPoints = 0;
+                                (team.models || []).forEach(function(m) {
+                                    var baseModel = (gameData.models || []).find(function(g) { return g.name === m.name && g.faction === m.faction; });
+                                    var basePts = parseInt(baseModel ? baseModel.points : m.points) || 0;
+                                    var wDelta = 0;
+                                    (m.weapons || []).forEach(function(w, i) {
+                                        var cPts = parseInt(w.points) || 0;
+                                        var dName = (m.defaultWeapons || [])[i];
+                                        var dWeapon = dName ? (gameData.weapons || []).find(function(gw) { return gw.name === dName; }) : null;
+                                        var dPts = parseInt(dWeapon ? dWeapon.points : 0) || 0;
+                                        wDelta += (cPts - dPts);
+                                    });
+                                    var eDelta = 0;
+                                    (m.addedEquipment || []).forEach(function(eq) { if (eq) eDelta += (parseInt(eq.points) || 0); });
+                                    freshPoints += basePts + wDelta + eDelta;
+                                });
                                 return `
                                     <div style="background: var(--white); padding: 20px; border-radius: 10px; border: 1px solid var(--border);">
                                         <h3 style="color: var(--accent); margin-bottom: 10px;">${team.name}</h3>
                                         <div style="color: var(--text-secondary); margin-bottom: 15px;">
                                             <div>${team.faction}</div>
-                                            <div>${team.points} points • ${team.models.length} models</div>
+                                            <div>${freshPoints} points • ${team.models.length} models</div>
                                         </div>
                                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                             <button onclick="editTeamInline('${teamId}')" class="btn btn-secondary" style="flex: 1; min-width: 70px;">Edit</button>
@@ -9796,8 +9792,9 @@ teamHTML += `
                         models: (team.models || []).map(function(m) {
                             return Object.assign({}, m, { isExpanded: false });
                         }),
-                        points: team.points || 0
+                        points: 0
                     };
+                    recalculateAllTeamPoints();
                     // Switch from My Teams to Team Builder view
                     document.getElementById('myTeamsTab').style.display = 'none';
                     document.getElementById('teamBuilderTab').style.display = 'block';
