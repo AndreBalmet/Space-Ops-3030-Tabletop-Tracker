@@ -786,6 +786,39 @@
             letter-spacing: 0.5px;
         }
 
+        .tb-stat-grid {
+            display: flex;
+            gap: 0;
+            margin-top: 6px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1.5px solid var(--black, #1a1a1a);
+        }
+        .tb-stat-cell {
+            flex: 1;
+            text-align: center;
+            background: var(--off-white, #f5f0e8);
+            border-right: 1px solid var(--border);
+        }
+        .tb-stat-cell:last-child { border-right: none; }
+        .tb-stat-label {
+            font-family: var(--font-heading);
+            font-size: 9px;
+            font-weight: 800;
+            color: var(--off-white, #f5f0e8);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--black, #1a1a1a);
+            padding: 2px 4px;
+        }
+        .tb-stat-val {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--black, #1a1a1a);
+            padding: 4px 2px;
+        }
+
         .tb-model-pts {
             font-family: var(--font-heading);
             font-size: 14px;
@@ -8786,6 +8819,23 @@ teamHTML += `
             return parts.join('  ');
         }
 
+        function _modelStatGrid(model) {
+            var stats = [
+                { label: 'Speed', val: model.speed },
+                { label: 'Fight', val: model.fight && model.fight !== '-' ? model.fight : null },
+                { label: 'Shoot', val: model.shoot && model.shoot !== '-' ? model.shoot : null },
+                { label: 'Defense', val: model.defense },
+                { label: 'Grit', val: model.grit }
+            ].filter(function(s) { return s.val; });
+            if (stats.length === 0) return '';
+            var html = '<div class="tb-stat-grid">';
+            stats.forEach(function(s) {
+                html += '<div class="tb-stat-cell"><div class="tb-stat-label">' + s.label + '</div><div class="tb-stat-val">' + s.val + '</div></div>';
+            });
+            html += '</div>';
+            return html;
+        }
+
         // Helper: build gear line from model data
         function _modelGearLine(model) {
             var gear = [];
@@ -8909,21 +8959,24 @@ teamHTML += `
                                 <div class="team-builder-model-list">
                                     ${factionModels.map(model => {
                                         var role = _modelRole(model);
-                                        var stats = _modelStatLine(model);
+                                        var statGrid = _modelStatGrid(model);
                                         var gear = _modelGearLine(model);
                                         var slots = model.openSlots ? model.openSlots + ' open slots' : '';
                                         var metaParts = [role, model.description].filter(Boolean);
                                         return `
                                         <div class="tb-model-row">
-                                            <div class="tb-model-initial">${model.name.charAt(0)}</div>
-                                            <div class="tb-model-info">
-                                                <div class="tb-model-name">${model.name}</div>
+                                            <div class="tb-model-info" style="flex:1;">
+                                                <div style="display:flex;align-items:center;justify-content:space-between;">
+                                                    <div class="tb-model-name">${model.name}</div>
+                                                    <div style="display:flex;align-items:center;gap:8px;">
+                                                        <div class="tb-model-pts">${model.points || '—'} pts</div>
+                                                        <button class="tb-add-btn" onclick="addPresetModelToTeam('${model.name.replace(/'/g, "\\'")}')">+</button>
+                                                    </div>
+                                                </div>
                                                 <div class="tb-model-meta">${metaParts.join(' · ')}</div>
-                                                <div class="tb-model-stats">${stats}</div>
-                                                ${gear ? '<div class="tb-model-meta" style="margin-top:2px;">' + gear + (slots ? ' · ' + slots : '') + '</div>' : ''}
+                                                ${statGrid}
+                                                ${gear ? '<div class="tb-model-meta" style="margin-top:4px;">' + gear + (slots ? ' · ' + slots : '') + '</div>' : ''}
                                             </div>
-                                            <div class="tb-model-pts">${model.points || '—'} pts</div>
-                                            <button class="tb-add-btn" onclick="addPresetModelToTeam('${model.name.replace(/'/g, "\\'")}')">+</button>
                                         </div>`;
                                     }).join('')}
                                 </div>
@@ -9036,28 +9089,27 @@ teamHTML += `
 
         function _renderCollapsedCard(model, fColor) {
             var role = _modelRole(model);
-            var stats = _modelStatLine(model);
+            var statGrid = _modelStatGrid(model.stats || model);
             var displayName = model.customName || model.name;
             var weaponNames = (model.weapons || []).map(function(w) { return wrapWeaponWithTooltip(w); }).filter(Boolean).join(', ');
             var gearNames = (model.inventory || []).map(function(g) { return wrapEquipWithTooltip(g); }).join(', ');
             var totalDelta = (model.weaponPointsDelta || 0) + (model.equipmentPointsDelta || 0);
             var deltaStr = totalDelta > 0 ? ' (+' + totalDelta + ')' : totalDelta < 0 ? ' (' + totalDelta + ')' : '';
-            var portraitUrl = model.portrait || '';
-            var initialHTML = portraitUrl
-                ? '<div class="tb-roster-initial" style="background-image:url(' + portraitUrl + ');background-size:cover;background-position:center;background-color:' + fColor + ';"></div>'
-                : '<div class="tb-roster-initial" style="background:' + fColor + ';">' + displayName.charAt(0) + '</div>';
             var modelType = (model.customName && model.customName !== model.name) ? model.name + ' \u00b7 ' : '';
-            return '<div class="tb-roster-card">' +
-                initialHTML +
-                '<div class="tb-roster-info">' +
+            return '<div class="tb-roster-card" style="flex-direction:column;align-items:stretch;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;">' +
                     '<div class="tb-roster-name">' + displayName + '</div>' +
-                    '<div class="tb-roster-meta">' + modelType + (role ? role + ' \u00b7 ' : '') + (model.points || '\u2014') + ' pts' + deltaStr + ' \u00b7 HP ' + (model.stats ? model.stats.health || model.health : model.health) + '</div>' +
-                    '<div class="tb-model-stats">' + stats + '</div>' +
-                    (weaponNames ? '<div class="tb-roster-meta" style="margin-top:2px;">\u2694 ' + weaponNames + '</div>' : '') +
-                    (gearNames ? '<div class="tb-roster-meta" style="margin-top:1px;color:var(--text-muted);">\u2699 ' + gearNames + '</div>' : '') +
+                    '<div style="display:flex;align-items:center;gap:6px;">' +
+                        '<span style="font-size:13px;font-weight:700;color:var(--text-secondary);">' + (model.points || '\u2014') + ' pts' + deltaStr + '</span>' +
+                        '<span style="font-size:12px;color:var(--text-muted);">HP ' + (model.stats ? model.stats.health || model.health : model.health) + '</span>' +
+                        '<button class="tb-edit-btn" onclick="toggleModelEdit(' + model.id + ')">Edit</button>' +
+                        '<button class="tb-remove-btn" onclick="removeModelFromTeam(' + model.id + ')">&#10005;</button>' +
+                    '</div>' +
                 '</div>' +
-                '<button class="tb-edit-btn" onclick="toggleModelEdit(' + model.id + ')">Edit</button>' +
-                '<button class="tb-remove-btn" onclick="removeModelFromTeam(' + model.id + ')">&#10005;</button>' +
+                '<div class="tb-roster-meta">' + modelType + (role || '') + '</div>' +
+                statGrid +
+                (weaponNames ? '<div class="tb-roster-meta" style="margin-top:4px;">\u2694 ' + weaponNames + '</div>' : '') +
+                (gearNames ? '<div class="tb-roster-meta" style="margin-top:1px;color:var(--text-muted);">\u2699 ' + gearNames + '</div>' : '') +
             '</div>';
         }
 
