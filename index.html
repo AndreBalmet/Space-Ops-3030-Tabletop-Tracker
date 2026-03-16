@@ -3926,6 +3926,29 @@
             }, { passive: false });
         }
 
+        function lookupEquipData(name) {
+            if (!name) return null;
+            // Check gameData.equipment first (CSV-uploaded)
+            if (gameData.equipment && gameData.equipment.length > 0) {
+                var found = gameData.equipment.find(function(e) { return e.name === name; });
+                if (found) return found;
+            }
+            // Fallback: equipment-type weapons from hardcoded data
+            var weapons = gameData.weapons || [];
+            return weapons.find(function(w) { return w.name === name && w.type === 'Equipment'; }) || null;
+        }
+
+        function wrapEquipWithTooltip(name) {
+            if (!name) return '';
+            var equip = lookupEquipData(name);
+            if (!equip) return name;
+            var desc = equip.passiveAbility || equip.passioveAbility || equip.description || equip.effects || '';
+            var action = equip.actionName && equip.actionDescription ? equip.actionName + ': ' + equip.actionDescription : equip.actionName || '';
+            var body = [desc, action].filter(Boolean).join(' | ');
+            if (!body) return name;
+            return '<span class="so-tt" data-tt-title="' + name + '" data-tt-body="' + body.replace(/"/g, '&quot;') + '">' + name + '</span>';
+        }
+
         // Init tooltip on DOMContentLoaded
         document.addEventListener('DOMContentLoaded', function() { initTooltipSystem(); });
 
@@ -7314,15 +7337,15 @@ teamHTML += `
                 <div class="equipment-slot ${!char.inventory || !char.inventory[0] ? 'empty' : ''}">
                     <div class="equipment-label">Inventory 1</div>
                     ${char.inventory && char.inventory[0] ? `
-                        <div class="equipment-name">${char.inventory[0]}</div>
+                        <div class="equipment-name">${wrapEquipWithTooltip(char.inventory[0])}</div>
                     ` : '<div style="color: #666;">Empty</div>'}
                 </div>
-                
+
                 <!-- Inventory Slot 2 -->
                 <div class="equipment-slot ${!char.inventory || !char.inventory[1] ? 'empty' : ''}">
                     <div class="equipment-label">Inventory 2</div>
                     ${char.inventory && char.inventory[1] ? `
-                        <div class="equipment-name">${char.inventory[1]}</div>
+                        <div class="equipment-name">${wrapEquipWithTooltip(char.inventory[1])}</div>
                     ` : '<div style="color: #666;">Empty</div>'}
                 </div>
             </div>
@@ -8382,7 +8405,7 @@ teamHTML += `
             var stats = _modelStatLine(model);
             var displayName = model.customName || model.name;
             var weaponNames = (model.weapons || []).map(function(w) { return w.name; }).filter(Boolean).join(', ');
-            var gearNames = (model.inventory || []).join(', ');
+            var gearNames = (model.inventory || []).map(function(g) { return wrapEquipWithTooltip(g); }).join(', ');
             var totalDelta = (model.weaponPointsDelta || 0) + (model.equipmentPointsDelta || 0);
             var deltaStr = totalDelta > 0 ? ' (+' + totalDelta + ')' : totalDelta < 0 ? ' (' + totalDelta + ')' : '';
             var portraitUrl = model.portrait || '';
