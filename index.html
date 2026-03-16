@@ -786,16 +786,18 @@
             letter-spacing: 0.5px;
         }
 
+        .tb-stat-block {
+            margin-top: 6px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1.5px solid var(--black, #1a1a1a);
+        }
         .tb-hp-row {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-top: 6px;
             padding: 4px 10px;
             background: var(--black, #1a1a1a);
-            border-radius: 4px 4px 0 0;
-            border: 1.5px solid var(--black, #1a1a1a);
-            border-bottom: none;
         }
         .tb-hp-label {
             font-family: var(--font-heading);
@@ -810,18 +812,9 @@
             font-weight: 800;
             color: var(--off-white, #f5f0e8);
         }
-        .tb-hp-row + .tb-stat-grid {
-            margin-top: -1.5px;
-            border-radius: 0 0 4px 4px;
-            border-top: none;
-        }
         .tb-stat-grid {
             display: flex;
             gap: 0;
-            margin-top: 6px;
-            border-radius: 4px;
-            overflow: hidden;
-            border: 1.5px solid var(--black, #1a1a1a);
         }
         .tb-stat-cell {
             flex: 1;
@@ -8858,7 +8851,7 @@ teamHTML += `
                 { label: 'Grit', val: model.grit }
             ].filter(function(s) { return s.val; });
             if (stats.length === 0) return '';
-            var html = '';
+            var html = '<div class="tb-stat-block">';
             if (hpVal) {
                 html += '<div class="tb-hp-row"><span class="tb-hp-label">HEALTH</span><span class="tb-hp-val">' + hpVal + '</span></div>';
             }
@@ -8866,7 +8859,7 @@ teamHTML += `
             stats.forEach(function(s) {
                 html += '<div class="tb-stat-cell"><div class="tb-stat-label">' + s.label + '</div><div class="tb-stat-val">' + s.val + '</div></div>';
             });
-            html += '</div>';
+            html += '</div></div>';
             return html;
         }
 
