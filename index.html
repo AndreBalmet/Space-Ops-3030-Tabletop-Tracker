@@ -9391,10 +9391,6 @@ teamHTML += `
                 if (baseModel) {
                     // Store the base points separately so we never lose it
                     model.basePoints = parseInt(baseModel.points) || 0;
-                    console.log('[Hydrate] "' + model.name + '" matched → "' + baseModel.name + '" base=' + model.basePoints);
-                } else {
-                    console.warn('[Hydrate] "' + model.name + '" (faction: ' + (currentTeam.faction || model.faction) + ') NOT FOUND in gameData. Available models:', (gameData.models || []).map(function(m) { return m.name; }).join(', '));
-                }
                     // Update stats from live data (preserve customName, id, isExpanded, etc.)
                     ['speed','shoot','fight','defense','grit','nerve','firewall','health','type'].forEach(function(key) {
                         if (baseModel[key] !== undefined) model[key] = baseModel[key];
@@ -9480,7 +9476,6 @@ teamHTML += `
                 });
                 model.equipmentPointsDelta = equipDelta;
                 model.points = Math.max(basePts, basePts + slotDelta + equipDelta);
-                console.log('[Recalc] "' + model.name + '" base=' + basePts + ' slotDelta=' + slotDelta + ' equipDelta=' + equipDelta + ' → total=' + model.points);
                 currentTeam.points += model.points;
             });
         }
