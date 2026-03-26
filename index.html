@@ -9126,8 +9126,8 @@ teamHTML += `
 
         function _renderExpandedCard(model, fColor) {
             var role = _modelRole(model);
-            var baseModel = (gameData.models || []).find(function(m) { return m.name === model.name && m.faction === model.faction; });
-            var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
+            var baseModel = _findBaseModel(model.name, currentTeam.faction || model.faction);
+            var basePts = parseInt(baseModel ? baseModel.points : (model.basePoints != null ? model.basePoints : model.points)) || 0;
             var totalDelta = (model.weaponPointsDelta || 0) + (model.equipmentPointsDelta || 0);
             var isVehicle = _isModelVehicle(model);
             var customName = model.customName || model.name;
@@ -9357,18 +9357,50 @@ teamHTML += `
             return parseInt(item.points) || 0;
         }
 
+        // Find a model in gameData by name+faction, with fuzzy fallback
+        function _findBaseModel(name, faction) {
+            if (!name) return null;
+            var models = gameData.models || [];
+            // Exact match
+            var m = models.find(function(g) { return g.name === name && g.faction === faction; });
+            if (m) return m;
+            // Exact name, any faction
+            m = models.find(function(g) { return g.name === name; });
+            if (m) return m;
+            // Normalized name match within faction
+            var norm = _normName(name);
+            m = models.find(function(g) { return _normName(g.name) === norm && g.faction === faction; });
+            if (m) return m;
+            // Normalized name, any faction
+            m = models.find(function(g) { return _normName(g.name) === norm; });
+            if (m) return m;
+            // Partial match: saved name contained in gameData name or vice versa
+            m = models.find(function(g) {
+                var gn = _normName(g.name);
+                return g.faction === faction && (gn.indexOf(norm) !== -1 || norm.indexOf(gn) !== -1);
+            });
+            return m || null;
+        }
+
         // Refresh all weapon/equipment objects in a team from current gameData
         // This ensures stale saved data (old points, stats, etc.) gets replaced with live values
         function _hydrateTeamFromGameData() {
             (currentTeam.models || []).forEach(function(model) {
-                // Refresh base model stats from gameData
-                var baseModel = (gameData.models || []).find(function(g) { return g.name === model.name && g.faction === model.faction; });
+                // Refresh base model stats from gameData (with fuzzy name matching)
+                var baseModel = _findBaseModel(model.name, currentTeam.faction || model.faction);
                 if (baseModel) {
+                    // Store the base points separately so we never lose it
+                    model.basePoints = parseInt(baseModel.points) || 0;
                     // Update stats from live data (preserve customName, id, isExpanded, etc.)
                     ['speed','shoot','fight','defense','grit','nerve','firewall','health','type'].forEach(function(key) {
                         if (baseModel[key] !== undefined) model[key] = baseModel[key];
                     });
                     model.currentHealth = parseInt(baseModel.health) || model.currentHealth;
+                    // Update model name if it was renamed in XLSX
+                    if (baseModel.name !== model.name) {
+                        console.log('Model name updated: "' + model.name + '" → "' + baseModel.name + '"');
+                        model.name = baseModel.name;
+                    }
                 }
 
                 // Refresh each weapon slot from gameData.weapons
@@ -9417,8 +9449,9 @@ teamHTML += `
                 if (!model.defaultWeapons) model.defaultWeapons = [];
                 while (model.defaultWeapons.length < 4) model.defaultWeapons.push(null);
 
-                var baseModel = (gameData.models || []).find(function(g) { return g.name === model.name && g.faction === model.faction; });
-                var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
+                var baseModel = _findBaseModel(model.name, currentTeam.faction || model.faction);
+                var basePts = parseInt(baseModel ? baseModel.points : (model.basePoints != null ? model.basePoints : model.points)) || 0;
+                model.basePoints = basePts;
 
                 // Unified 4-slot delta calculation (always use live gameData prices)
                 var slotDelta = 0;
@@ -9448,8 +9481,9 @@ teamHTML += `
         }
 
         function recalculateModelPoints(model) {
-            var baseModel = (gameData.models || []).find(function(m) { return m.name === model.name && m.faction === model.faction; });
-            var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
+            var baseModel = _findBaseModel(model.name, currentTeam.faction || model.faction);
+            var basePts = parseInt(baseModel ? baseModel.points : (model.basePoints != null ? model.basePoints : model.points)) || 0;
+            model.basePoints = basePts;
 
             // Unified 4-slot delta calculation (always use live gameData prices)
             var slotDelta = 0;
@@ -9702,8 +9736,8 @@ teamHTML += `
                         // Recalculate points from current gameData
                         var freshPts = 0;
                         (t.models || []).forEach(function(md) {
-                            var bm = (gameData.models || []).find(function(g) { return g.name === md.name && g.faction === md.faction; });
-                            var bp = parseInt(bm ? bm.points : md.points) || 0;
+                            var bm = _findBaseModel(md.name, t.faction || md.faction);
+                            var bp = parseInt(bm ? bm.points : (md.basePoints != null ? md.basePoints : md.points)) || 0;
                             var wd = 0;
                             (md.weapons || []).forEach(function(w, i) {
                                 var cp = _getLiveItemPts(w);
@@ -9921,8 +9955,8 @@ teamHTML += `
                                 // Recalculate points from current gameData instead of using stale saved values
                                 let freshPoints = 0;
                                 (team.models || []).forEach(function(m) {
-                                    var baseModel = (gameData.models || []).find(function(g) { return g.name === m.name && g.faction === m.faction; });
-                                    var basePts = parseInt(baseModel ? baseModel.points : m.points) || 0;
+                                    var baseModel = _findBaseModel(m.name, team.faction || m.faction);
+                                    var basePts = parseInt(baseModel ? baseModel.points : (m.basePoints != null ? m.basePoints : m.points)) || 0;
                                     var wDelta = 0;
                                     (m.weapons || []).forEach(function(w, i) {
                                         var cPts = _getLiveItemPts(w);
