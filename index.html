@@ -9391,6 +9391,11 @@ teamHTML += `
                 if (baseModel) {
                     // Store the base points separately so we never lose it
                     model.basePoints = parseInt(baseModel.points) || 0;
+                    console.log('[Hydrate] "' + model.name + '" matched → "' + baseModel.name + '" base=' + model.basePoints);
+                } else {
+                    console.warn('[Hydrate] NO MATCH for "' + model.name + '" (faction: ' + (currentTeam.faction || model.faction) + '). Available:', (gameData.models || []).map(function(m) { return m.name; }).join(', '));
+                }
+                if (baseModel) {
                     // Update stats from live data (preserve customName, id, isExpanded, etc.)
                     ['speed','shoot','fight','defense','grit','nerve','firewall','health','type'].forEach(function(key) {
                         if (baseModel[key] !== undefined) model[key] = baseModel[key];
@@ -9476,6 +9481,7 @@ teamHTML += `
                 });
                 model.equipmentPointsDelta = equipDelta;
                 model.points = Math.max(basePts, basePts + slotDelta + equipDelta);
+                console.log('[Recalc] "' + model.name + '" base=' + basePts + ' slotDelta=' + slotDelta + ' equipDelta=' + equipDelta + ' → total=' + model.points + ' | weapons:', (model.weapons || []).map(function(w) { return w ? w.name + '(' + w.points + ')' : 'empty'; }).join(', ') + ' | defaults:', (model.defaultWeapons || []).join(', '));
                 currentTeam.points += model.points;
             });
         }
@@ -9697,9 +9703,19 @@ teamHTML += `
 
             // Save to Firebase
             database.ref(`players/${currentPlayer}/teams/${teamId}`).set(teamData).then(() => {
-                console.log('✅ Team saved to Firebase');
-                editingTeamId = null;
-                showTeamSavedDialog(teamData.name);
+                console.log('Team saved to Firebase');
+                editingTeamId = teamId; // Keep editing the same team
+                // Flash confirmation on save button
+                var saveBtn = document.querySelector('.tb-save');
+                if (saveBtn) {
+                    var origText = saveBtn.textContent;
+                    saveBtn.textContent = 'Saved!';
+                    saveBtn.style.background = '#48bb78';
+                    setTimeout(function() {
+                        saveBtn.textContent = origText;
+                        saveBtn.style.background = '#db8f00';
+                    }, 1500);
+                }
             }).catch(error => {
                 alert('Error saving team: ' + error.message);
             });
