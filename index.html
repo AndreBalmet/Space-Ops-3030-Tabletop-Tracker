@@ -9202,19 +9202,10 @@ teamHTML += `
                 var slotItem = model.weapons[slotIdx];
                 var defaultName = (model.defaultWeapons || [])[slotIdx] || null;
                 var slotIsWeapon = slotItem && _isSlotWeapon(slotItem);
-                var slotPts = slotItem ? (parseInt(slotItem.points) || 0) : 0;
+                var slotPts = _getLiveItemPts(slotItem);
 
-                // Calculate per-slot delta vs default
-                var defaultPts = 0;
-                if (defaultName) {
-                    var defW = (gameData.weapons || []).find(function(gw) { return gw.name === defaultName; });
-                    if (!defW) {
-                        var defE = lookupEquipData(defaultName);
-                        defaultPts = defE ? (parseInt(defE.points) || 0) : 0;
-                    } else {
-                        defaultPts = parseInt(defW.points) || 0;
-                    }
-                }
+                // Calculate per-slot delta vs default (using live gameData prices)
+                var defaultPts = _getDefaultSlotPts(defaultName);
                 var slotDelta = slotPts - defaultPts;
 
                 weaponHTML += '<div class="tb-edit-slot">' +
@@ -9352,6 +9343,20 @@ teamHTML += `
             return 0;
         }
 
+        // Look up current points for a weapon or equipment item from live gameData
+        // Falls back to the saved item.points only if not found in gameData
+        function _getLiveItemPts(item) {
+            if (!item || !item.name) return 0;
+            // Check weapons first
+            var gw = (gameData.weapons || []).find(function(w) { return w.name === item.name; });
+            if (gw) return parseInt(gw.points) || 0;
+            // Then equipment
+            var ge = lookupEquipData(item.name);
+            if (ge) return parseInt(ge.points) || 0;
+            // Fallback to saved value
+            return parseInt(item.points) || 0;
+        }
+
         function recalculateAllTeamPoints() {
             currentTeam.points = 0;
             (currentTeam.models || []).forEach(function(model) {
@@ -9364,20 +9369,26 @@ teamHTML += `
                 var baseModel = (gameData.models || []).find(function(g) { return g.name === model.name && g.faction === model.faction; });
                 var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
 
-                // Unified 4-slot delta calculation
+                // Unified 4-slot delta calculation (always use live gameData prices)
                 var slotDelta = 0;
                 (model.weapons || []).forEach(function(w, i) {
-                    var currentPts = w ? (parseInt(w.points) || 0) : 0;
+                    var currentPts = _getLiveItemPts(w);
                     var defaultName = (model.defaultWeapons || [])[i] || null;
                     var defaultPts = _getDefaultSlotPts(defaultName);
                     slotDelta += (currentPts - defaultPts);
+                    // Update saved item points to current gameData value
+                    if (w) w.points = currentPts;
                 });
 
                 model.weaponPointsDelta = slotDelta;
-                // Calculate equipment delta from addedEquipment
+                // Calculate equipment delta from addedEquipment (always use live gameData prices)
                 var equipDelta = 0;
                 (model.addedEquipment || []).forEach(function(eq) {
-                    if (eq) equipDelta += (parseInt(eq.points) || 0);
+                    if (eq) {
+                        var livePts = _getLiveItemPts(eq);
+                        eq.points = livePts; // Update to current
+                        equipDelta += livePts;
+                    }
                 });
                 model.equipmentPointsDelta = equipDelta;
                 model.points = Math.max(basePts, basePts + slotDelta + equipDelta);
@@ -9389,19 +9400,24 @@ teamHTML += `
             var baseModel = (gameData.models || []).find(function(m) { return m.name === model.name && m.faction === model.faction; });
             var basePts = parseInt(baseModel ? baseModel.points : model.points) || 0;
 
-            // Unified 4-slot delta calculation
+            // Unified 4-slot delta calculation (always use live gameData prices)
             var slotDelta = 0;
             (model.weapons || []).forEach(function(w, i) {
-                var currentPts = w ? (parseInt(w.points) || 0) : 0;
+                var currentPts = _getLiveItemPts(w);
                 var defaultName = (model.defaultWeapons || [])[i] || null;
                 var defaultPts = _getDefaultSlotPts(defaultName);
                 slotDelta += (currentPts - defaultPts);
+                if (w) w.points = currentPts;
             });
 
-            // Calculate equipment delta from addedEquipment
+            // Calculate equipment delta from addedEquipment (always use live gameData prices)
             var equipDelta = 0;
             (model.addedEquipment || []).forEach(function(eq) {
-                if (eq) equipDelta += (parseInt(eq.points) || 0);
+                if (eq) {
+                    var livePts = _getLiveItemPts(eq);
+                    eq.points = livePts;
+                    equipDelta += livePts;
+                }
             });
 
             var oldPoints = model.points || 0;
@@ -9639,14 +9655,13 @@ teamHTML += `
                             var bp = parseInt(bm ? bm.points : md.points) || 0;
                             var wd = 0;
                             (md.weapons || []).forEach(function(w, i) {
-                                var cp = parseInt(w.points) || 0;
+                                var cp = _getLiveItemPts(w);
                                 var dn = (md.defaultWeapons || [])[i];
-                                var dw = dn ? (gameData.weapons || []).find(function(gw) { return gw.name === dn; }) : null;
-                                var dp = parseInt(dw ? dw.points : 0) || 0;
+                                var dp = _getDefaultSlotPts(dn);
                                 wd += (cp - dp);
                             });
                             var ed = 0;
-                            (md.addedEquipment || []).forEach(function(eq) { if (eq) ed += (parseInt(eq.points) || 0); });
+                            (md.addedEquipment || []).forEach(function(eq) { if (eq) ed += _getLiveItemPts(eq); });
                             freshPts += bp + wd + ed;
                         });
                         return '<div class="tb-load-picker-item" onclick="event.stopPropagation(); loadSavedTeamIntoBuilder(\'' + m.id + '\')">' +
@@ -9859,14 +9874,13 @@ teamHTML += `
                                     var basePts = parseInt(baseModel ? baseModel.points : m.points) || 0;
                                     var wDelta = 0;
                                     (m.weapons || []).forEach(function(w, i) {
-                                        var cPts = parseInt(w.points) || 0;
+                                        var cPts = _getLiveItemPts(w);
                                         var dName = (m.defaultWeapons || [])[i];
-                                        var dWeapon = dName ? (gameData.weapons || []).find(function(gw) { return gw.name === dName; }) : null;
-                                        var dPts = parseInt(dWeapon ? dWeapon.points : 0) || 0;
+                                        var dPts = _getDefaultSlotPts(dName);
                                         wDelta += (cPts - dPts);
                                     });
                                     var eDelta = 0;
-                                    (m.addedEquipment || []).forEach(function(eq) { if (eq) eDelta += (parseInt(eq.points) || 0); });
+                                    (m.addedEquipment || []).forEach(function(eq) { if (eq) eDelta += _getLiveItemPts(eq); });
                                     freshPoints += basePts + wDelta + eDelta;
                                 });
                                 return `
