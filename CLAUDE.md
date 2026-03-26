@@ -1,16 +1,23 @@
 # Space-Ops 3030 Tracker — Claude Project Context
 
 ## Project Overview
-Space-Ops 3030 is a single-file HTML tabletop gaming tracker (~7,500 lines) for managing teams, characters, combat sessions, and game data for a sci-fi tabletop game. The latest stable version is **v14.76**.
+Space-Ops 3030 is a single-file HTML tabletop gaming tracker (~8,000+ lines) for managing teams, characters, combat sessions, and game data for a sci-fi tabletop game. The latest stable version is **v14.77**.
 
 ### Active Version Location
-`/Users/andrebalmet/Documents/SpaceOps_3030 Tracker/index.html`
+`/Users/andrebalmet/Documents/Triggertype/Space Ops/Tracker/index.html`
 *(This is the root file served by GitHub Pages. Always edit this file for commits/pushes.)*
+
+### Development Workflow
+- **Always test locally first** at `http://localhost:8091/index.html` before pushing to main
+- Start local server: `python3 -m http.server 8091` from project root
+- GitHub Pages URL: `https://andrebalmet.github.io/Space-Ops-3030-Tabletop-Tracker/`
+- 84+ git commits, 100+ total versions (many pre-date git repo)
 
 ### Tech Stack
 - Single HTML file (no framework) — all CSS, JS, and HTML inline
 - Firebase Realtime Database for cloud persistence
 - Google Sheets CSV integration for game data
+- XLSX import for all game data (models, weapons, equipment, factions, effects, etc.)
 - jsPDF for PDF export
 - Pure vanilla JavaScript, CSS Grid/Flexbox
 
@@ -112,16 +119,17 @@ Separate from TalkToFigma. Tools: `get_design_context`, `get_screenshot`, `get_m
 ### Key UI Components to Recreate
 1. **Landing Page** — Logo, menu grid (6 buttons), player name input
 2. **Tab Navigation** — Join/Create, Sessions, Game, Tools tabs
-3. **Character/Model Cards** — Portrait, name, faction badge, stat grid (Speed/Shoot/Fight/Nerve/Health), health bar, equipment slots, action buttons
+3. **Character/Model Cards** — Portrait, name, faction badge, stat grid (Speed/Shoot/Fight/Defense/Grit/Health), health bar, equipment slots, status effect pills, action buttons (team-only gated)
 4. **Session Cards** — Title, campaign, player count, status badge
 5. **Combat Tracker** — Initiative list, turn indicator, timer
 6. **Dice Roller** — D4/D6/D8/D12/D20 buttons, result display
 7. **Modals** — Character creation form, session creation, confirmation dialogs
 8. **Buttons** — Primary (gold), Secondary (gray), Success (green), Danger (red), Warning (orange), Info (blue)
 9. **Form Inputs** — Text, number, color picker, URL, select dropdowns
-10. **Stat Grid** — 5-column equal-width grid for character stats
-11. **Status Badges** — Effect indicators with duration
-12. **Tutorial Overlay** — Spotlight with arrow pointer
+10. **Stat Grid** — 5-6 column equal-width grid for character stats (6 for models with Firewall)
+11. **Status Effect Pills** — Effect tags with name, duration, description tooltip, auto-expire on turn advance
+12. **Status Effect Dropdown** — "Add Effect..." dropdown on model cards (Overwatch, Suppressed, Stunned, etc.)
+13. **Tutorial Overlay** — Spotlight with arrow pointer
 
 ### Layout Patterns
 - **Grid**: `repeat(auto-fill, minmax(350px, 1fr))` for card layouts
@@ -140,12 +148,64 @@ This creates a design-to-code round-trip pipeline.
 
 ---
 
+## Key Architecture Decisions
+
+### Terminology
+- Model/gear costs are called **"Rating"** (not "points" or "pts") everywhere in UI
+- Weapon stats use full words: **Attack, Power, Damage** (not A/D/P)
+
+### Data Pipeline
+- ALL game data is driven from XLSX uploads (models, weapons, equipment, factions, effects, special actions, starter squads)
+- `gameData.{sheetName}` arrays are populated from XLSX sheet names
+- Adding an **EFFECTS** sheet (columns: Name, Duration, Description) populates the status effects dropdown
+- Hardcoded fallbacks exist only as safety nets when XLSX data isn't loaded yet
+
+### Team Builder → Session Flow
+- Teams are built and edited in the **Team Builder**
+- Teams are **instanced** when joining sessions (deep-copied)
+- Edits in-session do NOT write back to saved teams
+- On load, saved teams are **hydrated** from current gameData (refreshes all weapon/equipment/model data to latest XLSX values)
+
+### Ownership Model
+- Only team members can modify their own team's models (health, turns, status effects)
+- Backend checks enforce ownership via `team.members` array
+- Host retains admin-level access
+
+### Vehicle/Pilot Pairing
+- Adding a vehicle (e.g. Mono Tank) auto-adds a Pilot from the same faction
+- Removing a vehicle auto-removes its paired Pilot
+
+### Live Sync
+- Firebase Realtime Database with `visibilitychange` and `online` event listeners
+- `database.goOnline()` called when iPad/mobile tabs return from background
+- Forces data refresh to keep health/status synced across devices
+
+---
+
 ## File Locations
 | Item | Path |
 |------|------|
-| Project root | `/Users/andrebalmet/Documents/SpaceOps_3030 Tracker/` |
+| Project root | `/Users/andrebalmet/Documents/Triggertype/Space Ops/Tracker/` |
 | Latest HTML | `./index.html` (root — served by GitHub Pages) |
 | TalkToFigma repo | `~/Documents/cursor-talk-to-figma-mcp/` |
 | Figma docs | `./figma-integration/` |
 | Logo (local) | `./Logo_Wide_wht_c6376661-fc72-45af-ae4c-9b56e7802930.png` |
 | CSV data files | `./space-ops-3030-v14.76/FACTIONS.csv`, `MODELS.csv`, `WEAPONS.csv`, `SPECIAL_ACTIONS.csv`, `STARTER_SQUADS.csv` |
+
+---
+
+## Known Issues / In Progress
+
+### Rating Calculation Bug (stale saved teams)
+- **Status**: Investigating — debug logging added
+- **Symptom**: Old saved teams show incorrect "+X from upgrades" values (e.g. +5 when only +1 equipment is equipped)
+- **Root cause**: Saved team data in Firebase retains old weapon/equipment `.points` values from before XLSX updates. Hydration attempts to refresh from current gameData via `_findBaseModel()` and `_getLiveItemPts()`, but if the model name stored in Firebase doesn't exactly match current gameData names, lookup falls back to stale saved values.
+- **Fix approach**: `_hydrateTeamFromGameData()` runs on every team load with fuzzy name matching. `model.basePoints` stored separately from calculated total. Still need console logs from a live reproduction to confirm the lookup is matching correctly.
+- **Users should NOT need to delete and recreate old teams** — the hydration system should handle this automatically once the matching is confirmed working.
+
+---
+
+## Save Button UX
+- Save team stays on the team builder (no navigation to confirmation screen)
+- Button flashes green with "Saved!" text for 1.5s, then reverts to gold "Save Team"
+- `editingTeamId` preserved so subsequent saves update the same team
