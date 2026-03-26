@@ -9357,7 +9357,58 @@ teamHTML += `
             return parseInt(item.points) || 0;
         }
 
+        // Refresh all weapon/equipment objects in a team from current gameData
+        // This ensures stale saved data (old points, stats, etc.) gets replaced with live values
+        function _hydrateTeamFromGameData() {
+            (currentTeam.models || []).forEach(function(model) {
+                // Refresh base model stats from gameData
+                var baseModel = (gameData.models || []).find(function(g) { return g.name === model.name && g.faction === model.faction; });
+                if (baseModel) {
+                    // Update stats from live data (preserve customName, id, isExpanded, etc.)
+                    ['speed','shoot','fight','defense','grit','nerve','firewall','health','type'].forEach(function(key) {
+                        if (baseModel[key] !== undefined) model[key] = baseModel[key];
+                    });
+                    model.currentHealth = parseInt(baseModel.health) || model.currentHealth;
+                }
+
+                // Refresh each weapon slot from gameData.weapons
+                (model.weapons || []).forEach(function(w, i) {
+                    if (!w || !w.name) return;
+                    var liveW = (gameData.weapons || []).find(function(gw) { return gw.name === w.name; });
+                    if (liveW) {
+                        w.points = liveW.points || '';
+                        w.attacks = liveW.attacks != null ? liveW.attacks : w.attacks;
+                        w.power = liveW.power != null ? liveW.power : w.power;
+                        w.damage = liveW.damage != null ? liveW.damage : w.damage;
+                        w.effects = liveW.effects || liveW.traits || w.effects || '';
+                        w.type = liveW.type || liveW.range || w.type || '';
+                    } else {
+                        // Try equipment lookup
+                        var liveE = lookupEquipData(w.name);
+                        if (liveE) {
+                            w.points = liveE.points || '';
+                            if (liveE.attacks != null) w.attacks = liveE.attacks;
+                            if (liveE.power != null) w.power = liveE.power;
+                            if (liveE.damage != null) w.damage = liveE.damage;
+                        }
+                    }
+                });
+
+                // Refresh addedEquipment from gameData.equipment
+                (model.addedEquipment || []).forEach(function(eq) {
+                    if (!eq || !eq.name) return;
+                    var liveE = lookupEquipData(eq.name);
+                    if (liveE) {
+                        eq.points = liveE.points || '';
+                    }
+                });
+            });
+        }
+
         function recalculateAllTeamPoints() {
+            // First hydrate all items from current gameData
+            _hydrateTeamFromGameData();
+
             currentTeam.points = 0;
             (currentTeam.models || []).forEach(function(model) {
                 // Backward compat: pad weapons and defaultWeapons to 4 slots
