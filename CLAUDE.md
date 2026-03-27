@@ -13,6 +13,14 @@ Space-Ops 3030 is a single-file HTML tabletop gaming tracker (~8,000+ lines) for
 - GitHub Pages URL: `https://andrebalmet.github.io/Space-Ops-3030-Tabletop-Tracker/`
 - 84+ git commits, 100+ total versions (many pre-date git repo)
 
+### Document Maintenance Rules
+When pushing changes to main, **always update these files**:
+1. **CHANGELOG.md** — Add entries for all bug fixes, features, and changes under a new version heading (newest on top). Include the date.
+2. **CLAUDE.md** — Update the version number, any architecture changes, known issues, and feature descriptions that changed.
+3. **README.md** — If new user-facing features were added, update the feature list so it reflects the current state of the tool.
+
+These three files must stay in sync with what's actually in `index.html`.
+
 ### Tech Stack
 - Single HTML file (no framework) — all CSS, JS, and HTML inline
 - Firebase Realtime Database for cloud persistence
