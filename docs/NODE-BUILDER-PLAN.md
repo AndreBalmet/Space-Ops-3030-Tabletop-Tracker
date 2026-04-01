@@ -8,13 +8,13 @@
 
 ## Vision
 
-A **local HTML-based visual development environment** for Space-Ops 3030 that replaces the workflow of describing pages to Claude with a visual, interactive, node-graph-driven builder.
+A **local HTML-based visual development environment** for Space-Ops 3030 that replaces the workflow of describing pages with a visual, interactive, node-graph-driven builder.
 
 ### How It Works
 1. **Canvas View** — A pannable/zoomable canvas showing all pages/screens as movable nodes connected by UX flow arrows (mirrors the Figma UX flow graph)
 2. **Node Edit Mode** — Click a node to expand it into a split-view: live preview on the left, code editor on the right
 3. **Full Edit Control** — Edit HTML/CSS/JS directly in the code editor with live preview updates
-4. **AI-Assisted** — Describe changes to Claude, which modifies the node's code
+4. **AI-Assisted** — Describe changes to AI, which modifies the node's code
 5. **Firebase Live Data** — The preview connects to the real Firebase database so you can test the actual UX flow
 6. **Export** — When ready, compile all nodes back into a single HTML file and export to the git project
 
@@ -194,7 +194,7 @@ const firebaseConfig = {
 - [x] Right panel: code editor (HTML/CSS/JS tabs)
 - [x] Live reload on Apply
 - [x] Resizable split handle (drag to resize panels)
-- [x] AI description input panel ("Send to Claude")
+- [x] AI description input panel ("Send to AI")
 - [x] Back to Canvas navigation
 - [ ] Syntax highlighting (CodeMirror or Monaco) — future enhancement
 
@@ -236,7 +236,7 @@ const firebaseConfig = {
 - [x] Verified: 26KB, 446 lines, all sections present
 
 ### Phase 6: Polish
-- [ ] Claude AI description input per node (wire up "Send to Claude")
+- [ ] AI description input per node (wire up "Send to AI")
 - [ ] Undo/redo for edits
 - [ ] Search across all nodes
 - [ ] Syntax highlighting (Monaco editor integration)

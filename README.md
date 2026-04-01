@@ -106,4 +106,4 @@ Always test locally before pushing to main. The GitHub Pages deployment serves d
 
 ## Project History
 
-Over 100 versions across 84+ git commits. Built with Claude Code assistance.
+Over 100 versions across 84+ git commits.

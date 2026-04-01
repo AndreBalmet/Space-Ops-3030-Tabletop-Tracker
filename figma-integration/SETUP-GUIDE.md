@@ -18,19 +18,11 @@ You should see: `WebSocket server running on port 3055`
 3. Go to **Plugins → Talk To Figma MCP Plugin → Run**
 4. The plugin will auto-connect and show a **channel name** (e.g., `4q7ug8y6`)
 
-### Step 3: Start Claude Code
-```bash
-cd ~/Documents/SpaceOps_3030\ Tracker
-claude
-```
-Claude will auto-load `CLAUDE.md` with full project context.
+### Step 3: Connect to Figma
+Use `join_channel` with the channel name from the plugin.
 
-### Step 4: Connect Claude to Figma
-Tell Claude: "Connect to Figma channel [your-channel-name]"
-Claude will use `join_channel` to connect.
-
-### Step 5: Start Working
-Tell Claude what you want to create or modify in Figma!
+### Step 4: Start Working
+Create or modify designs in Figma using MCP tools!
 
 ---
 
@@ -53,10 +45,9 @@ cd ~/Documents/cursor-talk-to-figma-mcp && bun socket
 - Check the port in the plugin matches `3055`
 - Make sure you're using Figma Desktop, not browser
 
-### Claude doesn't have TalkToFigma tools
-- Restart Claude Code session (the MCP tools load at startup)
-- Verify config: `claude mcp list` should show `TalkToFigma`
-- If missing, re-add: `claude mcp add TalkToFigma -s user -- bunx cursor-talk-to-figma-mcp@latest`
+### MCP tools not available
+- Restart your session (MCP tools load at startup)
+- Verify config: `mcp list` should show `TalkToFigma`
 
 ### Connection drops mid-session
 - The Figma plugin panel must stay open (don't close it)
@@ -70,14 +61,13 @@ cd ~/Documents/cursor-talk-to-figma-mcp && bun socket
 |-----------|----------|---------|
 | Bun runtime | `~/.bun/bin/bun` | JavaScript runtime for the MCP server |
 | TalkToFigma repo | `~/Documents/cursor-talk-to-figma-mcp/` | WebSocket server source code |
-| MCP config | `~/.claude.json` (user-level) | Tells Claude Code how to launch TalkToFigma |
 | Figma plugin | Installed via Figma Community | Runs inside Figma, bridges to WebSocket |
 
 ## Architecture Diagram
 ```
 ┌─────────────┐     stdio      ┌──────────────────┐
-│ Claude Code  │◄──────────────►│ TalkToFigma MCP  │
-│ (this CLI)   │                │ Server (bunx)    │
+│ MCP Client   │◄──────────────►│ TalkToFigma MCP  │
+│              │                │ Server (bunx)    │
 └─────────────┘                └────────┬─────────┘
                                         │ WebSocket
                                         │ localhost:3055
@@ -103,13 +93,13 @@ cd ~/Documents/cursor-talk-to-figma-mcp && bun socket
 ## Workflow: HTML → Figma → HTML
 
 ### Phase 1: HTML to Figma (initial recreation)
-Claude reads the HTML/CSS source → creates matching Figma frames, components, and styles using TalkToFigma tools.
+Read the HTML/CSS source → create matching Figma frames, components, and styles using TalkToFigma tools.
 
 ### Phase 2: Hand-edit in Figma
-You edit designs directly in Figma — adjust layouts, colors, spacing, try new ideas.
+Edit designs directly in Figma — adjust layouts, colors, spacing, try new ideas.
 
 ### Phase 3: Figma to HTML (sync back)
-Claude reads Figma designs using the official Figma MCP (`get_design_context`, `get_screenshot`) → updates the HTML/CSS to match.
+Read Figma designs using the official Figma MCP (`get_design_context`, `get_screenshot`) → update the HTML/CSS to match.
 
 ### Phase 4: Ongoing iteration
 Repeat as needed. The Figma file becomes the source of truth for design, the HTML file for functionality.

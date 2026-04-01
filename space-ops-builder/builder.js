@@ -780,7 +780,7 @@ function sendToAI() {
     const input = document.getElementById('aiInput');
     const msg = input.value.trim();
     if (!msg) return;
-    setStatus(`AI: "${msg}" — use Claude Code to process`);
+    setStatus(`AI: "${msg}" — ready to process`);
     input.value = '';
 }
 
