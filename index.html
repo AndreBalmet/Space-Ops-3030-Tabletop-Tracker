@@ -9204,9 +9204,11 @@ teamHTML += `
                 var slotIsWeapon = slotItem && _isSlotWeapon(slotItem);
                 var slotPts = _getLiveItemPts(slotItem);
 
-                // Calculate per-slot delta vs default (using live gameData prices)
+                // Calculate per-slot delta vs default (using live gameData prices).
+                // Default gear is baked into the model's base Rating — unequipping or
+                // downgrading it refunds 0. Only upgrades add to Rating.
                 var defaultPts = _getDefaultSlotPts(defaultName);
-                var slotDelta = slotPts - defaultPts;
+                var slotDelta = Math.max(0, slotPts - defaultPts);
 
                 weaponHTML += '<div class="tb-edit-slot">' +
                     '<span class="tb-edit-slot-label">Slot ' + (slotIdx + 1) + ':</span>' +
@@ -9458,13 +9460,15 @@ teamHTML += `
                 var basePts = parseInt(baseModel ? baseModel.points : (model.basePoints != null ? model.basePoints : model.points)) || 0;
                 model.basePoints = basePts;
 
-                // Unified 4-slot delta calculation (always use live gameData prices)
+                // Unified 4-slot delta calculation (always use live gameData prices).
+                // Default gear is baked into the model's base Rating — unequipping or
+                // downgrading a slot refunds 0. Only upgrades contribute to Rating.
                 var slotDelta = 0;
                 (model.weapons || []).forEach(function(w, i) {
                     var currentPts = _getLiveItemPts(w);
                     var defaultName = (model.defaultWeapons || [])[i] || null;
                     var defaultPts = _getDefaultSlotPts(defaultName);
-                    slotDelta += (currentPts - defaultPts);
+                    slotDelta += Math.max(0, currentPts - defaultPts);
                     // Update saved item points to current gameData value
                     if (w) w.points = currentPts;
                 });
@@ -9491,13 +9495,15 @@ teamHTML += `
             var basePts = parseInt(baseModel ? baseModel.points : (model.basePoints != null ? model.basePoints : model.points)) || 0;
             model.basePoints = basePts;
 
-            // Unified 4-slot delta calculation (always use live gameData prices)
+            // Unified 4-slot delta calculation (always use live gameData prices).
+            // Default gear is baked into the model's base Rating — unequipping or
+            // downgrading a slot refunds 0. Only upgrades contribute to Rating.
             var slotDelta = 0;
             (model.weapons || []).forEach(function(w, i) {
                 var currentPts = _getLiveItemPts(w);
                 var defaultName = (model.defaultWeapons || [])[i] || null;
                 var defaultPts = _getDefaultSlotPts(defaultName);
-                slotDelta += (currentPts - defaultPts);
+                slotDelta += Math.max(0, currentPts - defaultPts);
                 if (w) w.points = currentPts;
             });
 

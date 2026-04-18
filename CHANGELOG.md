@@ -4,6 +4,13 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v14.78 — 2026-04-18
+
+### Bug Fixes
+- **Default gear no longer refunds Rating when unequipped** — Unequipping a model's starting weapon or equipment (e.g. a Ranger's Pulse Carbine) no longer gives back points. Default gear is baked into the model's base Rating; you only pay the **upgrade delta** when replacing it (e.g. Pulse Carbine → Pulse Cannon costs +5, not +7). Downgrades also refund 0. Previously, emptying a default slot shaved points off the team total, which could be exploited when combined with added upgrades.
+
+---
+
 ## v14.77 — 2026-03-26
 
 ### Bug Fixes
