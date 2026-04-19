@@ -4,6 +4,30 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v14.79 — 2026-04-18
+
+### New Feature — Equipment Picker Panel
+- **Side-panel gear picker replaces slot dropdowns.** Tapping **Edit** on a team model slides the Available Models column off-screen and brings in a new Equipment Panel from the right. Your Team column slides into the vacated space so the model stays in view while you outfit it.
+- **Stay in equip mode across models.** Tapping **Done** on a model card now only collapses that card — the panel stays open so you can tap Edit on the next model and keep outfitting. Only the **Done** button at the top of the Equipment Panel exits back to the Available Models view.
+- **Active-slot interaction.** Slot rows are now clickable buttons (no dropdown). Tap a slot → it gets a red highlighted border. Tap an equipment card → fills that slot. A small × on a filled slot unequips it. The active slot persists after a fill, so you can keep swapping gear quickly.
+- **Compact cards with tap-to-expand.** Cards show just Name + Rating by default. First tap expands to full details (stats, traits, description). Second tap equips into the active slot. Tapping another card collapses the first and expands the new one.
+- **Search + category filters.** Search by name, plus chips: All / Ranged / Melee / Cyberdeck / Equipment / Vehicle. Cyberdeck items appear in both the Cyberdeck filter and the general Equipment filter.
+- **Restriction rules by parenthetical naming.** Items whose name ends with `(ModelName)` restrict equipping to that model only. Examples: `Cyber-Bite (War-dog)` → only War-Dog, `Grim Leadership (Ranger-Captains)` → only Ranger-Captain. Matching is case/hyphen/plural-insensitive so minor spelling variants in the XLSX still match.
+- **Vehicle / infantry separation.** Vehicle-tagged items (`equipmentType` contains "vehicle" or name ends in `(Vehicle)`) are equippable only by vehicle models. Vehicle models in turn can only equip vehicle gear.
+- **Grayed-out cards for non-equippable gear.** Items the current model can't equip are dimmed but still tappable to expand, so players can read the details. A small "Not equippable by <Model Name>" note replaces the equip prompt.
+
+### Layout / Polish
+- Equipment cards stack in a single column (no multi-column fill on wide screens).
+- Column header underlines extend through the grid gap so the line under **Your Team** reaches the full content width and aligns with the gray divider above.
+- `scrollbar-gutter: stable` on scrollable lists keeps content from butting against the scrollbar.
+- Both columns scroll independently to fill the viewport (`calc(100vh - 180px)`).
+- `CHOOSE EQUIPMENT` header now matches `YOUR TEAM` typography and alignment.
+
+### Phone support
+- On screens <768px the Equipment Panel becomes a full-screen sheet so it's usable on small devices.
+
+---
+
 ## v14.78 — 2026-04-18
 
 ### Bug Fixes
