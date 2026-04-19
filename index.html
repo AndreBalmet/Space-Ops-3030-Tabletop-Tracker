@@ -714,9 +714,271 @@
 
         .team-builder-columns {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            /* Three logical columns: Available | Team | Equipment Panel.
+               Panel collapses to 0fr by default. When .is-editing is set,
+               Available column collapses and Panel expands. */
+            grid-template-columns: 1fr 1fr 0fr;
             gap: 40px;
             align-items: start;
+            overflow: hidden;
+            transition: grid-template-columns 0.45s cubic-bezier(0.4, 0, 0.2, 1), gap 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .team-builder-columns.is-editing {
+            grid-template-columns: 0fr 1fr 1fr;
+        }
+        .team-builder-columns .tb-col {
+            min-width: 0;
+            /* Each column fills the remaining viewport height and scrolls internally.
+               Offset (180px) leaves room for page padding + faction title + team name row
+               + column header. */
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 180px);
+            min-height: 0;
+        }
+        /* Extend each column header's underline through the 40px grid gap to its right
+           so the combined line reaches the full content width (matching the gray line
+           under the Team Name row). Only applies in default mode — in edit mode the
+           Equipment panel has its own header border. */
+        .team-builder-columns:not(.is-editing) .tb-col--available .team-builder-col-header,
+        .team-builder-columns:not(.is-editing) .tb-col--team .team-builder-col-header {
+            margin-right: -40px;
+            padding-right: 40px;
+        }
+        /* Scrollbar gutter reserves space for the scrollbar. Small inner right padding
+           gives cards + buttons breathing room from the scrollbar. */
+        .team-builder-columns .team-builder-model-list {
+            scrollbar-gutter: stable;
+            padding-right: 12px;
+        }
+        .team-builder-columns .tb-col--available,
+        .team-builder-columns .tb-col--equip {
+            transition: opacity 0.3s ease;
+        }
+        .team-builder-columns.is-editing .tb-col--available {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .team-builder-columns:not(.is-editing) .tb-col--equip {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Equipment panel — unstyled container so it reads as a column alongside Your Team.
+           Flex layout so only the card grid scrolls, while the header/search/filters stay
+           pinned at the top. */
+        .tb-equip-panel {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+        .tb-equip-grid {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        /* Header mirrors .team-builder-col-header so CHOOSE EQUIPMENT aligns visually
+           with YOUR TEAM (same font size / weight / color / letter-spacing / padding /
+           margin / border). The DONE button sits right-aligned without adding row height. */
+        .tb-equip-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1.5px solid var(--black);
+            margin-bottom: 12px;
+        }
+        .tb-equip-panel-title {
+            font-family: var(--font-heading);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+        }
+        .tb-equip-close {
+            border: 1.5px solid var(--black, #000);
+            border-radius: 4px;
+            background: var(--white, #fff);
+            color: var(--black, #000);
+            font-family: var(--font-heading);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 2px 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.15s, color 0.15s;
+        }
+        .tb-equip-close:hover,
+        .tb-equip-close:active {
+            background: var(--black, #000);
+            color: var(--white, #fff);
+        }
+        .tb-equip-panel-placeholder {
+            color: var(--text-muted, #888);
+            font-size: 14px;
+            line-height: 1.5;
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        /* --- Equipment picker: search + filter chips + card grid --- */
+        .tb-equip-search {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1.5px solid var(--border, #e0e0e0);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--white, #fff);
+            margin-bottom: 12px;
+            box-sizing: border-box;
+        }
+        .tb-equip-search:focus {
+            outline: none;
+            border-color: var(--accent, #db8f00);
+        }
+        .tb-equip-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        .tb-equip-chip {
+            padding: 6px 12px;
+            border: 1px solid var(--border, #e0e0e0);
+            border-radius: 999px;
+            background: var(--white, #fff);
+            color: var(--text-muted, #666);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .tb-equip-chip:hover {
+            border-color: var(--black, #000);
+        }
+        .tb-equip-chip.is-active {
+            background: var(--black, #000);
+            color: var(--white, #fff);
+            border-color: var(--black, #000);
+        }
+        .tb-equip-grid {
+            /* Single-column stacked cards (no multi-column fill even on wide screens). */
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        .tb-equip-card {
+            background: var(--white, #fff);
+            border: 1.5px solid var(--border, #e0e0e0);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            cursor: pointer;
+            transition: border-color 0.15s, transform 0.1s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .tb-equip-card:hover { border-color: var(--black, #000); }
+        .tb-equip-card:active { transform: scale(0.99); }
+        .tb-equip-card--weapon { border-left: 4px solid var(--accent, #db8f00); }
+        .tb-equip-card--equipment { border-left: 4px solid var(--success, #9CAF88); }
+        .tb-equip-card.is-expanded {
+            border-color: var(--black, #000);
+            border-width: 2px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .tb-equip-card-tap-hint {
+            margin-top: 6px;
+            padding: 6px 10px;
+            background: var(--danger, #ff4444);
+            color: var(--white, #fff);
+            border-radius: 4px;
+            font-family: var(--font-heading);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        /* Disabled card — not equippable by the currently-edited model.
+           Still expandable so players can read the info and see why it's blocked. */
+        .tb-equip-card.is-disabled {
+            opacity: 0.45;
+            filter: grayscale(0.35);
+        }
+        .tb-equip-card-disabled-note {
+            margin-top: 6px;
+            padding: 6px 10px;
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--text-muted, #666);
+            border: 1px dashed var(--border, #ccc);
+            border-radius: 4px;
+            font-family: var(--font-heading);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        .tb-equip-card-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .tb-equip-card-name {
+            font-family: var(--font-heading);
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--black, #000);
+            line-height: 1.2;
+            flex: 1;
+        }
+        .tb-equip-card-rating {
+            font-family: var(--font-heading);
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--accent, #db8f00);
+            white-space: nowrap;
+        }
+        .tb-equip-card-type {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted, #888);
+        }
+        .tb-equip-card-body {
+            font-size: 12px;
+            color: var(--text, #333);
+            line-height: 1.4;
+        }
+        .tb-equip-card-body p { margin: 0 0 4px 0; }
+        .tb-equip-card-body p:last-child { margin: 0; }
+        .tb-equip-card-traits {
+            font-size: 11px;
+            color: var(--text-muted, #666);
+            line-height: 1.4;
+        }
+        .tb-equip-card-empty {
+            grid-column: 1 / -1;
+            padding: 30px 12px;
+            text-align: center;
+            color: var(--text-muted, #888);
+            font-size: 13px;
+            font-style: italic;
         }
 
         .team-builder-col-header {
@@ -735,7 +997,8 @@
             display: flex;
             flex-direction: column;
             gap: 0;
-            max-height: 65vh;
+            flex: 1 1 auto;
+            min-height: 0;
             overflow-y: auto;
         }
 
@@ -985,6 +1248,75 @@
         .tb-edit-select:focus {
             outline: none;
             border-color: var(--accent);
+        }
+
+        /* --- Phase 3: clickable slot button (replaces dropdown in edit mode) --- */
+        .tb-slot-button {
+            flex: 1;
+            min-width: 180px;
+            min-height: 44px;
+            padding: 8px 12px;
+            border: 2px solid var(--border, #e0e0e0);
+            border-radius: 6px;
+            background: var(--white, #fff);
+            color: var(--text-primary, #000);
+            font-family: var(--font-body);
+            font-size: 14px;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            transition: border-color 0.15s, background 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .tb-slot-button:hover { border-color: var(--black, #000); }
+        .tb-slot-button.is-active {
+            border-color: var(--danger, #ff4444);
+            background: rgba(255, 68, 68, 0.06);
+            box-shadow: 0 0 0 1px var(--danger, #ff4444) inset;
+        }
+        .tb-slot-button.is-empty {
+            color: var(--text-muted, #888);
+            font-style: italic;
+        }
+        .tb-slot-unequip {
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--text-muted, #666);
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .tb-slot-unequip:hover {
+            background: rgba(255, 68, 68, 0.12);
+            color: var(--danger, #ff4444);
+        }
+
+        /* Panel hint banner (top of equipment panel) */
+        .tb-equip-hint {
+            font-size: 13px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            background: var(--off-white, #f5f5f5);
+            color: var(--text-muted, #666);
+            border-left: 3px solid var(--border, #e0e0e0);
+        }
+        .tb-equip-hint.is-active {
+            background: rgba(255, 68, 68, 0.08);
+            color: var(--danger, #ff4444);
+            border-left-color: var(--danger, #ff4444);
+            font-weight: 600;
         }
         .tb-edit-stats {
             font-family: 'Courier New', monospace;
@@ -1276,7 +1608,22 @@
         /* Team builder responsive */
         @media (max-width: 768px) {
             .team-builder-content { padding: 5% 5% 5% 6%; }
+            /* Phone: stack columns vertically. In edit mode the equipment panel
+               becomes a full-screen sheet over the team view. */
             .team-builder-columns { grid-template-columns: 1fr; gap: 30px; }
+            .team-builder-columns .tb-col--equip { display: none; }
+            .team-builder-columns.is-editing .tb-col--available { display: none; }
+            .team-builder-columns.is-editing .tb-col--equip {
+                display: block;
+                position: fixed;
+                inset: 0;
+                z-index: 95;
+                overflow-y: auto;
+                padding: 20px;
+                background: var(--white, #fff);
+                opacity: 1;
+                pointer-events: auto;
+            }
             .team-builder-name-row { flex-wrap: wrap; gap: 10px; }
             .team-builder-name-row input { max-width: 100%; }
             .team-builder-faction-title { font-size: clamp(24px, 7vw, 36px); }
@@ -8922,8 +9269,8 @@ teamHTML += `
                             <div class="team-builder-rating"><span id="teamPoints">${currentTeam.points}</span> Rating</div>
                         </div>
 
-                        <div class="team-builder-columns">
-                            <div>
+                        <div class="team-builder-columns" id="teamBuilderColumns">
+                            <div class="tb-col tb-col--available">
                                 <div class="team-builder-col-header">Available Models — ${factionModels.length} units</div>
                                 <div class="team-builder-model-list">
                                     ${factionModels.map(model => {
@@ -8952,10 +9299,24 @@ teamHTML += `
                                 </div>
                             </div>
 
-                            <div>
+                            <div class="tb-col tb-col--team">
                                 <div class="team-builder-col-header">Your Team — <span id="teamModelCount">${currentTeam.models.length}</span> models</div>
                                 <div id="currentTeamRoster" class="team-builder-model-list">
                                     ${currentTeam.models.length === 0 ? '<div class="tb-roster-empty">Add models from the available units</div>' : ''}
+                                </div>
+                            </div>
+                            <div class="tb-col tb-col--equip">
+                                <div class="tb-equip-panel" id="tbEquipPanel">
+                                    <div class="tb-equip-panel-header">
+                                        <span class="tb-equip-panel-title">Choose Equipment</span>
+                                        <button type="button" class="tb-equip-close" onclick="closeEquipPanel()">Done</button>
+                                    </div>
+                                    <div class="tb-equip-hint" id="tbEquipHint">Tap a slot to the left to begin equipping.</div>
+                                    <input type="search" class="tb-equip-search" id="tbEquipSearch"
+                                           placeholder="Search by name..."
+                                           oninput="updateEquipSearch(this.value)">
+                                    <div class="tb-equip-filters" id="tbEquipFilters"></div>
+                                    <div class="tb-equip-grid" id="tbEquipGrid"></div>
                                 </div>
                             </div>
                         </div>
@@ -9210,43 +9571,21 @@ teamHTML += `
                 var defaultPts = _getDefaultSlotPts(defaultName);
                 var slotDelta = Math.max(0, slotPts - defaultPts);
 
+                var isActive = (currentTeam.editingModelId === model.id && currentTeam.editingSlotIndex === slotIdx);
+                var slotLabel = slotItem ? slotItem.name : '— Empty —';
+                var emptyCls = slotItem ? '' : ' is-empty';
+                var activeCls = isActive ? ' is-active' : '';
+                var unequipBtn = slotItem
+                    ? '<button type="button" class="tb-slot-unequip" title="Unequip" onclick="event.stopPropagation(); updateModelSlot(' + model.id + ',' + slotIdx + ',\'\');">\u00D7</button>'
+                    : '';
+
                 weaponHTML += '<div class="tb-edit-slot">' +
                     '<span class="tb-edit-slot-label">Slot ' + (slotIdx + 1) + ':</span>' +
-                    '<select class="tb-edit-select" onchange="updateModelSlot(' + model.id + ',' + slotIdx + ',this.value)">' +
-                    '<option value=""' + (!slotItem ? ' selected' : '') + '>-- Empty --</option>';
-
-                // Weapons optgroup
-                weaponHTML += '<optgroup label="Weapons">';
-                var currentInWeapons = slotItem ? allWeapons.find(function(w) { return w.name === slotItem.name; }) : null;
-                if (slotItem && slotIsWeapon && !currentInWeapons) {
-                    weaponHTML += '<option value="w:' + slotItem.name + '" selected>' + _formatWeaponLabel(slotItem) + '</option>';
-                }
-                allWeapons.forEach(function(w) {
-                    var sel = (slotItem && w.name === slotItem.name) ? ' selected' : '';
-                    weaponHTML += '<option value="w:' + w.name + '"' + sel + '>' + _formatWeaponLabel(w) + '</option>';
-                });
-                weaponHTML += '</optgroup>';
-
-                // Gear optgroups by category
-                var currentInEquip = slotItem ? allEquip.find(function(e) { return e.name === slotItem.name; }) : null;
-                var orphanAdded = false;
-                Object.keys(equipGroups).sort().forEach(function(cat) {
-                    weaponHTML += '<optgroup label="' + cat + '">';
-                    if (!orphanAdded && slotItem && !slotIsWeapon && slotItem.type === 'Equipment' && !currentInEquip) {
-                        weaponHTML += '<option value="e:' + slotItem.name + '" selected>' + _formatEquipLabel(slotItem) + '</option>';
-                        orphanAdded = true;
-                    }
-                    equipGroups[cat].forEach(function(e) {
-                        var sel = (slotItem && e.name === slotItem.name && !slotIsWeapon) ? ' selected' : '';
-                        weaponHTML += '<option value="e:' + e.name + '"' + sel + '>' + _formatEquipLabel(e) + '</option>';
-                    });
-                    weaponHTML += '</optgroup>';
-                });
-                if (!orphanAdded && slotItem && !slotIsWeapon && slotItem.type === 'Equipment' && !currentInEquip) {
-                    weaponHTML += '<optgroup label="Other"><option value="e:' + slotItem.name + '" selected>' + _formatEquipLabel(slotItem) + '</option></optgroup>';
-                }
-
-                weaponHTML += '</select>';
+                    '<button type="button" class="tb-slot-button' + emptyCls + activeCls + '" ' +
+                        'onclick="setActiveSlot(' + model.id + ',' + slotIdx + ')">' +
+                        '<span>' + slotLabel + '</span>' +
+                        unequipBtn +
+                    '</button>';
 
                 // Show point delta
                 if (slotDelta > 0) weaponHTML += '<span class="tb-edit-rating-delta positive">+' + slotDelta + ' Rating</span>';
@@ -9329,9 +9668,375 @@ teamHTML += `
             });
             var model = currentTeam.models.find(function(m) { return m.id === modelId; });
             if (model) model.isExpanded = !model.isExpanded;
+
+            var anyExpanded = currentTeam.models.some(function(m) { return m.isExpanded; });
+            currentTeam.editingModelId = anyExpanded ? modelId : null;
+            currentTeam.editingSlotIndex = null;
+
+            // Enter edit mode on first expand. Do NOT auto-exit when a model collapses —
+            // exiting edit mode is only triggered by the Equipment panel's DONE button.
+            // This lets players cycle through editing multiple models without the panel
+            // sliding out between them.
+            var cols = document.getElementById('teamBuilderColumns');
+            if (cols && anyExpanded) cols.classList.add('is-editing');
+
             renderCurrentTeam();
+            renderEquipmentPanel();
         }
         window.toggleModelEdit = toggleModelEdit;
+
+        // --- Equipment picker panel ---
+        function updateEquipSearch(value) {
+            currentTeam.equipSearchQuery = (value || '').toLowerCase();
+            renderEquipmentPanel({ rebuildChrome: false });
+        }
+        window.updateEquipSearch = updateEquipSearch;
+
+        function setEquipFilter(key) {
+            currentTeam.equipActiveCategory = key || 'all';
+            renderEquipmentPanel();
+        }
+        window.setEquipFilter = setEquipFilter;
+
+        // Activate or toggle off a slot on the currently-edited model.
+        // Tap same slot again -> deselect. Tap different slot -> switch.
+        function setActiveSlot(modelId, slotIndex) {
+            if (currentTeam.editingModelId !== modelId) return;
+            if (currentTeam.editingSlotIndex === slotIndex) {
+                currentTeam.editingSlotIndex = null;
+            } else {
+                currentTeam.editingSlotIndex = slotIndex;
+            }
+            renderCurrentTeam();
+            renderEquipmentPanel({ rebuildChrome: false });
+        }
+        window.setActiveSlot = setActiveSlot;
+
+        // Card click handler: fill the active slot with the chosen item.
+        function pickEquipmentForActiveSlot(name, kind) {
+            if (!currentTeam || !currentTeam.editingModelId) return;
+            var slotIdx = currentTeam.editingSlotIndex;
+            if (slotIdx == null) return; // no active slot — ignore (hint in panel tells user what to do)
+            var value = (kind === 'weapon' ? 'w:' : 'e:') + name;
+            updateModelSlot(currentTeam.editingModelId, slotIdx, value);
+            // Active slot persists after fill so user can keep swapping
+            renderEquipmentPanel({ rebuildChrome: false });
+        }
+        window.pickEquipmentForActiveSlot = pickEquipmentForActiveSlot;
+
+        // Two-stage card tap: first tap expands the card to show full details;
+        // second tap on the same (expanded) card equips into the active slot.
+        // Tapping a different card collapses the current and expands the new one.
+        // Disabled (not-equippable) cards still expand so players can read the info,
+        // but tapping again on them does nothing.
+        function handleEquipCardTap(name, kind) {
+            if (!currentTeam) return;
+            // Look up the item so we can check restrictions
+            var item = (gameData.weapons || []).find(function(w) { return w.name === name; })
+                || (gameData.equipment || []).find(function(e) { return e.name === name; });
+            var editingModel = currentTeam.editingModelId
+                ? currentTeam.models.find(function(m) { return m.id === currentTeam.editingModelId; })
+                : null;
+            var canEquip = _canModelEquipItem(editingModel, item);
+
+            if (currentTeam.equipExpandedName === name) {
+                // Already expanded — attempt to equip (requires active slot AND equip-able)
+                if (canEquip && currentTeam.editingSlotIndex != null) {
+                    pickEquipmentForActiveSlot(name, kind);
+                } else if (!canEquip) {
+                    // Disabled card: second tap collapses (no equip, but let user move on)
+                    currentTeam.equipExpandedName = null;
+                    renderEquipmentPanel({ rebuildChrome: false });
+                } else {
+                    // Equippable but no active slot — collapse so the user can pick a slot
+                    currentTeam.equipExpandedName = null;
+                    renderEquipmentPanel({ rebuildChrome: false });
+                }
+            } else {
+                currentTeam.equipExpandedName = name;
+                renderEquipmentPanel({ rebuildChrome: false });
+            }
+        }
+        window.handleEquipCardTap = handleEquipCardTap;
+
+        // Close the equipment panel / exit edit mode entirely.
+        // This is the ONLY thing that slides the panel out — tapping Done on a model
+        // card just collapses that card, it no longer exits edit mode.
+        function closeEquipPanel() {
+            if (!currentTeam) return;
+            currentTeam.models.forEach(function(m) { m.isExpanded = false; });
+            currentTeam.editingModelId = null;
+            currentTeam.editingSlotIndex = null;
+            currentTeam.equipExpandedName = null;
+            var cols = document.getElementById('teamBuilderColumns');
+            if (cols) cols.classList.remove('is-editing');
+            renderCurrentTeam();
+        }
+        window.closeEquipPanel = closeEquipPanel;
+
+        // Detect vehicle-tagged items across weapons + equipment
+        function _itemIsVehicle(item) {
+            if (!item) return false;
+            var t = ((item.equipmentType || '') + ' ' + (item.type || '') + ' ' + (item.range || '')).toLowerCase();
+            if (t.indexOf('vehicle') !== -1) return true;
+            var n = (item.name || '').toLowerCase();
+            return n.indexOf('(vehicle)') !== -1;
+        }
+
+        // Normalize for loose matching: drop whitespace / dashes / underscores / parens, lowercase
+        function _normalizeTag(s) {
+            return String(s || '').toLowerCase().replace(/[\s_()\-]+/g, '');
+        }
+
+        // Extract a trailing parenthetical restriction tag from an item name, e.g.
+        // "Cyber-Bite (War-dog)" -> "War-dog", "Grim Leadership (Ranger-Captains)" -> "Ranger-Captains"
+        function _itemRestrictionTag(item) {
+            if (!item || !item.name) return null;
+            var m = String(item.name).match(/\(([^()]+)\)\s*$/);
+            return m ? m[1].trim() : null;
+        }
+
+        // Rules:
+        //   (1) Vehicle-tagged items can only be equipped by vehicle models.
+        //   (2) Vehicle models can only equip vehicle-tagged items (symmetric).
+        //   (3) Items with a trailing "(ModelName)" parenthetical are restricted to that
+        //       model. Supports plural "(Ranger-Captains)" — singular form also matched.
+        //   (4) No model selected (browsing mode) -> nothing is disabled.
+        function _canModelEquipItem(model, item) {
+            if (!model) return true;
+            var itemIsVeh = _itemIsVehicle(item);
+            var modelIsVeh = _isModelVehicle(model);
+            if (itemIsVeh) return modelIsVeh;
+            if (modelIsVeh) return false;
+
+            var tag = _itemRestrictionTag(item);
+            if (!tag) return true;
+            var tagNorm = _normalizeTag(tag);
+            if (tagNorm === 'vehicle' || tagNorm === 'vehicles') return modelIsVeh;
+
+            var modelNorm = _normalizeTag(model.name);
+            var candidates = [tagNorm];
+            if (tagNorm.length > 1 && tagNorm.charAt(tagNorm.length - 1) === 's') {
+                candidates.push(tagNorm.slice(0, -1));
+            }
+            return candidates.some(function(c) { return modelNorm.indexOf(c) !== -1; });
+        }
+        function _itemIsCyberdeck(item) {
+            if (!item) return false;
+            var t = (item.equipmentType || '').toLowerCase();
+            var n = (item.name || '').toLowerCase();
+            // Match common spelling variants: "Cyberdeck", "Cyber Deck", "Cyber-Deck".
+            return t.indexOf('cyberdeck') !== -1
+                || t.indexOf('cyber deck') !== -1
+                || t.indexOf('cyber-deck') !== -1
+                || n.indexOf('cyberdeck') !== -1;
+        }
+
+        function _equipCardForWeapon(w) {
+            var ew = _enrichWeapon(w);
+            var pts = (w.points != null && w.points !== '') ? parseInt(w.points) || 0 : 0;
+            var type = ew.type || w.range || 'Weapon';
+            var isExpanded = currentTeam && currentTeam.equipExpandedName === w.name;
+            var editingModel = currentTeam && currentTeam.editingModelId
+                ? currentTeam.models.find(function(m) { return m.id === currentTeam.editingModelId; })
+                : null;
+            var canEquip = _canModelEquipItem(editingModel, w);
+            var safeName = w.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+            var detailsHTML = '';
+            if (isExpanded) {
+                var statGrid = '<div class="tb-stat-block" style="margin-top:2px;">' +
+                    '<div class="tb-stat-grid">' +
+                    '<div class="tb-stat-cell"><div class="tb-stat-label">Atk</div><div class="tb-stat-val">' + (ew.attacks != null ? ew.attacks : '—') + '</div></div>' +
+                    '<div class="tb-stat-cell"><div class="tb-stat-label">Pwr</div><div class="tb-stat-val">' + (ew.power != null ? ew.power : '—') + '</div></div>' +
+                    '<div class="tb-stat-cell"><div class="tb-stat-label">Dmg</div><div class="tb-stat-val">' + (ew.damage != null ? ew.damage : '—') + '</div></div>' +
+                    '</div></div>';
+                var traitsHTML = ew.effects ? '<div class="tb-equip-card-traits">' + wrapTraitsWithTooltips(ew.effects) + '</div>' : '';
+                var descHTML = ew.description ? '<div class="tb-equip-card-body"><p>' + ew.description + '</p></div>' : '';
+                var footerHTML = '';
+                if (!canEquip && editingModel) {
+                    footerHTML = '<div class="tb-equip-card-disabled-note">Not equippable by ' + editingModel.name + '</div>';
+                } else if (currentTeam.editingSlotIndex != null) {
+                    footerHTML = '<div class="tb-equip-card-tap-hint">Tap again to equip</div>';
+                }
+                detailsHTML = '<div class="tb-equip-card-type">' + type + '</div>' + statGrid + descHTML + traitsHTML + footerHTML;
+            }
+
+            var cls = 'tb-equip-card tb-equip-card--weapon'
+                + (isExpanded ? ' is-expanded' : '')
+                + (!canEquip ? ' is-disabled' : '');
+            return '<div class="' + cls + '" data-name="' + w.name.replace(/"/g, '&quot;') + '" data-kind="weapon" ' +
+                'onclick="handleEquipCardTap(\'' + safeName + '\',\'weapon\')">' +
+                '<div class="tb-equip-card-header">' +
+                    '<div class="tb-equip-card-name">' + w.name + '</div>' +
+                    '<div class="tb-equip-card-rating">' + pts + ' Rating</div>' +
+                '</div>' +
+                detailsHTML +
+            '</div>';
+        }
+
+        function _equipCardForEquipment(e) {
+            var pts = (e.points != null && e.points !== '') ? parseInt(e.points) || 0 : 0;
+            var type = e.equipmentType || 'Equipment';
+            var isExpanded = currentTeam && currentTeam.equipExpandedName === e.name;
+            var editingModel = currentTeam && currentTeam.editingModelId
+                ? currentTeam.models.find(function(m) { return m.id === currentTeam.editingModelId; })
+                : null;
+            var canEquip = _canModelEquipItem(editingModel, e);
+            var safeName = e.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+            var detailsHTML = '';
+            if (isExpanded) {
+                var passive = e.passiveAbility || e.passioveAbility || e.passiveability || '';
+                var bodyParts = [];
+                if (passive) bodyParts.push('<p><strong>Passive:</strong> ' + passive + '</p>');
+                if (e.actionName) {
+                    var actDesc = e.actionDescription ? ' — ' + e.actionDescription : '';
+                    bodyParts.push('<p><strong>' + e.actionName + '</strong>' + actDesc + '</p>');
+                }
+                if (e.attacks != null || e.power != null || e.damage != null) {
+                    bodyParts.push('<p>Atk ' + (e.attacks != null ? e.attacks : '—') +
+                        ' · Pwr ' + (e.power != null ? e.power : '—') +
+                        ' · Dmg ' + (e.damage != null ? e.damage : '—') + '</p>');
+                }
+                var techStats = [];
+                if (e.health != null) techStats.push('HP ' + e.health);
+                if (e.firewall != null) techStats.push('Firewall ' + e.firewall);
+                if (e.memory != null) techStats.push('Memory ' + e.memory);
+                if (e.cpu != null) techStats.push('CPU ' + e.cpu);
+                if (techStats.length) bodyParts.push('<p>' + techStats.join(' · ') + '</p>');
+                var bodyHTML = bodyParts.length ? '<div class="tb-equip-card-body">' + bodyParts.join('') + '</div>' : '';
+                var traitsHTML = e.traits ? '<div class="tb-equip-card-traits">' + wrapTraitsWithTooltips(e.traits) + '</div>' : '';
+                var footerHTML = '';
+                if (!canEquip && editingModel) {
+                    footerHTML = '<div class="tb-equip-card-disabled-note">Not equippable by ' + editingModel.name + '</div>';
+                } else if (currentTeam.editingSlotIndex != null) {
+                    footerHTML = '<div class="tb-equip-card-tap-hint">Tap again to equip</div>';
+                }
+                detailsHTML = '<div class="tb-equip-card-type">' + type + '</div>' + bodyHTML + traitsHTML + footerHTML;
+            }
+
+            var cls = 'tb-equip-card tb-equip-card--equipment'
+                + (isExpanded ? ' is-expanded' : '')
+                + (!canEquip ? ' is-disabled' : '');
+            return '<div class="' + cls + '" data-name="' + e.name.replace(/"/g, '&quot;') + '" data-kind="equipment" ' +
+                'onclick="handleEquipCardTap(\'' + safeName + '\',\'equipment\')">' +
+                '<div class="tb-equip-card-header">' +
+                    '<div class="tb-equip-card-name">' + e.name + '</div>' +
+                    '<div class="tb-equip-card-rating">' + pts + ' Rating</div>' +
+                '</div>' +
+                detailsHTML +
+            '</div>';
+        }
+
+        function renderEquipmentPanel(opts) {
+            opts = opts || {};
+            var panel = document.getElementById('tbEquipPanel');
+            if (!panel) return;
+            if (!currentTeam) return;
+
+            // In the new flow the panel stays open after a model is collapsed, so we
+            // must render even when no model is currently being edited.
+            var model = currentTeam.editingModelId
+                ? currentTeam.models.find(function(m) { return m.id === currentTeam.editingModelId; })
+                : null;
+
+            // Update the hint banner based on state
+            var hint = document.getElementById('tbEquipHint');
+            if (hint) {
+                if (!model) {
+                    hint.className = 'tb-equip-hint';
+                    hint.textContent = 'Tap Edit on a model to choose its gear.';
+                } else if (currentTeam.editingSlotIndex != null) {
+                    hint.className = 'tb-equip-hint is-active';
+                    hint.textContent = 'Editing Slot ' + (currentTeam.editingSlotIndex + 1) + ' — tap an item to preview, tap again to equip.';
+                } else {
+                    hint.className = 'tb-equip-hint';
+                    hint.textContent = 'Tap a slot to the left to begin equipping.';
+                }
+            }
+
+            var faction = currentTeam.faction || (model ? model.faction : null);
+
+            // Pull the full set (not filtered by model's vehicle status) so the Vehicle chip
+            // can surface vehicle items even when editing an infantry model, and vice versa.
+            var weapons = (gameData.weapons || []).filter(function(w) {
+                if (w.type === 'Equipment') return false;
+                return (!w.faction || w.faction === faction);
+            });
+            var equipment = (gameData.equipment || []).filter(function(e) {
+                if (e.faction && e.faction !== faction) return false;
+                var et = (e.equipmentType || '').toLowerCase();
+                if (et.indexOf('default') !== -1) return false;  // exclude default loadout items
+                return true;
+            });
+
+            // Curated filter chips (fixed set — no per-equipment-type auto-chips)
+            var activeCat = currentTeam.equipActiveCategory || 'all';
+            if (opts.rebuildChrome !== false) {
+                var chips = [
+                    { key: 'all',       label: 'All' },
+                    { key: 'ranged',    label: 'Ranged' },
+                    { key: 'melee',     label: 'Melee' },
+                    { key: 'cyberdeck', label: 'Cyberdeck' },
+                    { key: 'equipment', label: 'Equipment' },
+                    { key: 'vehicle',   label: 'Vehicle' }
+                ];
+                var filters = document.getElementById('tbEquipFilters');
+                if (filters) {
+                    filters.innerHTML = chips.map(function(c) {
+                        var cls = 'tb-equip-chip' + (c.key === activeCat ? ' is-active' : '');
+                        return '<button class="' + cls + '" type="button" onclick="setEquipFilter(\'' + c.key + '\')">' + c.label + '</button>';
+                    }).join('');
+                }
+            }
+
+            // Search + category filter
+            var q = (currentTeam.equipSearchQuery || '').trim();
+            function matchesSearch(item) {
+                if (!q) return true;
+                return (item.name || '').toLowerCase().indexOf(q) !== -1;
+            }
+            function _weaponIsMelee(w) { return (w.range === 'Melee') || (w.type === 'Melee'); }
+
+            var filteredWeapons = weapons.filter(function(w) {
+                if (!matchesSearch(w)) return false;
+                switch (activeCat) {
+                    case 'all':       return true;
+                    case 'ranged':    return !_weaponIsMelee(w) && !_itemIsVehicle(w) && !_itemIsCyberdeck(w);
+                    case 'melee':     return _weaponIsMelee(w) && !_itemIsVehicle(w) && !_itemIsCyberdeck(w);
+                    case 'cyberdeck': return _itemIsCyberdeck(w);
+                    case 'vehicle':   return _itemIsVehicle(w);
+                    case 'equipment': return false; // equipment chip = non-weapon only
+                    default:          return false;
+                }
+            });
+
+            var filteredEquipment = equipment.filter(function(e) {
+                if (!matchesSearch(e)) return false;
+                switch (activeCat) {
+                    case 'all':       return true;
+                    case 'ranged':    return false;
+                    case 'melee':     return false;
+                    case 'cyberdeck': return _itemIsCyberdeck(e);
+                    case 'vehicle':   return _itemIsVehicle(e);
+                    // Equipment filter shows all non-vehicle gear; cyberdeck items
+                    // appear in BOTH the Equipment and Cyberdeck filters.
+                    case 'equipment': return !_itemIsVehicle(e);
+                    default:          return false;
+                }
+            });
+
+            var cardsHTML = filteredWeapons.map(_equipCardForWeapon).join('') +
+                            filteredEquipment.map(_equipCardForEquipment).join('');
+
+            var grid = document.getElementById('tbEquipGrid');
+            if (grid) {
+                grid.innerHTML = cardsHTML ||
+                    '<div class="tb-equip-card-empty">No items match.</div>';
+            }
+        }
+        window.renderEquipmentPanel = renderEquipmentPanel;
 
         // Recalculate all model points in currentTeam from current gameData.
         // Call after loading a saved team so updated CSV costs propagate.
