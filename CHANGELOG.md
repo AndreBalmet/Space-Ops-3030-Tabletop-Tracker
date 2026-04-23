@@ -4,6 +4,19 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v14.83 — 2026-04-22
+
+### Bug Fixes
+- **Suppressor / Silencer now shows up when a Pulse Carbine is equipped** — items whose name ends with a parenthetical tag (e.g. "Carbine Silencer (Pulse Carbine)") were being treated strictly as model restrictions, which failed because "Pulse Carbine" is an *item*, not a model. The parenthetical is now evaluated through the same flexible check used by the `BOOLS` column — it can match a model name, a type keyword, **or an equipped item**. The Silencer now appears when the model has a Pulse Carbine in a slot and disappears when unequipped.
+- **Vehicles can equip generic ranged weapons** — the symmetric rule that blocked non-vehicle-tagged gear from vehicles was too strict. Vehicles can now equip any generic weapon/gear. Vehicle-only items (tagged via `equipmentType` or `(Vehicle)`) still remain vehicle-exclusive.
+- **Weapons Platforms + Drones no longer auto-pair a Ranger Pilot** — the auto-pilot logic now only fires for manned vehicles (Tanks, TRVs, bikes). Deployable assets (Platform, Drone, Turret, Emplacement, Sentry) are skipped.
+- **Removing the Pilot no longer breaks the team Rating** — the old code did `team.rating -= pilot.rating`, which produced NaN when the pilot's XLSX rating is `"-"` (bundled with the vehicle). Add/remove now call `recalculateAllTeamRating()` to recompute the team total authoritatively from source data.
+
+### Cleanup
+- Removed the leftover graying-out code (CSS + render branches + tap handler fallback). Non-equippable items have been hidden rather than grayed since v14.81 — the graying path was dead weight.
+
+---
+
 ## v14.82 — 2026-04-22
 
 ### Bug Fix

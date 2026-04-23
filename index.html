@@ -957,26 +957,6 @@
         .tb-equip-chip--q-superior.is-active { background: #2E8B57; border-color: #2E8B57; color: #fff; }
         .tb-equip-chip--q-rare.is-active     { background: #2E5FE0; border-color: #2E5FE0; color: #fff; }
         .tb-equip-chip--q-epic.is-active     { background: #8A4FE0; border-color: #8A4FE0; color: #fff; }
-        /* Disabled card — not equippable by the currently-edited model.
-           Still expandable so players can read the info and see why it's blocked. */
-        .tb-equip-card.is-disabled {
-            opacity: 0.45;
-            filter: grayscale(0.35);
-        }
-        .tb-equip-card-disabled-note {
-            margin-top: 6px;
-            padding: 6px 10px;
-            background: rgba(0, 0, 0, 0.06);
-            color: var(--text-muted, #666);
-            border: 1px dashed var(--border, #ccc);
-            border-radius: 4px;
-            font-family: var(--font-heading);
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-align: center;
-        }
         .tb-equip-card-header {
             display: flex;
             align-items: baseline;
@@ -9225,6 +9205,18 @@ teamHTML += `
             return n.indexOf('vehicle') !== -1 || n.indexOf('tank') !== -1 || n.indexOf('trv') !== -1 || n.indexOf('platform') !== -1;
         }
 
+        // Manned vehicles (tanks, bikes, TRVs) need a Pilot crew auto-paired. Deployable
+        // or autonomous assets (Weapons Platforms, Drones, Turrets, Emplacements) don't.
+        function _vehicleNeedsPilot(model) {
+            if (!_isModelVehicle(model)) return false;
+            var n = (model.name || '').toLowerCase();
+            var noPilotKeywords = ['platform', 'drone', 'turret', 'emplacement', 'sentry'];
+            for (var i = 0; i < noPilotKeywords.length; i++) {
+                if (n.indexOf(noPilotKeywords[i]) !== -1) return false;
+            }
+            return true;
+        }
+
         function getAvailableEquipment(faction, isVehicle) {
             // Primary: use gameData.equipment if available (from Firebase XLSX upload)
             if (gameData.equipment && gameData.equipment.length > 0) {
@@ -9454,15 +9446,14 @@ teamHTML += `
             };
 
             currentTeam.models.push(modelInstance);
-            currentTeam.rating += parseInt(modelData.rating) || 0;
 
-            // Auto-add Pilot when a vehicle/tank is added
-            if (_isModelVehicle(modelData)) {
+            // Auto-add Pilot only for manned vehicles. Deployable/autonomous vehicle
+            // assets (Weapons Platform, Drone, Turret, Emplacement) don't need a crew.
+            if (_isModelVehicle(modelData) && _vehicleNeedsPilot(modelData)) {
                 var pilotModel = (gameData.models || []).find(function(m) {
                     return m.faction === modelData.faction && (m.name || '').toLowerCase().indexOf('pilot') !== -1;
                 });
                 if (pilotModel) {
-                    // Auto-add pilot model
                     addPresetModelToTeam(pilotModel.name);
                     alert('Vehicle added! A ' + pilotModel.name + ' has been automatically added to crew it.');
                 } else {
@@ -9470,6 +9461,9 @@ teamHTML += `
                 }
             }
 
+            // Recompute team rating authoritatively — avoids drift from string/number
+            // mixing in raw XLSX records (rating values can arrive as strings).
+            recalculateAllTeamRating();
             renderCurrentTeam();
             updateTeamRating();
         }
@@ -9479,21 +9473,19 @@ teamHTML += `
             if (index === -1) return;
 
             const model = currentTeam.models[index];
-            currentTeam.rating -= model.rating;
             currentTeam.models.splice(index, 1);
 
-            // Auto-remove Pilot when a vehicle/tank is removed
-            if (_isModelVehicle(model)) {
+            // Auto-remove Pilot when a manned vehicle is removed (same rule as add).
+            if (_isModelVehicle(model) && _vehicleNeedsPilot(model)) {
                 var pilotIndex = currentTeam.models.findIndex(function(m) {
                     return m.faction === model.faction && (m.name || '').toLowerCase().indexOf('pilot') !== -1;
                 });
                 if (pilotIndex !== -1) {
-                    var pilot = currentTeam.models[pilotIndex];
-                    currentTeam.rating -= pilot.rating;
                     currentTeam.models.splice(pilotIndex, 1);
                 }
             }
 
+            recalculateAllTeamRating();
             renderCurrentTeam();
             updateTeamRating();
         }
@@ -9885,28 +9877,14 @@ teamHTML += `
         // Two-stage card tap: first tap expands the card to show full details;
         // second tap on the same (expanded) card equips into the active slot.
         // Tapping a different card collapses the current and expands the new one.
-        // Disabled (not-equippable) cards still expand so players can read the info,
-        // but tapping again on them does nothing.
+        // Non-equippable items are filtered out of the panel entirely, so any card
+        // reaching this handler is known to be equippable by the current model.
         function handleEquipCardTap(name, kind) {
             if (!currentTeam) return;
-            // Look up the item so we can check restrictions
-            var item = (gameData.weapons || []).find(function(w) { return w.name === name; })
-                || (gameData.equipment || []).find(function(e) { return e.name === name; });
-            var editingModel = currentTeam.editingModelId
-                ? currentTeam.models.find(function(m) { return m.id === currentTeam.editingModelId; })
-                : null;
-            var canEquip = _canModelEquipItem(editingModel, item);
-
             if (currentTeam.equipExpandedName === name) {
-                // Already expanded — attempt to equip (requires active slot AND equip-able)
-                if (canEquip && currentTeam.editingSlotIndex != null) {
+                if (currentTeam.editingSlotIndex != null) {
                     pickEquipmentForActiveSlot(name, kind);
-                } else if (!canEquip) {
-                    // Disabled card: second tap collapses (no equip, but let user move on)
-                    currentTeam.equipExpandedName = null;
-                    renderEquipmentPanel({ rebuildChrome: false });
                 } else {
-                    // Equippable but no active slot — collapse so the user can pick a slot
                     currentTeam.equipExpandedName = null;
                     renderEquipmentPanel({ rebuildChrome: false });
                 }
@@ -9989,37 +9967,24 @@ teamHTML += `
 
         // Rules:
         //   (1) Vehicle-tagged items can only be equipped by vehicle models.
-        //   (2) Vehicle models can only equip vehicle-tagged items (symmetric).
-        //   (3) Items with a trailing "(ModelName)" parenthetical are restricted to that
-        //       model. Supports plural "(Ranger-Captains)" — singular form also matched.
-        //   (4) Items with a BOOLS value have additional dependencies: each comma-separated
-        //       entry must be satisfied (model match OR item equipped, see _satisfiesBool).
-        //   (5) No model selected (browsing mode) -> nothing is disabled.
+        //       (Vehicles, conversely, CAN equip generic items — no symmetric block.)
+        //   (2) Items gather constraints from two sources, all AND-ed:
+        //         - the trailing "(Tag)" parenthetical in the item name
+        //         - the XLSX BOOLS column (comma-separated list)
+        //       Each constraint is evaluated by _satisfiesBool — it may be a type keyword,
+        //       a model name, or another item that must be currently equipped on this
+        //       model (item-dependency, e.g. "Carbine Silencer (Pulse Carbine)").
+        //   (3) No model selected (browsing mode) -> nothing is hidden.
         function _canModelEquipItem(model, item) {
             if (!model) return true;
-            var itemIsVeh = _itemIsVehicle(item);
-            var modelIsVeh = _isModelVehicle(model);
-            if (itemIsVeh) return modelIsVeh;
-            if (modelIsVeh) return false;
+            if (_itemIsVehicle(item)) return _isModelVehicle(model);
 
+            var constraints = [];
             var tag = _itemRestrictionTag(item);
-            if (tag) {
-                var tagNorm = _normalizeTag(tag);
-                if (tagNorm === 'vehicle' || tagNorm === 'vehicles') {
-                    if (!modelIsVeh) return false;
-                } else {
-                    var modelNorm = _normalizeTag(model.name);
-                    var candidates = [tagNorm];
-                    if (tagNorm.length > 1 && tagNorm.charAt(tagNorm.length - 1) === 's') {
-                        candidates.push(tagNorm.slice(0, -1));
-                    }
-                    if (!candidates.some(function(c) { return modelNorm.indexOf(c) !== -1; })) return false;
-                }
-            }
-
-            var bools = _parseBools(item && item.bools);
-            for (var i = 0; i < bools.length; i++) {
-                if (!_satisfiesBool(bools[i], model)) return false;
+            if (tag) constraints.push(tag);
+            constraints = constraints.concat(_parseBools(item && item.bools));
+            for (var i = 0; i < constraints.length; i++) {
+                if (!_satisfiesBool(constraints[i], model)) return false;
             }
             return true;
         }
@@ -10056,10 +10021,6 @@ teamHTML += `
             var pts = (w.rating != null && w.rating !== '') ? parseInt(w.rating) || 0 : 0;
             var type = ew.type || w.range || 'Weapon';
             var isExpanded = currentTeam && currentTeam.equipExpandedName === w.name;
-            var editingModel = currentTeam && currentTeam.editingModelId
-                ? currentTeam.models.find(function(m) { return m.id === currentTeam.editingModelId; })
-                : null;
-            var canEquip = _canModelEquipItem(editingModel, w);
             var safeName = w.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
             var detailsHTML = '';
@@ -10072,18 +10033,12 @@ teamHTML += `
                     '</div></div>';
                 var traitsHTML = ew.effects ? '<div class="tb-equip-card-traits">' + wrapTraitsWithTooltips(ew.effects) + '</div>' : '';
                 var descHTML = ew.description ? '<div class="tb-equip-card-body"><p>' + ew.description + '</p></div>' : '';
-                var footerHTML = '';
-                if (!canEquip && editingModel) {
-                    footerHTML = '<div class="tb-equip-card-disabled-note">Not equippable by ' + editingModel.name + '</div>';
-                } else if (currentTeam.editingSlotIndex != null) {
-                    footerHTML = '<div class="tb-equip-card-tap-hint">Tap again to equip</div>';
-                }
+                var footerHTML = (currentTeam.editingSlotIndex != null)
+                    ? '<div class="tb-equip-card-tap-hint">Tap again to equip</div>' : '';
                 detailsHTML = '<div class="tb-equip-card-type">' + type + '</div>' + statGrid + descHTML + traitsHTML + footerHTML;
             }
 
-            var cls = 'tb-equip-card tb-equip-card--weapon'
-                + (isExpanded ? ' is-expanded' : '')
-                + (!canEquip ? ' is-disabled' : '');
+            var cls = 'tb-equip-card tb-equip-card--weapon' + (isExpanded ? ' is-expanded' : '');
             var qBadge = _qualityBadgeHTML(w);
             return '<div class="' + cls + '" data-name="' + w.name.replace(/"/g, '&quot;') + '" data-kind="weapon" ' +
                 'onclick="handleEquipCardTap(\'' + safeName + '\',\'weapon\')">' +
@@ -10099,10 +10054,6 @@ teamHTML += `
             var pts = (e.rating != null && e.rating !== '') ? parseInt(e.rating) || 0 : 0;
             var type = e.equipmentType || 'Equipment';
             var isExpanded = currentTeam && currentTeam.equipExpandedName === e.name;
-            var editingModel = currentTeam && currentTeam.editingModelId
-                ? currentTeam.models.find(function(m) { return m.id === currentTeam.editingModelId; })
-                : null;
-            var canEquip = _canModelEquipItem(editingModel, e);
             var safeName = e.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
             var detailsHTML = '';
@@ -10127,18 +10078,12 @@ teamHTML += `
                 if (techStats.length) bodyParts.push('<p>' + techStats.join(' · ') + '</p>');
                 var bodyHTML = bodyParts.length ? '<div class="tb-equip-card-body">' + bodyParts.join('') + '</div>' : '';
                 var traitsHTML = e.traits ? '<div class="tb-equip-card-traits">' + wrapTraitsWithTooltips(e.traits) + '</div>' : '';
-                var footerHTML = '';
-                if (!canEquip && editingModel) {
-                    footerHTML = '<div class="tb-equip-card-disabled-note">Not equippable by ' + editingModel.name + '</div>';
-                } else if (currentTeam.editingSlotIndex != null) {
-                    footerHTML = '<div class="tb-equip-card-tap-hint">Tap again to equip</div>';
-                }
+                var footerHTML = (currentTeam.editingSlotIndex != null)
+                    ? '<div class="tb-equip-card-tap-hint">Tap again to equip</div>' : '';
                 detailsHTML = '<div class="tb-equip-card-type">' + type + '</div>' + bodyHTML + traitsHTML + footerHTML;
             }
 
-            var cls = 'tb-equip-card tb-equip-card--equipment'
-                + (isExpanded ? ' is-expanded' : '')
-                + (!canEquip ? ' is-disabled' : '');
+            var cls = 'tb-equip-card tb-equip-card--equipment' + (isExpanded ? ' is-expanded' : '');
             var qBadge = _qualityBadgeHTML(e);
             return '<div class="' + cls + '" data-name="' + e.name.replace(/"/g, '&quot;') + '" data-kind="equipment" ' +
                 'onclick="handleEquipCardTap(\'' + safeName + '\',\'equipment\')">' +
