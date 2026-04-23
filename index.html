@@ -4084,7 +4084,21 @@
         ];
 
         function getAvailableEffects() {
-            return (gameData && gameData.effects && gameData.effects.length > 0) ? gameData.effects : FALLBACK_EFFECTS;
+            // Prefer the new Conditions sheet (CONDITIONS/EFFECT/DURATION); fall back to
+            // a legacy Effects sheet if present; finally to the hardcoded FALLBACK_EFFECTS.
+            if (gameData) {
+                if (gameData.conditions && gameData.conditions.length > 0) {
+                    return gameData.conditions.map(function(c) {
+                        return {
+                            name: c.name,
+                            duration: c.duration != null ? c.duration : '',
+                            description: c.description || c.effect || ''
+                        };
+                    });
+                }
+                if (gameData.effects && gameData.effects.length > 0) return gameData.effects;
+            }
+            return FALLBACK_EFFECTS;
         }
 
         // Initialize Firebase
@@ -4887,6 +4901,14 @@
             ];
 
             // Generic column mapper — normalizes headers to camelCase
+            // Bi-directional aliases to keep legacy field reads working after the XLSX
+            // schema renamed some columns. A value written under the canonical key is
+            // also mirrored to the legacy key (and vice-versa) so either read path resolves.
+            var _FIELD_ALIASES = {
+                rating: 'points', points: 'rating',
+                traits: 'effects', effects: 'traits'
+            };
+
             function _mapRows(rows, nameCol) {
                 return rows.map(function(r) {
                     var out = {};
@@ -4900,6 +4922,8 @@
                             .replace(/[_\s]+(.)/g, function(_, c) { return c.toUpperCase(); })
                             .replace(/[_\s]+/g, '');
                         out[key] = val;
+                        var alias = _FIELD_ALIASES[key];
+                        if (alias && out[alias] === undefined) out[alias] = val;
                     });
                     return out;
                 }).filter(function(r) { return r.name && r.name.trim() !== ''; });

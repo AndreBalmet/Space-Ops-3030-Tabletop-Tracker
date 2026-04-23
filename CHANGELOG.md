@@ -4,6 +4,14 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v14.80 — 2026-04-22
+
+### Bug Fixes
+- **Rating values showing wrong / missing after XLSX re-upload** — The latest XLSX renamed the `POINTS` column to `RATING` and `EFFECTS` to `TRAITS`. The parser normalized these to `.rating`/`.traits`, but ~50 places in the code still read `.points`/`.effects`, so model and gear ratings were falling back to defaults (usually 15) and trait strings were blank. Fixed by aliasing the fields bi-directionally in the XLSX parser — a value written under `rating` is mirrored to `points` (and vice-versa), same for `traits`/`effects`. All existing read sites work again without code changes elsewhere.
+- **Status-effects dropdown now reads from the `Conditions` sheet** — The dropdown was silently falling back to hardcoded defaults because it looked for `gameData.effects`, which the new XLSX doesn't populate (it has a `Conditions` sheet instead). `getAvailableEffects()` now reads `gameData.conditions` and maps the `EFFECT` column to the UI's `description` field.
+
+---
+
 ## v14.79 — 2026-04-18
 
 ### New Feature — Equipment Picker Panel
