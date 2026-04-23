@@ -4,6 +4,31 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v14.81 — 2026-04-22
+
+### Team-Building Rules Update
+Implements the rules from the *Updates to Team-Building* spec:
+- **60 Rating budget** — the team header now shows `X / 60 Rating`; turns red when the team goes over budget (soft warning, no hard block).
+- **Leader check** — warning banner above the roster when the team has 0 or >1 Leaders (Leaders detected by `(Leader)` in the model name).
+- **Carry Capacity from XLSX** — the number of gear slots on a model now follows its `TOTAL SLOTS` column (War-Dog = 2, Weapons Platform = 2, etc.) instead of a hardcoded 4.
+
+### Equipment Quality Tiers
+- **Quality badges on every equipment card** — Standard (gray), Superior (green), Rare (blue), Epic (purple) matching the spec's RPG-style color coding.
+- **Team quality caps** — warning banner fires when the team exceeds **max 2 Rare** or **max 1 Epic** (soft warning, not blocked).
+- **Quality filter chips** — second row in the Equipment Panel with Any Quality / Standard / Superior / Rare / Epic. Active chip takes the tier color.
+
+### Restriction & Dependency Rules
+- **BOOLS column** in the Equipment/Weapons sheets now drives dependencies. Each comma-separated entry is treated as a constraint that must be satisfied:
+  - Model name (e.g. `Ranger-Captain`) → only that model can equip.
+  - Type keyword (`Vehicle` / `Leader` / `Infantry`) → model-class match.
+  - Item name (e.g. `Pulse Carbine`) → the model must already have that item equipped (useful for attachments like Carbine Silencer).
+- **Non-equippable items are hidden**, not grayed out. When editing a model, the picker only lists items the model can actually equip (faction + vehicle class + parenthetical tag + BOOLS all considered). When no model is being edited, all faction-usable items remain visible for browsing.
+
+### Dual Wield
+- When a model has two identical melee weapons equipped, a **⚔⚔ Dual Wield** indicator appears on both the collapsed card and the expanded card's Gear section.
+
+---
+
 ## v14.80 — 2026-04-22
 
 ### Bug Fixes

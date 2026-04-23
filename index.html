@@ -711,6 +711,27 @@
             font-size: 22px;
             color: var(--accent);
         }
+        .team-builder-rating .tb-rating-cap {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .team-builder-rating.is-over-budget span,
+        .team-builder-rating.is-over-budget .tb-rating-cap {
+            color: var(--danger, #ff4444);
+        }
+        /* Leader count warning — shows when team has 0 or >1 Leaders */
+        .tb-leader-warning {
+            background: rgba(255, 68, 68, 0.08);
+            border: 1px solid var(--danger, #ff4444);
+            color: var(--danger, #ff4444);
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
 
         .team-builder-columns {
             display: grid;
@@ -910,6 +931,32 @@
             letter-spacing: 1px;
             text-align: center;
         }
+        /* Quality badge — gray / green / blue / purple per RPG convention (Standard /
+           Superior / Rare / Epic). Styled as a small uppercase pill in the card header. */
+        .tb-quality-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-family: var(--font-heading);
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .tb-quality-badge--standard { background: #888; color: #fff; }
+        .tb-quality-badge--superior { background: #2E8B57; color: #fff; }
+        .tb-quality-badge--rare     { background: #2E5FE0; color: #fff; }
+        .tb-quality-badge--epic     { background: #8A4FE0; color: #fff; }
+
+        /* Quality filter chips: when active, take on the tier color so the active filter
+           is visually consistent with the tier badges on the cards. */
+        .tb-equip-filters--quality { margin-top: -6px; }
+        .tb-equip-chip--q-standard.is-active { background: #888;    border-color: #888;    color: #fff; }
+        .tb-equip-chip--q-superior.is-active { background: #2E8B57; border-color: #2E8B57; color: #fff; }
+        .tb-equip-chip--q-rare.is-active     { background: #2E5FE0; border-color: #2E5FE0; color: #fff; }
+        .tb-equip-chip--q-epic.is-active     { background: #8A4FE0; border-color: #8A4FE0; color: #fff; }
         /* Disabled card — not equippable by the currently-edited model.
            Still expandable so players can read the info and see why it's blocked. */
         .tb-equip-card.is-disabled {
@@ -9290,7 +9337,7 @@ teamHTML += `
                             <label>Team Name</label>
                             <input type="text" id="teamNameInput" placeholder="Alpha Squad" value="${currentTeam.name}"
                                    onchange="currentTeam.name = this.value">
-                            <div class="team-builder-rating"><span id="teamPoints">${currentTeam.points}</span> Rating</div>
+                            <div class="team-builder-rating" id="teamRatingWrap"><span id="teamPoints">${currentTeam.points}</span><span class="tb-rating-cap"> / ${TEAM_RATING_CAP}</span> Rating</div>
                         </div>
 
                         <div class="team-builder-columns" id="teamBuilderColumns">
@@ -9325,6 +9372,7 @@ teamHTML += `
 
                             <div class="tb-col tb-col--team">
                                 <div class="team-builder-col-header">Your Team — <span id="teamModelCount">${currentTeam.models.length}</span> models</div>
+                                <div class="tb-leader-warning" id="teamLeaderWarning" style="display:none;"></div>
                                 <div id="currentTeamRoster" class="team-builder-model-list">
                                     ${currentTeam.models.length === 0 ? '<div class="tb-roster-empty">Add models from the available units</div>' : ''}
                                 </div>
@@ -9340,6 +9388,7 @@ teamHTML += `
                                            placeholder="Search by name..."
                                            oninput="updateEquipSearch(this.value)">
                                     <div class="tb-equip-filters" id="tbEquipFilters"></div>
+                                    <div class="tb-equip-filters tb-equip-filters--quality" id="tbEquipQualityFilters"></div>
                                     <div class="tb-equip-grid" id="tbEquipGrid"></div>
                                 </div>
                             </div>
@@ -9389,10 +9438,11 @@ teamHTML += `
                     points: w.points || ''
                 };
             });
-            // Loadout items (Jetpack, Company Badge, etc.) are default gear — NOT slotted
-            // Pad weapon slots to exactly 4
-            while (slotItems.length < 4) slotItems.push(null);
-            if (slotItems.length > 4) slotItems = slotItems.slice(0, 4);
+            // Loadout items (Jetpack, Company Badge, etc.) are default gear — NOT slotted.
+            // Pad weapon slots to the model's carry capacity (XLSX TOTAL SLOTS), default 4.
+            var presetCapacity = Math.max(1, parseInt(modelData.totalSlots || modelData.carryCapacity || 4) || 4);
+            while (slotItems.length < presetCapacity) slotItems.push(null);
+            if (slotItems.length > presetCapacity) slotItems = slotItems.slice(0, presetCapacity);
 
             // Build default names array (4 elements, null for empty defaults)
             var defaultSlotNames = slotItems.map(function(s) { return s ? s.name : null; });
@@ -9476,6 +9526,7 @@ teamHTML += `
 
             var countEl = document.getElementById('teamModelCount');
             if (countEl) countEl.textContent = currentTeam.models.length;
+            _updateLeaderWarning();
         }
 
         function _renderCollapsedCard(model, fColor) {
@@ -9505,6 +9556,7 @@ teamHTML += `
                 statGrid +
                 (model.defaultInventory && model.defaultInventory.length > 0 ? '<div style="background:rgba(219,143,0,0.1);border:1px solid rgba(219,143,0,0.3);border-radius:4px;padding:4px 8px;margin-top:6px;font-size:11px;"><span style="color:#db8f00;font-weight:600;">Default Gear:</span> <span style="color:#666;">' + model.defaultInventory.map(function(g) { return wrapEquipWithTooltip(g); }).join(', ') + '</span></div>' : '') +
                 (equippedItems ? '<div class="tb-roster-meta" style="margin-top:4px;">\u2694 ' + equippedItems + '</div>' : '') +
+                (_modelHasDualWield(model) ? '<div class="tb-roster-meta" style="margin-top:4px;color:var(--accent);font-weight:700;">\u2694\u2694 Dual Wield</div>' : '') +
                 (notesText ? '<div class="tb-roster-meta" style="margin-top:4px;color:#9CAF88;font-style:italic;font-size:12px;">\u{1F4DD} ' + notesText.replace(/</g, '&lt;') + '</div>' : '') +
             '</div>';
         }
@@ -9561,16 +9613,19 @@ teamHTML += `
             var equipGroups = allItems.equipGroups;
 
             // Ensure weapons array is padded to 4
-            while ((model.weapons || []).length < 4) {
+            // Carry Capacity comes from the XLSX TOTAL SLOTS column per the new
+            // team-building rules. Falls back to 4 if missing (legacy data).
+            var carryCap = Math.max(1, parseInt(model.totalSlots || model.carryCapacity || 4) || 4);
+            while ((model.weapons || []).length < carryCap) {
                 if (!model.weapons) model.weapons = [];
                 model.weapons.push(null);
             }
-            while ((model.defaultWeapons || []).length < 4) {
+            while ((model.defaultWeapons || []).length < carryCap) {
                 if (!model.defaultWeapons) model.defaultWeapons = [];
                 model.defaultWeapons.push(null);
             }
 
-            var weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Gear (4 Slots)</div>';
+            var weaponHTML = '<div class="tb-edit-section"><div class="tb-edit-section-title">Gear (' + carryCap + ' Slots)' + (_modelHasDualWield(model) ? ' <span style="color:var(--accent);margin-left:8px;">\u2694\u2694 Dual Wield</span>' : '') + '</div>';
 
             // Default gear banner
             if (model.defaultInventory && model.defaultInventory.length > 0) {
@@ -9583,7 +9638,7 @@ teamHTML += `
                 weaponHTML += '<div style="background:rgba(255,165,0,0.15);border:1px solid #FFA500;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:#FFA500;">\u26A0 No melee weapon equipped \u2014 this model will be unable to fight in close combat</div>';
             }
 
-            for (var slotIdx = 0; slotIdx < 4; slotIdx++) {
+            for (var slotIdx = 0; slotIdx < carryCap; slotIdx++) {
                 var slotItem = model.weapons[slotIdx];
                 var defaultName = (model.defaultWeapons || [])[slotIdx] || null;
                 var slotIsWeapon = slotItem && _isSlotWeapon(slotItem);
@@ -9682,8 +9737,91 @@ teamHTML += `
             '</div>';
         }
 
+        // Standard team-building budget per the team-building rules update.
+        var TEAM_RATING_CAP = 60;
+
+        function _isLeaderModel(m) {
+            return !!m && /\(leader\)/i.test(m.name || '');
+        }
+
+        // Per the team-building rules: two identical melee weapons grants Dual Wield.
+        function _modelHasDualWield(m) {
+            if (!m || !m.weapons) return false;
+            var melees = m.weapons.filter(function(w) {
+                return w && typeof _isSlotWeapon === 'function' && _isSlotWeapon(w)
+                    && typeof _isWeaponMelee === 'function' && _isWeaponMelee(w);
+            });
+            if (melees.length < 2) return false;
+            var seen = {};
+            for (var i = 0; i < melees.length; i++) {
+                var key = (melees[i].name || '').toLowerCase().trim();
+                if (!key) continue;
+                if (seen[key]) return true;
+                seen[key] = true;
+            }
+            return false;
+        }
+
+        // Per-team Quality caps (from the team-building rules update):
+        //   RARE: max 2 per team    EPIC: max 1 per team
+        var QUALITY_CAPS = { rare: 2, epic: 1 };
+
+        // Given an item name + kind, look up the live record in gameData (weapons or
+        // equipment) and return its quality key ('standard'|'superior'|'rare'|'epic')
+        // or null if unknown. Used when counting team-wide quality tiers.
+        function _lookupItemQualityKey(item) {
+            if (!item || !item.name) return null;
+            var match = (gameData.weapons || []).find(function(w) { return w.name === item.name; })
+                     || (gameData.equipment || []).find(function(e) { return e.name === item.name; });
+            var q = _itemQuality(match || item);
+            return q ? q.key : null;
+        }
+
+        function _countTeamQuality() {
+            var counts = { standard: 0, superior: 0, rare: 0, epic: 0 };
+            (currentTeam.models || []).forEach(function(m) {
+                (m.weapons || []).forEach(function(w) {
+                    if (!w) return;
+                    var k = _lookupItemQualityKey(w);
+                    if (k) counts[k] = (counts[k] || 0) + 1;
+                });
+            });
+            return counts;
+        }
+
+        function _updateLeaderWarning() {
+            var el = document.getElementById('teamLeaderWarning');
+            if (!el || !currentTeam) return;
+            var msgs = [];
+
+            var leaderCount = (currentTeam.models || []).filter(_isLeaderModel).length;
+            if (leaderCount === 0) {
+                msgs.push('\u26A0 No Leader selected — your team must include exactly 1 Leader.');
+            } else if (leaderCount > 1) {
+                msgs.push('\u26A0 Too many Leaders (' + leaderCount + ') — only 1 Leader is allowed per team.');
+            }
+
+            var qc = _countTeamQuality();
+            if (qc.rare > QUALITY_CAPS.rare) {
+                msgs.push('\u26A0 ' + qc.rare + ' Rare items equipped — maximum ' + QUALITY_CAPS.rare + ' per team.');
+            }
+            if (qc.epic > QUALITY_CAPS.epic) {
+                msgs.push('\u26A0 ' + qc.epic + ' Epic items equipped — maximum ' + QUALITY_CAPS.epic + ' per team.');
+            }
+
+            if (msgs.length === 0) {
+                el.style.display = 'none';
+                el.innerHTML = '';
+            } else {
+                el.style.display = 'block';
+                el.innerHTML = msgs.map(function(m) { return '<div>' + m + '</div>'; }).join('');
+            }
+        }
+
         function updateTeamPoints() {
             document.getElementById('teamPoints').textContent = currentTeam.points;
+            var wrap = document.getElementById('teamRatingWrap');
+            if (wrap) wrap.classList.toggle('is-over-budget', (currentTeam.points || 0) > TEAM_RATING_CAP);
         }
 
         function toggleModelEdit(modelId) {
@@ -9721,6 +9859,12 @@ teamHTML += `
             renderEquipmentPanel();
         }
         window.setEquipFilter = setEquipFilter;
+
+        function setEquipQuality(key) {
+            currentTeam.equipActiveQuality = key || 'all';
+            renderEquipmentPanel();
+        }
+        window.setEquipQuality = setEquipQuality;
 
         // Activate or toggle off a slot on the currently-edited model.
         // Tap same slot again -> deselect. Tap different slot -> switch.
@@ -9820,12 +9964,47 @@ teamHTML += `
             return m ? m[1].trim() : null;
         }
 
+        // Parse the XLSX BOOLS column (comma-separated list of constraints).
+        function _parseBools(str) {
+            if (!str) return [];
+            return String(str).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        }
+
+        // Does a single BOOLS constraint entry match the given model?
+        // An entry may be:
+        //   - a type keyword: "vehicle" | "leader" | "infantry"
+        //   - a model name (e.g. "Ranger-Captain") — substring / plural tolerant
+        //   - an item name (e.g. "Pulse Carbine") — satisfied when the model has that
+        //     item currently equipped in one of its slots
+        function _satisfiesBool(constraint, model) {
+            var norm = _normalizeTag(constraint);
+            if (!norm) return true;
+
+            if (norm === 'vehicle' || norm === 'vehicles') return _isModelVehicle(model);
+            if (norm === 'leader' || norm === 'leaders')   return _isLeaderModel(model);
+            if (norm === 'infantry')                       return !_isModelVehicle(model);
+
+            var modelNorm = _normalizeTag(model.name);
+            if (modelNorm.indexOf(norm) !== -1) return true;
+            if (norm.length > 1 && norm.charAt(norm.length - 1) === 's'
+                && modelNorm.indexOf(norm.slice(0, -1)) !== -1) return true;
+
+            // Item dependency — the model must have something matching `norm` equipped
+            var equipped = (model.weapons || []).filter(Boolean);
+            if (equipped.some(function(w) { return _normalizeTag(w.name) === norm; })) return true;
+            if (equipped.some(function(w) { return _normalizeTag(w.name).indexOf(norm) !== -1; })) return true;
+
+            return false;
+        }
+
         // Rules:
         //   (1) Vehicle-tagged items can only be equipped by vehicle models.
         //   (2) Vehicle models can only equip vehicle-tagged items (symmetric).
         //   (3) Items with a trailing "(ModelName)" parenthetical are restricted to that
         //       model. Supports plural "(Ranger-Captains)" — singular form also matched.
-        //   (4) No model selected (browsing mode) -> nothing is disabled.
+        //   (4) Items with a BOOLS value have additional dependencies: each comma-separated
+        //       entry must be satisfied (model match OR item equipped, see _satisfiesBool).
+        //   (5) No model selected (browsing mode) -> nothing is disabled.
         function _canModelEquipItem(model, item) {
             if (!model) return true;
             var itemIsVeh = _itemIsVehicle(item);
@@ -9834,16 +10013,25 @@ teamHTML += `
             if (modelIsVeh) return false;
 
             var tag = _itemRestrictionTag(item);
-            if (!tag) return true;
-            var tagNorm = _normalizeTag(tag);
-            if (tagNorm === 'vehicle' || tagNorm === 'vehicles') return modelIsVeh;
-
-            var modelNorm = _normalizeTag(model.name);
-            var candidates = [tagNorm];
-            if (tagNorm.length > 1 && tagNorm.charAt(tagNorm.length - 1) === 's') {
-                candidates.push(tagNorm.slice(0, -1));
+            if (tag) {
+                var tagNorm = _normalizeTag(tag);
+                if (tagNorm === 'vehicle' || tagNorm === 'vehicles') {
+                    if (!modelIsVeh) return false;
+                } else {
+                    var modelNorm = _normalizeTag(model.name);
+                    var candidates = [tagNorm];
+                    if (tagNorm.length > 1 && tagNorm.charAt(tagNorm.length - 1) === 's') {
+                        candidates.push(tagNorm.slice(0, -1));
+                    }
+                    if (!candidates.some(function(c) { return modelNorm.indexOf(c) !== -1; })) return false;
+                }
             }
-            return candidates.some(function(c) { return modelNorm.indexOf(c) !== -1; });
+
+            var bools = _parseBools(item && item.bools);
+            for (var i = 0; i < bools.length; i++) {
+                if (!_satisfiesBool(bools[i], model)) return false;
+            }
+            return true;
         }
         function _itemIsCyberdeck(item) {
             if (!item) return false;
@@ -9854,6 +10042,23 @@ teamHTML += `
                 || t.indexOf('cyber deck') !== -1
                 || t.indexOf('cyber-deck') !== -1
                 || n.indexOf('cyberdeck') !== -1;
+        }
+
+        // Map an item's QUALITY field (from XLSX) to one of four standard tiers.
+        // Returns an object with tier key + display label, or null if no/unknown quality.
+        function _itemQuality(item) {
+            var raw = (item && (item.quality || item.QUALITY) || '').toString().trim().toLowerCase();
+            if (!raw) return null;
+            if (raw.indexOf('epic') !== -1)     return { key: 'epic',     label: 'Epic' };
+            if (raw.indexOf('rare') !== -1)     return { key: 'rare',     label: 'Rare' };
+            if (raw.indexOf('superior') !== -1) return { key: 'superior', label: 'Superior' };
+            if (raw.indexOf('standard') !== -1) return { key: 'standard', label: 'Standard' };
+            return null;
+        }
+        function _qualityBadgeHTML(item) {
+            var q = _itemQuality(item);
+            if (!q) return '';
+            return '<span class="tb-quality-badge tb-quality-badge--' + q.key + '">' + q.label + '</span>';
         }
 
         function _equipCardForWeapon(w) {
@@ -9889,10 +10094,11 @@ teamHTML += `
             var cls = 'tb-equip-card tb-equip-card--weapon'
                 + (isExpanded ? ' is-expanded' : '')
                 + (!canEquip ? ' is-disabled' : '');
+            var qBadge = _qualityBadgeHTML(w);
             return '<div class="' + cls + '" data-name="' + w.name.replace(/"/g, '&quot;') + '" data-kind="weapon" ' +
                 'onclick="handleEquipCardTap(\'' + safeName + '\',\'weapon\')">' +
                 '<div class="tb-equip-card-header">' +
-                    '<div class="tb-equip-card-name">' + w.name + '</div>' +
+                    '<div class="tb-equip-card-name">' + (qBadge ? qBadge + ' ' : '') + w.name + '</div>' +
                     '<div class="tb-equip-card-rating">' + pts + ' Rating</div>' +
                 '</div>' +
                 detailsHTML +
@@ -9943,10 +10149,11 @@ teamHTML += `
             var cls = 'tb-equip-card tb-equip-card--equipment'
                 + (isExpanded ? ' is-expanded' : '')
                 + (!canEquip ? ' is-disabled' : '');
+            var qBadge = _qualityBadgeHTML(e);
             return '<div class="' + cls + '" data-name="' + e.name.replace(/"/g, '&quot;') + '" data-kind="equipment" ' +
                 'onclick="handleEquipCardTap(\'' + safeName + '\',\'equipment\')">' +
                 '<div class="tb-equip-card-header">' +
-                    '<div class="tb-equip-card-name">' + e.name + '</div>' +
+                    '<div class="tb-equip-card-name">' + (qBadge ? qBadge + ' ' : '') + e.name + '</div>' +
                     '<div class="tb-equip-card-rating">' + pts + ' Rating</div>' +
                 '</div>' +
                 detailsHTML +
@@ -9997,6 +10204,7 @@ teamHTML += `
 
             // Curated filter chips (fixed set — no per-equipment-type auto-chips)
             var activeCat = currentTeam.equipActiveCategory || 'all';
+            var activeQuality = currentTeam.equipActiveQuality || 'all';
             if (opts.rebuildChrome !== false) {
                 var chips = [
                     { key: 'all',       label: 'All' },
@@ -10013,6 +10221,21 @@ teamHTML += `
                         return '<button class="' + cls + '" type="button" onclick="setEquipFilter(\'' + c.key + '\')">' + c.label + '</button>';
                     }).join('');
                 }
+
+                var qChips = [
+                    { key: 'all',      label: 'Any Quality' },
+                    { key: 'standard', label: 'Standard' },
+                    { key: 'superior', label: 'Superior' },
+                    { key: 'rare',     label: 'Rare' },
+                    { key: 'epic',     label: 'Epic' }
+                ];
+                var qFilters = document.getElementById('tbEquipQualityFilters');
+                if (qFilters) {
+                    qFilters.innerHTML = qChips.map(function(c) {
+                        var cls = 'tb-equip-chip tb-equip-chip--q-' + c.key + (c.key === activeQuality ? ' is-active' : '');
+                        return '<button class="' + cls + '" type="button" onclick="setEquipQuality(\'' + c.key + '\')">' + c.label + '</button>';
+                    }).join('');
+                }
             }
 
             // Search + category filter
@@ -10023,8 +10246,26 @@ teamHTML += `
             }
             function _weaponIsMelee(w) { return (w.range === 'Melee') || (w.type === 'Melee'); }
 
+            function matchesQuality(item) {
+                if (activeQuality === 'all') return true;
+                var q = _itemQuality(item);
+                return q && q.key === activeQuality;
+            }
+            // When a model is being edited, hide anything the model can't equip. Prior
+            // versions grayed them out; now they don't render at all so the list stays
+            // short and focused on the usable options.
+            var editingModelForFilter = currentTeam.editingModelId
+                ? currentTeam.models.find(function(m) { return m.id === currentTeam.editingModelId; })
+                : null;
+            function matchesRestriction(item) {
+                if (!editingModelForFilter) return true;
+                return _canModelEquipItem(editingModelForFilter, item);
+            }
+
             var filteredWeapons = weapons.filter(function(w) {
                 if (!matchesSearch(w)) return false;
+                if (!matchesQuality(w)) return false;
+                if (!matchesRestriction(w)) return false;
                 switch (activeCat) {
                     case 'all':       return true;
                     case 'ranged':    return !_weaponIsMelee(w) && !_itemIsVehicle(w) && !_itemIsCyberdeck(w);
@@ -10038,6 +10279,8 @@ teamHTML += `
 
             var filteredEquipment = equipment.filter(function(e) {
                 if (!matchesSearch(e)) return false;
+                if (!matchesQuality(e)) return false;
+                if (!matchesRestriction(e)) return false;
                 switch (activeCat) {
                     case 'all':       return true;
                     case 'ranged':    return false;
@@ -10179,11 +10422,12 @@ teamHTML += `
 
             currentTeam.points = 0;
             (currentTeam.models || []).forEach(function(model) {
-                // Backward compat: pad weapons and defaultWeapons to 4 slots
+                // Pad weapons / defaultWeapons to the model's carry capacity (XLSX TOTAL SLOTS).
+                var capacity = Math.max(1, parseInt(model.totalSlots || model.carryCapacity || 4) || 4);
                 if (!model.weapons) model.weapons = [];
-                while (model.weapons.length < 4) model.weapons.push(null);
+                while (model.weapons.length < capacity) model.weapons.push(null);
                 if (!model.defaultWeapons) model.defaultWeapons = [];
-                while (model.defaultWeapons.length < 4) model.defaultWeapons.push(null);
+                while (model.defaultWeapons.length < capacity) model.defaultWeapons.push(null);
 
                 var baseModel = _findBaseModel(model.name, currentTeam.faction || model.faction);
                 var basePts = parseInt(baseModel ? baseModel.points : (model.basePoints != null ? model.basePoints : model.points)) || 0;
