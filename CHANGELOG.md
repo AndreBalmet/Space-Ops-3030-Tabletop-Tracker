@@ -4,6 +4,18 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v14.82 — 2026-04-22
+
+### Bug Fix
+- **NaN / missing Rating on model and team cards** — existing Firebase game-data records only have the new `rating` field, while 50+ places in the code still read the legacy `.points` field. v14.80's bi-directional alias only fired on fresh XLSX uploads, so cached Firebase data rendered as `NaN / 60 Rating` and `— Rating` on every model.
+
+### Refactor — single source of truth
+- Completed the points → rating rename across the entire codebase. Every property, internal variable, function name, DOM id, and comment now uses `rating`. `points` is no longer used anywhere except for the unrelated in-game victory-points concept (`gamePoints`, `updateGamePoints`).
+- Affected renames: `model.points` → `model.rating`, `currentTeam.points` → `currentTeam.rating`, `basePoints` → `baseRating`, `weaponPointsDelta` → `weaponRatingDelta`, `equipmentPointsDelta` → `equipmentRatingDelta`, `totalPoints` → `totalRating`, `teamPoints` DOM id → `teamRating`, and the helper functions `recalculateAllTeamPoints` / `recalculateModelPoints` / `updateTeamPoints`.
+- Removed the v14.80 bi-directional alias shim — no longer needed.
+
+---
+
 ## v14.81 — 2026-04-22
 
 ### Team-Building Rules Update

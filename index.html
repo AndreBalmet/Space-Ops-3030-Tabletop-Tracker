@@ -4354,7 +4354,7 @@
             if (!equip) return '<span class="so-tt" data-tt-title="' + name + '" data-tt-body="No data yet — update Excel sheet">' + name + '</span>';
             var parts = [];
             if (equip.equipmentType) parts.push('Type: ' + equip.equipmentType);
-            if (equip.points && equip.points !== '-') parts.push('Rating: ' + equip.points);
+            if (equip.rating && equip.rating !== '-') parts.push('Rating: ' + equip.rating);
             var passive = equip.passiveAbility || equip.passioveAbility || equip.passiveability || '';
             if (passive) parts.push('Passive: ' + passive);
             if (equip.actionName) {
@@ -4403,7 +4403,7 @@
                 damage: v(weapon.damage, null, 'damage', null),
                 effects: v(weapon.effects, weapon.traits, 'traits', 'effects') || '',
                 description: v(weapon.description, null, 'description', null) || '',
-                points: v(weapon.points, null, 'points', null) || ''
+                rating: v(weapon.rating, null, 'rating', null) || ''
             };
         }
 
@@ -4434,7 +4434,7 @@
             parts.push('Power ' + (w.power != null ? w.power : '?'));
             parts.push('Damage ' + (w.damage != null ? w.damage : '?'));
             if (w.effects) parts.push('Traits: ' + w.effects);
-            if (w.points) parts.push('Rating: ' + w.points);
+            if (w.rating) parts.push('Rating: ' + w.rating);
             if (w.description) parts.push(w.description);
             var body = parts.join(' | ');
             if (!body) body = 'No data yet — update Excel sheet';
@@ -4948,14 +4948,6 @@
             ];
 
             // Generic column mapper — normalizes headers to camelCase
-            // Bi-directional aliases to keep legacy field reads working after the XLSX
-            // schema renamed some columns. A value written under the canonical key is
-            // also mirrored to the legacy key (and vice-versa) so either read path resolves.
-            var _FIELD_ALIASES = {
-                rating: 'points', points: 'rating',
-                traits: 'effects', effects: 'traits'
-            };
-
             function _mapRows(rows, nameCol) {
                 return rows.map(function(r) {
                     var out = {};
@@ -4969,8 +4961,6 @@
                             .replace(/[_\s]+(.)/g, function(_, c) { return c.toUpperCase(); })
                             .replace(/[_\s]+/g, '');
                         out[key] = val;
-                        var alias = _FIELD_ALIASES[key];
-                        if (alias && out[alias] === undefined) out[alias] = val;
                     });
                     return out;
                 }).filter(function(r) { return r.name && r.name.trim() !== ''; });
@@ -5316,7 +5306,7 @@
                                 name: teamName,
                                 faction: faction,
                                 models: [],
-                                points: 0,
+                                rating: 0,
                                 created: Date.now(),
                                 modified: Date.now(),
                                 owner: currentPlayer
@@ -5341,10 +5331,10 @@
                             inventory: inventory,
                             portrait: portrait,
                             notes: notes,
-                            points: 15
+                            rating: 15
                         });
                         
-                        teams[teamName].points += 15;
+                        teams[teamName].rating += 15;
                     }
                     
                     if (Object.keys(teams).length === 0) {
@@ -6309,12 +6299,12 @@
                                         inventoryArray = Object.values(char.inventory);
                                     }
                                     
-                                    // Look up actual model points from game data
-                                    let modelPoints = 15; // fallback
+                                    // Look up actual model rating from game data
+                                    let modelRating = 15; // fallback
                                     if (gameData.models && gameData.models.length > 0) {
                                         const matchedModel = gameData.models.find(m => m.name === char.name);
-                                        if (matchedModel && matchedModel.points) {
-                                            modelPoints = parseInt(matchedModel.points) || 15;
+                                        if (matchedModel && matchedModel.rating) {
+                                            modelRating = parseInt(matchedModel.rating) || 15;
                                         }
                                     }
 
@@ -6354,17 +6344,17 @@
                                         color: char.color || '',
                                         portraitColor: char.portraitColor || '',
                                         firewall: char.firewall || '',
-                                        points: modelPoints
+                                        rating: modelRating
                                     };
                                 });
 
                                 // Update team in library
-                                const totalPoints = models.reduce((sum, m) => sum + (parseInt(m.points) || 0), 0);
+                                const totalRating = models.reduce((sum, m) => sum + (parseInt(m.rating) || 0), 0);
                                 const updatedTeam = {
                                     ...savedTeam,
                                     models: models,
                                     modified: Date.now(),
-                                    points: totalPoints
+                                    rating: totalRating
                                 };
                                 
                                 await database.ref(`players/${currentPlayer}/teams/${teamId}`).set(updatedTeam);
@@ -6755,7 +6745,7 @@
             // Populate model dropdown
             modelSelect.innerHTML = '<option value="">-- Select Model --</option>' + 
                 factionModels.map(model => 
-                    `<option value="${model.name}">${model.name} (${model.points} Rating - ${model.type})</option>`
+                    `<option value="${model.name}">${model.name} (${model.rating} Rating - ${model.type})</option>`
                 ).join('');
             
             modelGroup.style.display = 'block';
@@ -7056,7 +7046,7 @@
                     weapons: weaponFields.filter(w => w.name && w.attacks && w.power && w.damage),
                     inventory: document.getElementById('charInventory').value.split(',').map(i => i.trim()).filter(i => i),
                     notes: document.getElementById('charNotes').value.trim(),
-                    points: 15
+                    rating: 15
                 };
                 
                 database.ref(`players/${currentPlayer}/teams/${editingTeamId}`).once('value', snapshot => {
@@ -7069,7 +7059,7 @@
                             // Adding new model
                             team.models.push(model);
                         }
-                        team.points = team.models.length * 15;
+                        team.rating = team.models.length * 15;
                         team.modified = Date.now();
                         
                         database.ref(`players/${currentPlayer}/teams/${editingTeamId}`).set(team).then(() => {
@@ -8674,7 +8664,7 @@ teamHTML += `
                     ${gameData.starterSquads.filter(squad => squad.models.length > 0).map(squad => `
                         <div class="starter-squad-card" onclick="loadStarterSquad('${squad.name}')">
                             <h3>${squad.name}</h3>
-                            <p style="color: #888; font-size: 13px; margin: 10px 0;">${squad.points} Rating • ${squad.models.reduce((sum, m) => sum + m.count, 0)} models</p>
+                            <p style="color: #888; font-size: 13px; margin: 10px 0;">${squad.rating} Rating • ${squad.models.reduce((sum, m) => sum + m.count, 0)} models</p>
                             <p style="color: #aaa; font-size: 0.95em; line-height: 1.5;">${squad.description}</p>
                             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
                                 ${squad.models.map(m => `<div style="color: var(--text-secondary); font-size: 12px;">• ${m.count}x ${m.preset}</div>`).join('')}
@@ -8751,14 +8741,14 @@ teamHTML += `
             
             // Auto-generate a balanced team
             let autoTeam = [];
-            let totalPoints = 0;
-            const targetPoints = 150;
+            let totalRating = 0;
+            const targetRating = 150;
             
             // Add one leader/captain
             const leader = factionModels.find(m => m.type === 'Captain' || m.type === 'Leader');
             if (leader) {
                 autoTeam.push({...leader, id: Date.now() + Math.random(), currentHealth: leader.health, status: 'alive', weapons: [], specialActions: [], inventory: []});
-                totalPoints += leader.points;
+                totalRating += leader.rating;
             }
             
             // Add specialists and troopers to reach ~150pts
@@ -8768,19 +8758,19 @@ teamHTML += `
             // Add 2 specialists
             for (let i = 0; i < 2 && specialists.length > 0; i++) {
                 const spec = specialists[i % specialists.length];
-                if (totalPoints + spec.points <= targetPoints) {
+                if (totalRating + spec.rating <= targetRating) {
                     autoTeam.push({...spec, id: Date.now() + Math.random() + i, currentHealth: spec.health, status: 'alive', weapons: [], specialActions: [], inventory: []});
-                    totalPoints += spec.points;
+                    totalRating += spec.rating;
                 }
             }
             
             // Fill rest with troopers
             let trooperIndex = 0;
-            while (totalPoints < targetPoints - 20 && troopers.length > 0) {
+            while (totalRating < targetRating - 20 && troopers.length > 0) {
                 const trooper = troopers[trooperIndex % troopers.length];
-                if (totalPoints + trooper.points <= targetPoints) {
+                if (totalRating + trooper.rating <= targetRating) {
                     autoTeam.push({...trooper, id: Date.now() + Math.random() + trooperIndex, currentHealth: trooper.health, status: 'alive', weapons: [], specialActions: [], inventory: []});
-                    totalPoints += trooper.points;
+                    totalRating += trooper.rating;
                     trooperIndex++;
                 } else {
                     break;
@@ -8788,10 +8778,10 @@ teamHTML += `
             }
             
             // Show preview
-            showQuickTeamPreview(factionName, autoTeam, totalPoints);
+            showQuickTeamPreview(factionName, autoTeam, totalRating);
         }
 
-        function showQuickTeamPreview(factionName, team, points) {
+        function showQuickTeamPreview(factionName, team, rating) {
             const faction = gameData.factions.find(f => f.name === factionName);
             const content = document.getElementById('teamBuilderContent');
             
@@ -8803,7 +8793,7 @@ teamHTML += `
                     
                     <h2 style="color: ${faction.primaryColor}; text-align: center; margin-bottom: 10px;">Your ${factionName} Team</h2>
                     <div style="text-align: center; color: var(--text-secondary); font-size: 13px; margin-bottom: 30px;">
-                        <strong>${points} Rating</strong> • ${team.length} Models
+                        <strong>${rating} Rating</strong> • ${team.length} Models
                     </div>
                     
                     <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 10px; border: 1px solid ${faction.primaryColor}; margin-bottom: 30px;">
@@ -8814,7 +8804,7 @@ teamHTML += `
                                     <strong style="color: ${faction.primaryColor};">${model.name}</strong>
                                     <span style="color: #888; margin-left: 10px; font-size: 13px;">${model.type}</span>
                                 </div>
-                                <span style="color: var(--text-secondary);">${model.points} Rating</span>
+                                <span style="color: var(--text-secondary);">${model.rating} Rating</span>
                             </div>
                         `).join('')}
                     </div>
@@ -8952,14 +8942,14 @@ teamHTML += `
                 var rwNorm = _normName(modelData.startingRangedWeapon);
                 var rw = weaponsList.find(function(w) { return w.name === modelData.startingRangedWeapon; })
                       || weaponsList.find(function(w) { return _normName(w.name) === rwNorm; });
-                if (rw) startWeapons.push({ name: rw.name, type: rw.type || rw.range || '?', attacks: rw.attacks != null ? rw.attacks : '?', power: rw.power != null ? rw.power : '?', damage: rw.damage != null ? rw.damage : '?', effects: rw.effects || rw.traits || '', points: rw.points || '' });
+                if (rw) startWeapons.push({ name: rw.name, type: rw.type || rw.range || '?', attacks: rw.attacks != null ? rw.attacks : '?', power: rw.power != null ? rw.power : '?', damage: rw.damage != null ? rw.damage : '?', effects: rw.effects || rw.traits || '', rating: rw.rating || '' });
                 else startWeapons.push({ name: modelData.startingRangedWeapon, type: 'Ranged', attacks: '?', power: '?', damage: '?', effects: '' });
             }
             if (modelData.startingMeleeWeapon && modelData.startingMeleeWeapon !== '-') {
                 var mwNorm = _normName(modelData.startingMeleeWeapon);
                 var mw = weaponsList.find(function(w) { return w.name === modelData.startingMeleeWeapon; })
                       || weaponsList.find(function(w) { return _normName(w.name) === mwNorm; });
-                if (mw) startWeapons.push({ name: mw.name, type: mw.type || mw.range || '?', attacks: mw.attacks != null ? mw.attacks : '?', power: mw.power != null ? mw.power : '?', damage: mw.damage != null ? mw.damage : '?', effects: mw.effects || mw.traits || '', points: mw.points || '' });
+                if (mw) startWeapons.push({ name: mw.name, type: mw.type || mw.range || '?', attacks: mw.attacks != null ? mw.attacks : '?', power: mw.power != null ? mw.power : '?', damage: mw.damage != null ? mw.damage : '?', effects: mw.effects || mw.traits || '', rating: mw.rating || '' });
                 else startWeapons.push({ name: modelData.startingMeleeWeapon, type: 'Melee', attacks: '?', power: '?', damage: '?', effects: '' });
             }
 
@@ -9135,14 +9125,14 @@ teamHTML += `
             name: '',
             faction: '',
             models: [],
-            points: 0
+            rating: 0
         };
 
         function selectFaction(factionName) {
             editingTeamId = null;
             currentTeam.faction = factionName;
             currentTeam.models = [];
-            currentTeam.points = 0;
+            currentTeam.rating = 0;
             showTeamBuildingInterface();
         }
 
@@ -9293,14 +9283,14 @@ teamHTML += `
             stats.push('Pwr ' + (ew.power != null ? ew.power : '?'));
             stats.push('Dmg ' + (ew.damage != null ? ew.damage : '?'));
             if (stats.length) parts.push(stats.join('/'));
-            var pts = parseInt(ew.points) || 0;
+            var pts = parseInt(ew.rating) || 0;
             if (pts) parts.push(pts + ' Rating');
             return parts.join(' — ');
         }
 
         function _formatEquipLabel(e) {
             var parts = [e.name];
-            var pts = parseInt(e.points) || 0;
+            var pts = parseInt(e.rating) || 0;
             if (pts) parts.push(pts + ' Rating');
             return parts.join(' — ');
         }
@@ -9337,7 +9327,7 @@ teamHTML += `
                             <label>Team Name</label>
                             <input type="text" id="teamNameInput" placeholder="Alpha Squad" value="${currentTeam.name}"
                                    onchange="currentTeam.name = this.value">
-                            <div class="team-builder-rating" id="teamRatingWrap"><span id="teamPoints">${currentTeam.points}</span><span class="tb-rating-cap"> / ${TEAM_RATING_CAP}</span> Rating</div>
+                            <div class="team-builder-rating" id="teamRatingWrap"><span id="teamRating">${currentTeam.rating}</span><span class="tb-rating-cap"> / ${TEAM_RATING_CAP}</span> Rating</div>
                         </div>
 
                         <div class="team-builder-columns" id="teamBuilderColumns">
@@ -9356,7 +9346,7 @@ teamHTML += `
                                                 <div style="display:flex;align-items:center;justify-content:space-between;">
                                                     <div class="tb-model-name">${model.name}</div>
                                                     <div style="display:flex;align-items:center;gap:8px;">
-                                                        <div class="tb-model-rating">${model.points || '—'} Rating</div>
+                                                        <div class="tb-model-rating">${model.rating || '—'} Rating</div>
                                                         <button class="tb-add-btn" onclick="addPresetModelToTeam('${model.name.replace(/'/g, "\\'")}')">+</button>
                                                     </div>
                                                 </div>
@@ -9435,7 +9425,7 @@ teamHTML += `
                     power: w.power != null ? w.power : '?',
                     damage: w.damage != null ? w.damage : '?',
                     effects: w.effects || w.traits || '',
-                    points: w.points || ''
+                    rating: w.rating || ''
                 };
             });
             // Loadout items (Jetpack, Company Badge, etc.) are default gear — NOT slotted.
@@ -9458,13 +9448,13 @@ teamHTML += `
                 defaultWeapons: defaultSlotNames,
                 defaultInventory: loadout.slice(),
                 addedEquipment: [],
-                weaponPointsDelta: 0,
-                equipmentPointsDelta: 0,
+                weaponRatingDelta: 0,
+                equipmentRatingDelta: 0,
                 isExpanded: false
             };
 
             currentTeam.models.push(modelInstance);
-            currentTeam.points += parseInt(modelData.points) || 0;
+            currentTeam.rating += parseInt(modelData.rating) || 0;
 
             // Auto-add Pilot when a vehicle/tank is added
             if (_isModelVehicle(modelData)) {
@@ -9481,7 +9471,7 @@ teamHTML += `
             }
 
             renderCurrentTeam();
-            updateTeamPoints();
+            updateTeamRating();
         }
 
         function removeModelFromTeam(modelId) {
@@ -9489,7 +9479,7 @@ teamHTML += `
             if (index === -1) return;
 
             const model = currentTeam.models[index];
-            currentTeam.points -= model.points;
+            currentTeam.rating -= model.rating;
             currentTeam.models.splice(index, 1);
 
             // Auto-remove Pilot when a vehicle/tank is removed
@@ -9499,13 +9489,13 @@ teamHTML += `
                 });
                 if (pilotIndex !== -1) {
                     var pilot = currentTeam.models[pilotIndex];
-                    currentTeam.points -= pilot.points;
+                    currentTeam.rating -= pilot.rating;
                     currentTeam.models.splice(pilotIndex, 1);
                 }
             }
 
             renderCurrentTeam();
-            updateTeamPoints();
+            updateTeamRating();
         }
 
         function renderCurrentTeam() {
@@ -9539,7 +9529,7 @@ teamHTML += `
                 if (_isSlotWeapon(w)) return wrapWeaponWithTooltip(w);
                 return wrapEquipWithTooltip(w.name);
             }).filter(Boolean).join(', ');
-            var totalDelta = (model.weaponPointsDelta || 0) + (model.equipmentPointsDelta || 0);
+            var totalDelta = (model.weaponRatingDelta || 0) + (model.equipmentRatingDelta || 0);
             var deltaStr = totalDelta > 0 ? ' (+' + totalDelta + ')' : totalDelta < 0 ? ' (' + totalDelta + ')' : '';
             var modelType = (model.customName && model.customName !== model.name) ? model.name + ' \u00b7 ' : '';
             var notesText = model.notes || '';
@@ -9547,7 +9537,7 @@ teamHTML += `
                 '<div style="display:flex;align-items:center;justify-content:space-between;">' +
                     '<div class="tb-roster-name">' + displayName + '</div>' +
                     '<div style="display:flex;align-items:center;gap:6px;">' +
-                        '<span style="font-size:13px;font-weight:700;color:var(--text-secondary);">' + (model.points || '\u2014') + ' Rating' + deltaStr + '</span>' +
+                        '<span style="font-size:13px;font-weight:700;color:var(--text-secondary);">' + (model.rating || '\u2014') + ' Rating' + deltaStr + '</span>' +
                         '<button class="tb-edit-btn" onclick="toggleModelEdit(' + model.id + ')">Edit</button>' +
                         '<button class="tb-remove-btn" onclick="removeModelFromTeam(' + model.id + ')">&#10005;</button>' +
                     '</div>' +
@@ -9564,8 +9554,8 @@ teamHTML += `
         function _renderExpandedCard(model, fColor) {
             var role = _modelRole(model);
             var baseModel = _findBaseModel(model.name, currentTeam.faction || model.faction);
-            var basePts = parseInt(baseModel ? baseModel.points : (model.basePoints != null ? model.basePoints : model.points)) || 0;
-            var totalDelta = (model.weaponPointsDelta || 0) + (model.equipmentPointsDelta || 0);
+            var basePts = parseInt(baseModel ? baseModel.rating : (model.baseRating != null ? model.baseRating : model.rating)) || 0;
+            var totalDelta = (model.weaponRatingDelta || 0) + (model.equipmentRatingDelta || 0);
             var isVehicle = _isModelVehicle(model);
             var customName = model.customName || model.name;
             var portraitUrl = model.portrait || '';
@@ -9717,7 +9707,7 @@ teamHTML += `
                         '<div class="tb-roster-meta">' + model.name + (role ? ' \u00b7 ' + role : '') + '</div>' +
                     '</div>' +
                     '<div style="margin-left:auto;text-align:right;">' +
-                        '<div style="font-family:var(--font-heading);font-size:18px;font-weight:900;">' + model.points + ' Rating</div>' +
+                        '<div style="font-family:var(--font-heading);font-size:18px;font-weight:900;">' + model.rating + ' Rating</div>' +
                         deltaHTML +
                     '</div>' +
                 '</div>' +
@@ -9728,7 +9718,7 @@ teamHTML += `
                 equipHTML +
                 notesHTML +
                 '<div class="tb-edit-footer">' +
-                    '<div class="tb-edit-total">' + model.points + ' Rating total (base ' + basePts + ')</div>' +
+                    '<div class="tb-edit-total">' + model.rating + ' Rating total (base ' + basePts + ')</div>' +
                     '<div>' +
                         '<button class="tb-remove-btn" onclick="removeModelFromTeam(' + model.id + ')">Remove</button> ' +
                         '<button class="tb-collapse-btn" onclick="toggleModelEdit(' + model.id + ')">Done</button>' +
@@ -9818,10 +9808,10 @@ teamHTML += `
             }
         }
 
-        function updateTeamPoints() {
-            document.getElementById('teamPoints').textContent = currentTeam.points;
+        function updateTeamRating() {
+            document.getElementById('teamRating').textContent = currentTeam.rating;
             var wrap = document.getElementById('teamRatingWrap');
-            if (wrap) wrap.classList.toggle('is-over-budget', (currentTeam.points || 0) > TEAM_RATING_CAP);
+            if (wrap) wrap.classList.toggle('is-over-budget', (currentTeam.rating || 0) > TEAM_RATING_CAP);
         }
 
         function toggleModelEdit(modelId) {
@@ -10063,7 +10053,7 @@ teamHTML += `
 
         function _equipCardForWeapon(w) {
             var ew = _enrichWeapon(w);
-            var pts = (w.points != null && w.points !== '') ? parseInt(w.points) || 0 : 0;
+            var pts = (w.rating != null && w.rating !== '') ? parseInt(w.rating) || 0 : 0;
             var type = ew.type || w.range || 'Weapon';
             var isExpanded = currentTeam && currentTeam.equipExpandedName === w.name;
             var editingModel = currentTeam && currentTeam.editingModelId
@@ -10106,7 +10096,7 @@ teamHTML += `
         }
 
         function _equipCardForEquipment(e) {
-            var pts = (e.points != null && e.points !== '') ? parseInt(e.points) || 0 : 0;
+            var pts = (e.rating != null && e.rating !== '') ? parseInt(e.rating) || 0 : 0;
             var type = e.equipmentType || 'Equipment';
             var isExpanded = currentTeam && currentTeam.equipExpandedName === e.name;
             var editingModel = currentTeam && currentTeam.editingModelId
@@ -10305,30 +10295,30 @@ teamHTML += `
         }
         window.renderEquipmentPanel = renderEquipmentPanel;
 
-        // Recalculate all model points in currentTeam from current gameData.
+        // Recalculate all model rating in currentTeam from current gameData.
         // Call after loading a saved team so updated CSV costs propagate.
-        // Helper to get default points for a slot (weapon or equipment)
+        // Helper to get default rating for a slot (weapon or equipment)
         function _getDefaultSlotPts(defaultName) {
             if (!defaultName) return 0;
             var defW = (gameData.weapons || []).find(function(gw) { return gw.name === defaultName; });
-            if (defW) return parseInt(defW.points) || 0;
+            if (defW) return parseInt(defW.rating) || 0;
             var defE = lookupEquipData(defaultName);
-            if (defE) return parseInt(defE.points) || 0;
+            if (defE) return parseInt(defE.rating) || 0;
             return 0;
         }
 
-        // Look up current points for a weapon or equipment item from live gameData
-        // Falls back to the saved item.points only if not found in gameData
+        // Look up current rating for a weapon or equipment item from live gameData
+        // Falls back to the saved item.rating only if not found in gameData
         function _getLiveItemPts(item) {
             if (!item || !item.name) return 0;
             // Check weapons first
             var gw = (gameData.weapons || []).find(function(w) { return w.name === item.name; });
-            if (gw) return parseInt(gw.points) || 0;
+            if (gw) return parseInt(gw.rating) || 0;
             // Then equipment
             var ge = lookupEquipData(item.name);
-            if (ge) return parseInt(ge.points) || 0;
+            if (ge) return parseInt(ge.rating) || 0;
             // Fallback to saved value
-            return parseInt(item.points) || 0;
+            return parseInt(item.rating) || 0;
         }
 
         // Find a model in gameData by name+faction, with fuzzy fallback
@@ -10357,15 +10347,15 @@ teamHTML += `
         }
 
         // Refresh all weapon/equipment objects in a team from current gameData
-        // This ensures stale saved data (old points, stats, etc.) gets replaced with live values
+        // This ensures stale saved data (old rating, stats, etc.) gets replaced with live values
         function _hydrateTeamFromGameData() {
             (currentTeam.models || []).forEach(function(model) {
                 // Refresh base model stats from gameData (with fuzzy name matching)
                 var baseModel = _findBaseModel(model.name, currentTeam.faction || model.faction);
                 if (baseModel) {
-                    // Store the base points separately so we never lose it
-                    model.basePoints = parseInt(baseModel.points) || 0;
-                    console.log('[Hydrate] "' + model.name + '" matched → "' + baseModel.name + '" base=' + model.basePoints);
+                    // Store the base rating separately so we never lose it
+                    model.baseRating = parseInt(baseModel.rating) || 0;
+                    console.log('[Hydrate] "' + model.name + '" matched → "' + baseModel.name + '" base=' + model.baseRating);
                 } else {
                     console.warn('[Hydrate] NO MATCH for "' + model.name + '" (faction: ' + (currentTeam.faction || model.faction) + '). Available:', (gameData.models || []).map(function(m) { return m.name; }).join(', '));
                 }
@@ -10387,7 +10377,7 @@ teamHTML += `
                     if (!w || !w.name) return;
                     var liveW = (gameData.weapons || []).find(function(gw) { return gw.name === w.name; });
                     if (liveW) {
-                        w.points = liveW.points || '';
+                        w.rating = liveW.rating || '';
                         w.attacks = liveW.attacks != null ? liveW.attacks : w.attacks;
                         w.power = liveW.power != null ? liveW.power : w.power;
                         w.damage = liveW.damage != null ? liveW.damage : w.damage;
@@ -10397,7 +10387,7 @@ teamHTML += `
                         // Try equipment lookup
                         var liveE = lookupEquipData(w.name);
                         if (liveE) {
-                            w.points = liveE.points || '';
+                            w.rating = liveE.rating || '';
                             if (liveE.attacks != null) w.attacks = liveE.attacks;
                             if (liveE.power != null) w.power = liveE.power;
                             if (liveE.damage != null) w.damage = liveE.damage;
@@ -10410,17 +10400,17 @@ teamHTML += `
                     if (!eq || !eq.name) return;
                     var liveE = lookupEquipData(eq.name);
                     if (liveE) {
-                        eq.points = liveE.points || '';
+                        eq.rating = liveE.rating || '';
                     }
                 });
             });
         }
 
-        function recalculateAllTeamPoints() {
+        function recalculateAllTeamRating() {
             // First hydrate all items from current gameData
             _hydrateTeamFromGameData();
 
-            currentTeam.points = 0;
+            currentTeam.rating = 0;
             (currentTeam.models || []).forEach(function(model) {
                 // Pad weapons / defaultWeapons to the model's carry capacity (XLSX TOTAL SLOTS).
                 var capacity = Math.max(1, parseInt(model.totalSlots || model.carryCapacity || 4) || 4);
@@ -10430,8 +10420,8 @@ teamHTML += `
                 while (model.defaultWeapons.length < capacity) model.defaultWeapons.push(null);
 
                 var baseModel = _findBaseModel(model.name, currentTeam.faction || model.faction);
-                var basePts = parseInt(baseModel ? baseModel.points : (model.basePoints != null ? model.basePoints : model.points)) || 0;
-                model.basePoints = basePts;
+                var basePts = parseInt(baseModel ? baseModel.rating : (model.baseRating != null ? model.baseRating : model.rating)) || 0;
+                model.baseRating = basePts;
 
                 // Unified 4-slot delta calculation (always use live gameData prices).
                 // Default gear is baked into the model's base Rating — unequipping or
@@ -10442,31 +10432,31 @@ teamHTML += `
                     var defaultName = (model.defaultWeapons || [])[i] || null;
                     var defaultPts = _getDefaultSlotPts(defaultName);
                     slotDelta += Math.max(0, currentPts - defaultPts);
-                    // Update saved item points to current gameData value
-                    if (w) w.points = currentPts;
+                    // Update saved item rating to current gameData value
+                    if (w) w.rating = currentPts;
                 });
 
-                model.weaponPointsDelta = slotDelta;
+                model.weaponRatingDelta = slotDelta;
                 // Calculate equipment delta from addedEquipment (always use live gameData prices)
                 var equipDelta = 0;
                 (model.addedEquipment || []).forEach(function(eq) {
                     if (eq) {
                         var livePts = _getLiveItemPts(eq);
-                        eq.points = livePts; // Update to current
+                        eq.rating = livePts; // Update to current
                         equipDelta += livePts;
                     }
                 });
-                model.equipmentPointsDelta = equipDelta;
-                model.points = Math.max(basePts, basePts + slotDelta + equipDelta);
-                console.log('[Recalc] "' + model.name + '" base=' + basePts + ' slotDelta=' + slotDelta + ' equipDelta=' + equipDelta + ' → total=' + model.points + ' | weapons:', (model.weapons || []).map(function(w) { return w ? w.name + '(' + w.points + ')' : 'empty'; }).join(', ') + ' | defaults:', (model.defaultWeapons || []).join(', '));
-                currentTeam.points += model.points;
+                model.equipmentRatingDelta = equipDelta;
+                model.rating = Math.max(basePts, basePts + slotDelta + equipDelta);
+                console.log('[Recalc] "' + model.name + '" base=' + basePts + ' slotDelta=' + slotDelta + ' equipDelta=' + equipDelta + ' → total=' + model.rating + ' | weapons:', (model.weapons || []).map(function(w) { return w ? w.name + '(' + w.rating + ')' : 'empty'; }).join(', ') + ' | defaults:', (model.defaultWeapons || []).join(', '));
+                currentTeam.rating += model.rating;
             });
         }
 
-        function recalculateModelPoints(model) {
+        function recalculateModelRating(model) {
             var baseModel = _findBaseModel(model.name, currentTeam.faction || model.faction);
-            var basePts = parseInt(baseModel ? baseModel.points : (model.basePoints != null ? model.basePoints : model.points)) || 0;
-            model.basePoints = basePts;
+            var basePts = parseInt(baseModel ? baseModel.rating : (model.baseRating != null ? model.baseRating : model.rating)) || 0;
+            model.baseRating = basePts;
 
             // Unified 4-slot delta calculation (always use live gameData prices).
             // Default gear is baked into the model's base Rating — unequipping or
@@ -10477,7 +10467,7 @@ teamHTML += `
                 var defaultName = (model.defaultWeapons || [])[i] || null;
                 var defaultPts = _getDefaultSlotPts(defaultName);
                 slotDelta += Math.max(0, currentPts - defaultPts);
-                if (w) w.points = currentPts;
+                if (w) w.rating = currentPts;
             });
 
             // Calculate equipment delta from addedEquipment (always use live gameData prices)
@@ -10485,16 +10475,16 @@ teamHTML += `
             (model.addedEquipment || []).forEach(function(eq) {
                 if (eq) {
                     var livePts = _getLiveItemPts(eq);
-                    eq.points = livePts;
+                    eq.rating = livePts;
                     equipDelta += livePts;
                 }
             });
 
-            var oldPoints = model.points || 0;
-            model.weaponPointsDelta = slotDelta;
-            model.equipmentPointsDelta = equipDelta;
-            model.points = Math.max(basePts, basePts + slotDelta + equipDelta);
-            currentTeam.points += (model.points - oldPoints);
+            var oldRating = model.rating || 0;
+            model.weaponRatingDelta = slotDelta;
+            model.equipmentRatingDelta = equipDelta;
+            model.rating = Math.max(basePts, basePts + slotDelta + equipDelta);
+            currentTeam.rating += (model.rating - oldRating);
         }
 
         // Unified slot update: value is "w:WeaponName", "e:EquipName", or "" for empty
@@ -10518,7 +10508,7 @@ teamHTML += `
                     power: newWeapon.power != null ? newWeapon.power : '?',
                     damage: newWeapon.damage != null ? newWeapon.damage : '?',
                     effects: newWeapon.effects || newWeapon.traits || '',
-                    points: newWeapon.points || ''
+                    rating: newWeapon.rating || ''
                 };
             } else if (value.indexOf('e:') === 0) {
                 // Equipment
@@ -10539,7 +10529,7 @@ teamHTML += `
                     power: '-',
                     damage: '-',
                     effects: newEquip.passiveAbility || newEquip.passioveAbility || newEquip.actionName || '',
-                    points: newEquip.points || ''
+                    rating: newEquip.rating || ''
                 };
             }
 
@@ -10549,9 +10539,9 @@ teamHTML += `
                 if (w && w.type === 'Equipment') model.inventory.push(w.name);
             });
 
-            recalculateModelPoints(model);
+            recalculateModelRating(model);
             renderCurrentTeam();
-            updateTeamPoints();
+            updateTeamRating();
         }
         window.updateModelSlot = updateModelSlot;
 
@@ -10728,11 +10718,11 @@ teamHTML += `
                     picker.innerHTML = matches.map(function(m) {
                         var t = m.team;
                         var count = (t.models || []).length;
-                        // Recalculate points from current gameData
+                        // Recalculate rating from current gameData
                         var freshPts = 0;
                         (t.models || []).forEach(function(md) {
                             var bm = _findBaseModel(md.name, t.faction || md.faction);
-                            var bp = parseInt(bm ? bm.points : (md.basePoints != null ? md.basePoints : md.points)) || 0;
+                            var bp = parseInt(bm ? bm.rating : (md.baseRating != null ? md.baseRating : md.rating)) || 0;
                             var wd = 0;
                             (md.weapons || []).forEach(function(w, i) {
                                 var cp = _getLiveItemPts(w);
@@ -10786,9 +10776,9 @@ teamHTML += `
                     models: (team.models || []).map(function(m) {
                         return Object.assign({}, m, { isExpanded: false });
                     }),
-                    points: 0
+                    rating: 0
                 };
-                recalculateAllTeamPoints();
+                recalculateAllTeamRating();
                 showTeamBuildingInterface();
             });
         }
@@ -10802,7 +10792,7 @@ teamHTML += `
                         <div class="tb-saved-check">✓</div>
                         <div class="tb-saved-title">Team Saved</div>
                         <div class="tb-saved-detail">
-                            "${teamName}" — ${currentTeam.faction} · ${currentTeam.points} Rating · ${currentTeam.models.length} models
+                            "${teamName}" — ${currentTeam.faction} · ${currentTeam.rating} Rating · ${currentTeam.models.length} models
                         </div>
                         <div class="tb-saved-actions">
                             <button onclick="prepareToJoinWithTeam('${teamName.replace(/'/g, "\\'")}')">Join a Session</button>
@@ -10947,11 +10937,11 @@ teamHTML += `
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 0 20px;">
                             ${teamsList.map(([teamId, team]) => {
                                 const faction = gameData.factions.find(f => f.name === team.faction);
-                                // Recalculate points from current gameData instead of using stale saved values
-                                let freshPoints = 0;
+                                // Recalculate rating from current gameData instead of using stale saved values
+                                let freshRating = 0;
                                 (team.models || []).forEach(function(m) {
                                     var baseModel = _findBaseModel(m.name, team.faction || m.faction);
-                                    var basePts = parseInt(baseModel ? baseModel.points : (m.basePoints != null ? m.basePoints : m.points)) || 0;
+                                    var basePts = parseInt(baseModel ? baseModel.rating : (m.baseRating != null ? m.baseRating : m.rating)) || 0;
                                     var wDelta = 0;
                                     (m.weapons || []).forEach(function(w, i) {
                                         var cPts = _getLiveItemPts(w);
@@ -10961,14 +10951,14 @@ teamHTML += `
                                     });
                                     var eDelta = 0;
                                     (m.addedEquipment || []).forEach(function(eq) { if (eq) eDelta += _getLiveItemPts(eq); });
-                                    freshPoints += basePts + wDelta + eDelta;
+                                    freshRating += basePts + wDelta + eDelta;
                                 });
                                 return `
                                     <div style="background: var(--white); padding: 20px; border-radius: 10px; border: 1px solid var(--border);">
                                         <h3 style="color: var(--accent); margin-bottom: 10px;">${team.name}</h3>
                                         <div style="color: var(--text-secondary); margin-bottom: 15px;">
                                             <div>${team.faction}</div>
-                                            <div>${freshPoints} Rating • ${team.models.length} models</div>
+                                            <div>${freshRating} Rating • ${team.models.length} models</div>
                                         </div>
                                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                             <button onclick="editTeamInline('${teamId}')" class="btn btn-secondary" style="flex: 1; min-width: 70px;">Edit</button>
@@ -11003,9 +10993,9 @@ teamHTML += `
                         models: (team.models || []).map(function(m) {
                             return Object.assign({}, m, { isExpanded: false });
                         }),
-                        points: 0
+                        rating: 0
                     };
-                    recalculateAllTeamPoints();
+                    recalculateAllTeamRating();
                     // Switch from My Teams to Team Builder view
                     document.getElementById('myTeamsTab').style.display = 'none';
                     document.getElementById('teamBuilderTab').style.display = 'block';
@@ -11344,7 +11334,7 @@ teamHTML += `
                     const team = snapshot.val();
                     if (team) {
                         team.models.splice(modelIndex, 1);
-                        team.points = team.models.length * 15;
+                        team.rating = team.models.length * 15;
                         team.modified = Date.now();
                         
                         database.ref(`players/${currentPlayer}/teams/${teamId}`).set(team).then(() => {
@@ -11409,7 +11399,7 @@ teamHTML += `
                                 <h3 style="color: var(--accent); margin-bottom: 10px;">${team.name}</h3>
                                 <div style="color: var(--text-secondary);">
                                     <div><strong>${team.faction || 'No Faction'}</strong></div>
-                                    <div>${team.points} Rating • ${team.models.length} models</div>
+                                    <div>${team.rating} Rating • ${team.models.length} models</div>
                                 </div>
                                 <div style="color: var(--text-secondary); font-size: 13px; margin-top: 10px;">
                                     ${team.models.map(m => m.name).join(', ')}
@@ -11684,7 +11674,7 @@ teamHTML += `
             const headerH = 28;                           // header area height
             const cardH = (ph - my - headerH - my - gap * (rows - 1)) / rows; // ~75mm
 
-            const totalPts = (team.models || []).reduce(function(s, m) { return s + (parseInt(m.points) || 0); }, 0);
+            const totalPts = (team.models || []).reduce(function(s, m) { return s + (parseInt(m.rating) || 0); }, 0);
             const totalPages = Math.ceil((team.models || []).length / 6) || 1;
 
             function drawHeader(pageNum) {
@@ -11721,7 +11711,7 @@ teamHTML += `
                 doc.setTextColor(0);
                 doc.text('//SPACE-OPS 3030/ROSTER', bx, by + 16);
 
-                // --- Player / Faction / Points ---
+                // --- Player / Faction / Rating ---
                 var infoX = pw / 2 + 5;
                 doc.setLineWidth(1.5);
                 doc.line(infoX - 2, my + 2, infoX - 2, my + headerH - 4);
@@ -11736,7 +11726,7 @@ teamHTML += `
                 doc.text(team.owner || currentPlayer || '', infoX + 20, my + 6);
                 doc.text(team.faction || '', infoX + 22, my + 13);
 
-                // Points
+                // Rating
                 doc.setLineWidth(1.5);
                 var ptX = pw - mx - 30;
                 doc.line(ptX - 2, my + 2, ptX - 2, my + headerH - 4);
