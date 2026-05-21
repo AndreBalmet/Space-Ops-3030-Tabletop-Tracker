@@ -91,6 +91,7 @@ const makeAsset = (modelId) => {
 const SAVED_TEAMS_KEY = 'spaceops.teams.v1';
 const CURRENT_TEAM_KEY = 'spaceops.current.v1';
 const PLAYER_KEY = 'spaceops.player.v1';
+const ADMIN_KEY = 'spaceops.isAdmin.v1';
 
 const loadSavedTeams = () => {
   try { return JSON.parse(localStorage.getItem(SAVED_TEAMS_KEY) || '[]'); } catch { return []; }
@@ -426,6 +427,7 @@ function App({ dataVersion }) {
   void dataVersion;
   const [screen, setScreen] = useState('home'); // 'home' | 'builder' | 'view'
   const [player, setPlayer] = useState(() => localStorage.getItem(PLAYER_KEY) || '');
+  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_KEY) === 'true');
   const [team, setTeam] = useState(null);
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null); // {kind:'load'} | {kind:'login'}
@@ -434,6 +436,8 @@ function App({ dataVersion }) {
   useEffect(() => {
     if (player) localStorage.setItem(PLAYER_KEY, player);
     else localStorage.removeItem(PLAYER_KEY);
+    if (isAdmin) localStorage.setItem(ADMIN_KEY, 'true');
+    else localStorage.removeItem(ADMIN_KEY);
   }, [player]);
   useEffect(() => {
     if (team) writeCurrent(team);
@@ -518,7 +522,7 @@ function App({ dataVersion }) {
           player={player}
           onChangePlayer={setPlayer}
           onLogin={() => setModal({ kind: 'login' })}
-          onLogout={() => { setPlayer(''); showToast('Logged out'); }}
+          onLogout={() => { setPlayer(''); setIsAdmin(false); showToast('Logged out'); }}
           onCreate={() => {
             if (!player) { setModal({ kind: 'login', next: 'create' }); return; }
             newTeam();
@@ -583,14 +587,15 @@ function App({ dataVersion }) {
 
       {modal?.kind === 'login' && (
         <LoginModal
-          onLogin={(name) => {
+          onLogin={(name, admin) => {
             setPlayer(name);
+            setIsAdmin(!!admin);
             const next = modal.next;
             setModal(null);
             // chain into the next action user wanted
             if (next === 'create') setTimeout(newTeam, 0);
             if (next === 'load') setTimeout(() => setModal({ kind: 'load' }), 0);
-            showToast('Welcome, ' + name);
+            showToast(admin ? 'Admin signed in' : 'Welcome, ' + name);
           }}
           onClose={() => setModal(null)}
         />
@@ -676,40 +681,93 @@ function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, has
 // ============================================================
 // LOGIN MODAL
 // ============================================================
+// SHA-256 of a string as lowercase hex — matches the legacy tracker's _sha()
+// so the admin/passwordHash check is interchangeable between the two apps.
+async function sha256Hex(s) {
+  const buf = new TextEncoder().encode(s);
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 function LoginModal({ onLogin, onClose }) {
   const [name, setName] = useState('');
-  const submit = () => {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const isAdminAttempt = name.trim().toLowerCase() === 'admin';
+  const inputStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    font: 'inherit',
+    fontSize: 16,
+    border: '1px solid var(--line)',
+    borderRadius: 4,
+    outline: 'none',
+  };
+
+  const submit = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    onLogin(trimmed);
+    setError('');
+    if (isAdminAttempt) {
+      if (!password) { setError('Admin password required'); return; }
+      setSubmitting(true);
+      try {
+        const [hash, res] = await Promise.all([
+          sha256Hex(password),
+          fetch(`${FIREBASE_DB_URL}/admin/passwordHash.json`),
+        ]);
+        const stored = res.ok ? await res.json() : null;
+        if (!stored) { setError('Admin not configured in Firebase.'); setSubmitting(false); return; }
+        if (hash !== stored) { setError('Incorrect admin password.'); setSubmitting(false); setPassword(''); return; }
+        onLogin(trimmed, true);
+      } catch (err) {
+        setError('Login failed: ' + (err?.message || err));
+        setSubmitting(false);
+      }
+      return;
+    }
+    onLogin(trimmed, false);
   };
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380 }}>
         <h2>Log In</h2>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: -6, marginBottom: 16 }}>
-          Enter a player name to continue.
+          {isAdminAttempt
+            ? 'Enter the admin password to access admin tools.'
+            : 'Enter a player name to continue.'}
         </p>
         <input
           autoFocus
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+          onChange={(e) => { setName(e.target.value); setError(''); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !isAdminAttempt) submit(); }}
           placeholder="Player name"
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            font: 'inherit',
-            fontSize: 16,
-            border: '1px solid var(--line)',
-            borderRadius: 4,
-            outline: 'none',
-          }}
+          style={inputStyle}
         />
+        {isAdminAttempt && (
+          <input
+            type="password"
+            value={password}
+            autoFocus={false}
+            onChange={(e) => { setPassword(e.target.value); setError(''); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            placeholder="Admin password"
+            style={{ ...inputStyle, marginTop: 8 }}
+          />
+        )}
+        {error && (
+          <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 8, fontWeight: 700 }}>{error}</div>
+        )}
         <div className="modal__actions">
           <button onClick={onClose}>Cancel</button>
-          <button onClick={submit} disabled={!name.trim()}>Log In</button>
+          <button
+            onClick={submit}
+            disabled={!name.trim() || submitting || (isAdminAttempt && !password)}
+          >{submitting ? 'Checking…' : 'Log In'}</button>
         </div>
       </div>
     </div>
