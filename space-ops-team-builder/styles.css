@@ -853,7 +853,7 @@ button { font-family: inherit; }
   border-bottom: 1px solid var(--red);
   margin-bottom: 8px;
 }
-.weapon-box__stats > div { text-align: left; }
+.weapon-box__stats > div { text-align: center; }
 .weapon-box__stats .lbl {
   font-size: 9px;
   font-weight: 700;
