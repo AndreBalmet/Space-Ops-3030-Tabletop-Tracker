@@ -292,6 +292,54 @@ function exportTeamToPDF(team, player) {
 // ============================================================
 const FIREBASE_DB_URL = 'https://space-ops-3030-default-rtdb.firebaseio.com';
 
+// Pull the *live* game data from Firebase /gameData (set by admins via XLSX
+// upload in the legacy tracker). Mutates window.SPACE_OPS_DATA in place so the
+// DATA constant captured at module load reflects fresh values without needing
+// to rewrite every component reference. Falls back to the bundled static
+// snapshot in space-ops-data.js if Firebase is unreachable.
+async function loadGameDataFromFirebase() {
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/gameData.json`);
+    if (!res.ok) {
+      console.warn('[gameData] firebase HTTP', res.status, '— using bundled fallback');
+      return false;
+    }
+    const fb = await res.json();
+    if (!fb || typeof fb !== 'object') return false;
+
+    // Firebase model schema uses `carryCapacity` where the app expects
+    // `totalSlots`; mirror the field so existing code keeps working.
+    const normalizeModel = (m) => {
+      if (!m || typeof m !== 'object') return m;
+      const out = { ...m };
+      if (out.totalSlots == null && out.carryCapacity != null) out.totalSlots = out.carryCapacity;
+      return out;
+    };
+
+    const target = window.SPACE_OPS_DATA;
+    if (Array.isArray(fb.factions))         target.factions = fb.factions;
+    if (Array.isArray(fb.models))           target.models = fb.models.map(normalizeModel);
+    if (Array.isArray(fb.weapons))          target.weapons = fb.weapons;
+    if (Array.isArray(fb.equipment))        target.equipment = fb.equipment;
+    if (Array.isArray(fb.traits))           target.traits = fb.traits;
+    if (Array.isArray(fb.actions))          target.actions = fb.actions;
+    if (Array.isArray(fb.actionCategories)) target.actionCategories = fb.actionCategories;
+    if (Array.isArray(fb.conditions))       target.conditions = fb.conditions;
+    console.log('[gameData] loaded from Firebase', {
+      factions: target.factions.length,
+      models: target.models.length,
+      weapons: target.weapons.length,
+      equipment: target.equipment.length,
+      traits: target.traits.length,
+      lastUpdated: fb.lastUpdated,
+    });
+    return true;
+  } catch (err) {
+    console.warn('[gameData] firebase fetch failed — using bundled fallback:', err);
+    return false;
+  }
+}
+
 async function fetchFirebaseTeams(playerName) {
   if (!playerName) return [];
   try {
@@ -1715,4 +1763,24 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
 // ============================================================
 // MOUNT
 // ============================================================
-ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+// AppRoot — defers App mount until /gameData is fetched from Firebase, so the
+// app always uses the live admin-uploaded XLSX instead of the bundled snapshot.
+function AppRoot() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    loadGameDataFromFirebase().finally(() => setReady(true));
+  }, []);
+  if (!ready) {
+    return (
+      <div style={{
+        display: 'grid', placeItems: 'center', minHeight: '100vh',
+        color: 'var(--muted)', fontSize: 14, fontFamily: 'inherit'
+      }}>
+        Loading game data…
+      </div>
+    );
+  }
+  return <App />;
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<AppRoot />);
