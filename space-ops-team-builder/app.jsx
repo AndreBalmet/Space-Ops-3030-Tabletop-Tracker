@@ -458,6 +458,24 @@ function App({ dataVersion }) {
     if (team) writeCurrent(team);
   }, [team]);
   useEffect(() => {
+    // Auto-save: every team change (rename, add/remove asset, equip, etc.)
+    // is debounced 500ms then written into the savedTeams list, so edits
+    // made in View Team (which has no Save button) survive switching teams
+    // via Load. Skips when team is null and skips FB-only "templates" only
+    // if they have no edits — here we save regardless since FB teams get a
+    // local copy as soon as the user makes any change.
+    if (!team) return;
+    const handle = setTimeout(() => {
+      const list = loadSavedTeams();
+      const idx = list.findIndex((t) => t.id === team.id);
+      const snapshot = { ...team, savedAt: Date.now() };
+      if (idx >= 0) list[idx] = snapshot;
+      else list.unshift(snapshot);
+      writeSavedTeams(list);
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [team]);
+  useEffect(() => {
     // Persist screen so refreshes return the user to where they were.
     if (screen === 'home') localStorage.removeItem(SCREEN_KEY);
     else localStorage.setItem(SCREEN_KEY, screen);
