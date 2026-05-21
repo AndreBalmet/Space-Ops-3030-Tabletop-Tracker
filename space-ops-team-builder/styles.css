@@ -36,6 +36,10 @@
 
 * { box-sizing: border-box; }
 html, body, #app { min-height: 100vh; }
+/* Suppress iOS Safari's pull-to-refresh and rubber-band scrolling — a hard
+   refresh used to wipe in-progress customNames before session restore landed,
+   and even with restore, the reload is disruptive on iPad. */
+html, body { overscroll-behavior-y: none; }
 /* Both html and body get the bg so when content scrolls past 100vh, the area
    beneath body still paints the same color (otherwise the browser's default
    bg shows through — looks like a dark gap in dark-mode browsers).

@@ -92,6 +92,7 @@ const SAVED_TEAMS_KEY = 'spaceops.teams.v1';
 const CURRENT_TEAM_KEY = 'spaceops.current.v1';
 const PLAYER_KEY = 'spaceops.player.v1';
 const ADMIN_KEY = 'spaceops.isAdmin.v1';
+const SCREEN_KEY = 'spaceops.screen.v1';
 
 const loadSavedTeams = () => {
   try { return JSON.parse(localStorage.getItem(SAVED_TEAMS_KEY) || '[]'); } catch { return []; }
@@ -425,10 +426,24 @@ function App({ dataVersion }) {
   // re-render whenever AppRoot bumps it (i.e. when admin pushes new XLSX
   // gameData). That cascade re-runs every child's render and useMemo deps.
   void dataVersion;
-  const [screen, setScreen] = useState('home'); // 'home' | 'builder' | 'view'
+  // Restore screen + team from localStorage on mount so page refreshes
+  // (incl. iPad pull-to-refresh) don't wipe in-progress work like
+  // customNames. Falls back to 'home' if no current team is saved.
+  const [screen, setScreen] = useState(() => {
+    const stored = localStorage.getItem(SCREEN_KEY);
+    if (stored !== 'builder' && stored !== 'view') return 'home';
+    // Only honor a non-home screen if a current team is actually saved.
+    return loadCurrent() ? stored : 'home';
+  }); // 'home' | 'builder' | 'view'
   const [player, setPlayer] = useState(() => localStorage.getItem(PLAYER_KEY) || '');
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_KEY) === 'true');
-  const [team, setTeam] = useState(null);
+  const [team, setTeam] = useState(() => {
+    const cur = loadCurrent();
+    if (!cur || !Array.isArray(cur.assets)) return null;
+    // Asset instanceIds need to be fresh per session (nextInstanceId is
+    // module-scoped and resets on reload).
+    return { ...cur, assets: cur.assets.map((a) => ({ ...a, instanceId: ++nextInstanceId })) };
+  });
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null); // {kind:'load'} | {kind:'login'}
   const [firebaseTeams, setFirebaseTeams] = useState(null); // null = loading, [] = empty
@@ -442,6 +457,16 @@ function App({ dataVersion }) {
   useEffect(() => {
     if (team) writeCurrent(team);
   }, [team]);
+  useEffect(() => {
+    // Persist screen so refreshes return the user to where they were.
+    if (screen === 'home') localStorage.removeItem(SCREEN_KEY);
+    else localStorage.setItem(SCREEN_KEY, screen);
+  }, [screen]);
+  useEffect(() => {
+    // Defensive: if team somehow becomes null while on a team-only screen,
+    // fall back to home so the UI doesn't render with missing data.
+    if (!team && screen !== 'home') setScreen('home');
+  }, [team, screen]);
   useEffect(() => {
     if (!player) { setFirebaseTeams([]); return; }
     let cancelled = false;
