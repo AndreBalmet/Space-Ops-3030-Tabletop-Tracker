@@ -325,6 +325,8 @@ async function loadGameDataFromFirebase() {
     if (Array.isArray(fb.actions))          target.actions = fb.actions;
     if (Array.isArray(fb.actionCategories)) target.actionCategories = fb.actionCategories;
     if (Array.isArray(fb.conditions))       target.conditions = fb.conditions;
+    target._version = (target._version || 0) + 1;
+    target._lastUpdated = fb.lastUpdated;
     console.log('[gameData] loaded from Firebase', {
       factions: target.factions.length,
       models: target.models.length,
@@ -417,7 +419,11 @@ function convertFbTeam(fbId, fb) {
 // ============================================================
 // ROOT APP
 // ============================================================
-function App() {
+function App({ dataVersion }) {
+  // dataVersion is unused directly but its presence as a prop causes App to
+  // re-render whenever AppRoot bumps it (i.e. when admin pushes new XLSX
+  // gameData). That cascade re-runs every child's render and useMemo deps.
+  void dataVersion;
   const [screen, setScreen] = useState('home'); // 'home' | 'builder' | 'view'
   const [player, setPlayer] = useState(() => localStorage.getItem(PLAYER_KEY) || '');
   const [team, setTeam] = useState(null);
@@ -1536,7 +1542,7 @@ function AssetCard({ asset, onOpenHover, onRename }) {
   const customName = asset.customName || baseName;
   const { weapons, equipment } = useMemo(
     () => collectAssetGear(asset),
-    [asset.modelId, asset.slots?.map((s) => s?.name).join('|'), JSON.stringify(asset.defaults || null)]
+    [asset.modelId, asset.slots?.map((s) => s?.name).join('|'), JSON.stringify(asset.defaults || null), window.SPACE_OPS_DATA?._version]
   );
   const loadout = parseLoadout(m);
 
@@ -1763,13 +1769,61 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
 // ============================================================
 // MOUNT
 // ============================================================
-// AppRoot — defers App mount until /gameData is fetched from Firebase, so the
-// app always uses the live admin-uploaded XLSX instead of the bundled snapshot.
+// AppRoot — defers App mount until /gameData is fetched from Firebase. Then
+// polls /gameData/lastUpdated every 60s; if the timestamp changes (i.e. an
+// admin pushed a new XLSX upload), refetches the whole gameData object and
+// bumps a version counter to cascade re-renders into the React tree.
 function AppRoot() {
   const [ready, setReady] = useState(false);
+  // dataVersion is incremented every time loadGameDataFromFirebase succeeds.
+  // Passing it as a prop into App forces a re-render even though the App
+  // component itself doesn't directly read gameData — children's useMemo deps
+  // can include `window.SPACE_OPS_DATA._version` to invalidate stale caches.
+  const [dataVersion, setDataVersion] = useState(0);
+
   useEffect(() => {
-    loadGameDataFromFirebase().finally(() => setReady(true));
+    let cancelled = false;
+    let lastTs = null;
+
+    loadGameDataFromFirebase().finally(() => {
+      if (!cancelled) {
+        lastTs = window.SPACE_OPS_DATA?._lastUpdated || null;
+        setDataVersion(window.SPACE_OPS_DATA?._version || 0);
+        setReady(true);
+      }
+    });
+
+    // Poll for admin XLSX updates every 60s — cheap GET against
+    // /gameData/lastUpdated (a single timestamp), only refetches the full
+    // object when the timestamp actually changes.
+    const tick = async () => {
+      try {
+        const res = await fetch(`${FIREBASE_DB_URL}/gameData/lastUpdated.json`);
+        if (!res.ok) return;
+        const ts = await res.json();
+        if (!ts || ts === lastTs) return;
+        const updated = await loadGameDataFromFirebase();
+        if (updated && !cancelled) {
+          lastTs = window.SPACE_OPS_DATA?._lastUpdated || ts;
+          setDataVersion(window.SPACE_OPS_DATA?._version || 0);
+          console.log('[gameData] live refresh applied (admin pushed new XLSX)');
+        }
+      } catch (err) { /* ignore transient network errors */ }
+    };
+    const id = setInterval(tick, 60_000);
+
+    // Also refresh whenever the tab regains visibility — covers laptops
+    // waking from sleep or users tabbing back after a long idle.
+    const onVis = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVis);
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
+
   if (!ready) {
     return (
       <div style={{
@@ -1780,7 +1834,7 @@ function AppRoot() {
       </div>
     );
   }
-  return <App />;
+  return <App dataVersion={dataVersion} />;
 }
 
 ReactDOM.createRoot(document.getElementById('app')).render(<AppRoot />);
