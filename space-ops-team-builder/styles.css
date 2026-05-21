@@ -18,28 +18,33 @@
   --text: #111111;
   --muted: #6B6B6B;
 
-  /* Accents */
-  --red: #D9302D;       /* primary red (PLAYER tag, selected highlight, ranged) */
-  --red-bg: #E04444;    /* slightly brighter for selected row bg */
-  --green: #2D8A50;     /* melee */
-  --blue: #2F5FB8;      /* equipment */
-  --purple: #6E4FB7;    /* cybertech */
-  --pill-dark: #1A1A1A; /* pill background */
+  /* Accents — sampled from WebApp_v2.pdf page 6 */
+  --red: #D9302D;        /* primary red (PLAYER tag, ranged accent) */
+  --red-bg: #E44A4A;     /* selected row bg (mock pixel #E44A4A) */
+  --green: #2D8A50;      /* melee */
+  --blue: #2F5FB8;       /* equipment */
+  --purple: #6E4FB7;     /* cybertech */
+  --pill-dark: #2D2D2D;  /* pill background (mock pixel #2D2D2D) */
   --pill-text: #F2F2F2;
 
   /* Sizing */
   --col-width: 380px;
   --radius: 4px;
   --radius-lg: 6px;
+  --radius-pill: 10px;
 }
 
 * { box-sizing: border-box; }
-html, body, #app { height: 100%; }
+html, body, #app { min-height: 100vh; }
+/* Both html and body get the bg so when content scrolls past 100vh, the area
+   beneath body still paints the same color (otherwise the browser's default
+   bg shows through — looks like a dark gap in dark-mode browsers).
+   Using 100vh (not 100%) so it always references the viewport directly. */
+html, body { background: var(--bg); }
 body {
   margin: 0;
   font-family: var(--font-sans);
   color: var(--text);
-  background: var(--bg);
   font-size: 14px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
@@ -58,10 +63,11 @@ button { font-family: inherit; }
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid var(--line);
-  background: var(--bg);
-  position: sticky;
+  background: transparent;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 50;
 }
 .topbar__menu {
@@ -83,13 +89,18 @@ button { font-family: inherit; }
 .topbar__crumbs .crumb:hover { color: var(--red); }
 .topbar__crumbs .crumb--root { text-transform: uppercase; letter-spacing: 0.02em; }
 
-/* ==== Landing / Home ==== */
+/* ==== Landing / Home ====
+   Aligned to the team builder's column geometry (per page 7 reference):
+   left edge = col 1 content-left (x=320), right edge = col 2 right edge
+   (x=890) — a 570px-wide content band that sits on the same grid as the
+   builder when you flip between pages. */
 .home {
   margin: 56px 0 0;
-  padding: 0 24px 80px 22%;
+  padding: 0 0 80px 320px;
 }
 .home__inner {
-  max-width: 560px;
+  width: 570px;
+  max-width: calc(100vw - 320px);
 }
 .home__title {
   font-size: 32px;
@@ -101,12 +112,16 @@ button { font-family: inherit; }
   white-space: nowrap;
 }
 .home__stripes {
-  height: 96px;
+  height: 114px;
   width: 100%;
-  background-color: #fff;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='110' height='96' viewBox='0 0 110 96'><polygon points='96,0 184,0 88,96 0,96' fill='%23000'/><polygon points='-14,0 74,0 -22,96 -110,96' fill='%23000'/></svg>");
-  background-repeat: repeat-x;
-  background-size: 110px 96px;
+  /* Caution-tape stripes — 42deg off vertical, ~66/34 stripe-to-gap,
+     pixel-matched to page-1 of WebApp_v2.pdf at 1500-vp scale. */
+  background:
+    repeating-linear-gradient(
+      132deg,
+      transparent 0 26px,
+      #000 26px 77px
+    );
   margin-bottom: 12px;
 }
 .home__player {
@@ -147,33 +162,67 @@ button { font-family: inherit; }
    has-armory: all three share.
    On narrow viewports, drop summary first, then detail, so the deepest
    open column always stays visible. */
+/* Builder uses FIXED column widths per the page-8 grid reference — columns
+   do not resize with viewport so alignment stays consistent. */
 .builder {
   display: grid;
-  grid-template-columns: minmax(320px, 560px);
-  align-items: start;
-  min-height: calc(100vh - 52px);
+  grid-template-columns: 600px;
+  align-items: stretch;
+  min-height: 100vh;
 }
 .builder.has-detail {
-  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  grid-template-columns: 600px 290px;
 }
 .builder.has-armory {
-  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr) minmax(300px, 1fr);
+  grid-template-columns: 600px 290px 605px;
 }
 
 .builder__col {
-  min-height: calc(100vh - 52px);
-  padding: 28px 28px 60px;
+  /* Columns extend full viewport height behind the fixed topbar (matches mock).
+     padding-top includes 40px to clear the topbar overlay. All columns stretch
+     to the tallest column's height via the grid's align-items: stretch. */
+  min-height: 100vh;
+  padding: 68px 28px 60px;
   overflow: hidden;
 }
-.builder__col--summary { background: var(--bg); }
-.builder__col--detail  { background: var(--panel-1); }
-.builder__col--armory  { background: var(--panel-2); }
-
-.builder.has-detail .builder__col--summary,
-.builder.has-armory .builder__col--summary,
-.builder.has-armory .builder__col--detail {
-  border-right: 1px solid #d8d8d8;
+.builder__col--summary {
+  background: var(--bg);
+  /* Push content rightward inside col 1 — the col's white bg fills the left
+     "margin" area while content right-aligns to match the page-6 layout. */
+  padding-left: 320px;
+  padding-right: 28px;
 }
+.builder__col--detail  { background: var(--panel-1); }
+.builder__col--armory  {
+  background: var(--panel-2);
+  /* Content sits at the left of col 3; extra right padding extends the gray
+     bg toward the viewport edge, matching the mock. */
+  padding-right: 290px;
+}
+
+/* Smooth slide-in when a new column appears. Mounted via React conditional
+   rendering — the animation fires on mount only. */
+@keyframes col-slide-in {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.builder__col--detail,
+.builder__col--armory {
+  animation: col-slide-in 0.28s ease-out;
+}
+
+/* Page-6 alignment: when the summary column is visible, push the detail and
+   armory columns down so each column's first section divider lands on the
+   same horizontal line as the Team Assets divider in the summary column.
+   The offset is the height of the summary column's team header above its
+   Team Assets divider, PLUS the 40px topbar clearance already in --col base. */
+.builder.has-detail .builder__col--detail,
+.builder.has-armory .builder__col--armory {
+  padding-top: var(--col-header-offset, 180px);
+}
+
+/* No vertical dividers between columns — column color shifts mark the
+   boundary (matches mock pages 2–6). */
 
 /* ==== Section labels (small red caps) ==== */
 .tag {
@@ -202,9 +251,8 @@ button { font-family: inherit; }
 }
 .team-name:focus { color: var(--red); }
 .team-faction {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  /* Block so the select inside can fill the full content width and the
+     right-anchored dropdown arrow lands at the column's right edge. */
   font-size: 16px;
   margin-top: 2px;
   font-weight: 500;
@@ -216,6 +264,7 @@ button { font-family: inherit; }
   font: inherit;
   font-weight: 500;
   cursor: pointer;
+  width: 100%;
   padding: 0 20px 0 0;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23111' d='M0 0l5 6 5-6z'/></svg>");
   background-repeat: no-repeat;
@@ -286,7 +335,7 @@ button { font-family: inherit; }
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
-  padding: 4px 8px;
+  padding: 4px 0;
   font-size: 15px;
   cursor: pointer;
   border-radius: var(--radius);
@@ -295,9 +344,17 @@ button { font-family: inherit; }
 .asset-row:hover {
   background: rgba(0,0,0,0.04);
 }
+/* Selected row bleeds out to col 1's right edge to meet col 2 (page 6).
+   Bar's left edge stays at content-left aligning with the section header;
+   the text inside gets a small left inset so it doesn't push up against
+   the bar edge. Right side extends past col 1's right padding. */
 .asset-row.is-selected {
   background: var(--red-bg);
   color: #fff;
+  margin-right: -28px;
+  padding-left: 12px;
+  padding-right: 28px;
+  border-radius: 0;
 }
 .asset-row.is-selected .asset-row__rating { color: rgba(255,255,255,0.85); }
 .asset-row__name strong { font-weight: 700; }
@@ -383,12 +440,12 @@ button { font-family: inherit; }
   margin: 14px 0 18px;
   font-variant-numeric: tabular-nums;
 }
-.stat-row__cell { text-align: left; }
+.stat-row__cell { text-align: center; }
 .stat-row__label {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: var(--muted);
+  color: var(--red);
   text-transform: uppercase;
 }
 .stat-row__value {
@@ -427,8 +484,8 @@ button { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 12px;
-  border-radius: 3px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
   font-size: 13px;
   font-weight: 600;
   color: var(--pill-text);
@@ -447,15 +504,32 @@ button { font-family: inherit; }
 }
 .slot__pill--empty:hover { background: #c2c2c2; color: var(--text); }
 
-/* Pill color by category — applied as border + text accent on dark pill */
-.pill--ranged    { background: var(--pill-dark); box-shadow: inset 3px 0 0 var(--red); }
-.pill--melee     { background: var(--pill-dark); box-shadow: inset 3px 0 0 var(--green); }
-.pill--equipment { background: var(--pill-dark); box-shadow: inset 3px 0 0 var(--blue); }
-.pill--cybertech { background: var(--pill-dark); box-shadow: inset 3px 0 0 var(--purple); }
-.pill--ranged .slot__pill__name    { color: #ff9b96; }
-.pill--melee .slot__pill__name     { color: #8be7b3; }
-.pill--equipment .slot__pill__name { color: #9bb6f0; }
-.pill--cybertech .slot__pill__name { color: #c1aff0; }
+/* Selected slot — bleeds to col 2's right edge to meet col 3 (mirrors the
+   selected-asset bar in col 1 that bleeds to meet col 2). No border-radius
+   on the right side; padding compensates so the (Nr) rating stays in place. */
+.slot__pill.is-selected,
+.slot__pill--empty.is-selected {
+  background: var(--red-bg);
+  color: #fff;
+  border-color: var(--red-bg);
+  border-style: solid;
+  box-shadow: none;
+  margin-right: -28px;
+  padding-right: 42px;
+  border-radius: 0;
+}
+.slot__pill.is-selected .slot__pill__name { color: #fff; }
+
+/* Pill color by category — no colored left edge or accent text per request;
+   pills now read as plain dark with white text regardless of category. */
+.pill--ranged,
+.pill--melee,
+.pill--equipment,
+.pill--cybertech { background: var(--pill-dark); }
+.pill--ranged .slot__pill__name,
+.pill--melee .slot__pill__name,
+.pill--equipment .slot__pill__name,
+.pill--cybertech .slot__pill__name { color: var(--pill-text); }
 
 /* ==== Armory ==== */
 .armory__tag { color: var(--red); }
@@ -521,8 +595,8 @@ button { font-family: inherit; }
 .armory-row__step:disabled { color: #c8c8c8; cursor: not-allowed; }
 .armory-row__pill {
   display: block;
-  padding: 7px 12px;
-  border-radius: 3px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
   color: var(--pill-text);
   background: var(--pill-dark);
   font-size: 13px;
@@ -531,16 +605,16 @@ button { font-family: inherit; }
   position: relative;
 }
 .armory-row.expanded .armory-row__pill {
-  border-radius: 3px 3px 0 0;
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
 }
 
 .armory-expand {
   grid-column: 3;
   background: var(--pill-dark);
   color: var(--pill-text);
-  padding: 10px 12px 12px;
+  padding: 10px 14px 12px;
   border-top: 1px solid rgba(255,255,255,0.1);
-  border-radius: 0 0 3px 3px;
+  border-radius: 0 0 var(--radius-pill) var(--radius-pill);
   margin-top: -2px;
   position: relative;
 }
@@ -611,6 +685,251 @@ button { font-family: inherit; }
 .management__list button:hover { color: var(--red); }
 .management__list button:disabled { color: var(--muted); cursor: not-allowed; }
 
+/* ==== Team View — new layout ====
+   Centered header banner + responsive grid of asset cards + a Team
+   Management container that flows as the last grid item. Cards auto-fit to
+   however many columns the viewport allows. */
+.team-view {
+  background: var(--bg);
+  min-height: 100vh;
+}
+.team-view__inner {
+  max-width: 1640px;
+  margin: 0 auto;
+  padding: 80px 28px 80px;
+  animation: col-slide-in 0.28s ease-out;
+}
+.team-view__header {
+  max-width: 480px;
+  margin: 0 0 40px;
+  text-align: left;
+}
+.team-view__header .tag { margin-bottom: 2px; }
+.team-view__name {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 2px 0 4px;
+  line-height: 1.15;
+  border-bottom: 1.5px solid var(--text);
+  padding-bottom: 4px;
+}
+.team-view__faction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.team-view__faction-caret { font-size: 10px; color: var(--text); }
+.team-view__rating { font-size: 14px; margin-top: 4px; }
+.team-view__rating strong { font-weight: 800; }
+
+.team-view__empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+  padding: 60px 0;
+  font-size: 14px;
+}
+
+.team-view__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 28px;
+}
+
+.team-view__management {
+  /* Same shape as an asset card so it flows naturally in the grid. */
+  padding: 0;
+}
+.team-view__management-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  border-bottom: 1.5px solid var(--text);
+  padding-bottom: 4px;
+}
+.team-view__management-btn {
+  display: block;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  padding: 3px 0;
+  cursor: pointer;
+  width: 100%;
+}
+.team-view__management-btn:hover { color: var(--red); }
+.team-view__management-btn--muted { color: var(--muted); margin-top: 12px; }
+
+/* ==== Asset Card (new) ==== */
+.asset-card {
+  background: var(--bg);
+  padding: 0;
+}
+.asset-card__type {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--red);
+  text-transform: uppercase;
+  margin: 0 0 2px;
+}
+.asset-card__name-row { margin-bottom: 4px; }
+.asset-card__name {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.005em;
+  border-bottom: 1.5px solid var(--text);
+  padding-bottom: 4px;
+  cursor: text;
+}
+.asset-card__name:hover { color: var(--text); }
+.asset-card__name--editing {
+  font-size: 22px;
+  font-weight: 800;
+  border: 0;
+  border-bottom: 1.5px solid var(--red);
+  background: none;
+  padding: 0 0 4px;
+  outline: none;
+  width: 100%;
+  font-family: inherit;
+  letter-spacing: -0.005em;
+  color: var(--red);
+}
+.asset-card__rating {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--muted);
+}
+.asset-card .stat-row { margin: 14px 0 14px; }
+.asset-card__row { margin-top: 14px; font-size: 13px; }
+.asset-card__row .tag { margin-bottom: 4px; }
+.asset-card__loadout { line-height: 1.5; }
+.asset-card__slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ==== Weapon Box (always expanded) ==== */
+.weapon-box {
+  background: var(--panel-1);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px 12px;
+}
+.weapon-box__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  font-weight: 700;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--red);
+  margin-bottom: 8px;
+}
+.weapon-box__head .term-link { border-bottom-style: dotted; }
+.weapon-box__cost {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.weapon-box__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--red);
+  margin-bottom: 8px;
+}
+.weapon-box__stats > div { text-align: left; }
+.weapon-box__stats .lbl {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--red);
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+.weapon-box__stats .val {
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.weapon-box__traits .lbl {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--red);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.weapon-box__traits-list { font-size: 13px; line-height: 1.4; }
+
+/* ==== Equipment Row (collapsed by default, click to expand) ==== */
+.equip-row {
+  background: var(--panel-1);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: border-radius 0.15s ease, background 0.15s ease;
+}
+.equip-row.is-open {
+  border-radius: var(--radius-lg);
+  padding: 10px 14px 12px;
+}
+.equip-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.equip-row__name { flex: 1; }
+.equip-row__cost {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.equip-row__chevron {
+  font-size: 10px;
+  color: var(--text);
+}
+.equip-row__body {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--red);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.equip-row__line { margin-top: 4px; }
+.equip-row__line:first-child { margin-top: 0; }
+.equip-row__line .lbl {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--red);
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.equip-row__line--muted { opacity: 0.85; }
+
+/* Dangerous trait special formatting: bold + red. */
+.term-link.is-dangerous,
+span.is-dangerous {
+  color: var(--red) !important;
+  font-weight: 700 !important;
+  border-bottom-color: var(--red);
+}
+
 /* ==== Hover tooltip ==== */
 .hoverbox {
   position: fixed;
@@ -651,6 +970,18 @@ button { font-family: inherit; }
   cursor: pointer;
   text-decoration: underline;
 }
+.hoverbox__trait-link {
+  cursor: pointer;
+  border-bottom: 1px dotted rgba(255,255,255,0.4);
+}
+.hoverbox__trait-link:hover { color: #fff; border-bottom-color: #fff; }
+
+.term-link {
+  cursor: pointer;
+  border-bottom: 1px dotted currentColor;
+  opacity: 0.92;
+}
+.term-link:hover { opacity: 1; color: var(--red); }
 
 /* ==== Toast / saved indicator ==== */
 .toast {
@@ -735,30 +1066,70 @@ button { font-family: inherit; }
   padding: 30px 0;
 }
 
+/* ==== Print (Export to PDF via browser print dialog) ====
+   The team view's screen layout is repurposed: topbar/actions hidden, the
+   summary column collapses into a full-width banner above the card grid,
+   and cards print with light borders on white so toner stays sane. */
+@media print {
+  .topbar { display: none !important; }
+  .toast { display: none !important; }
+  .hoverbox { display: none !important; }
+
+  body, .app-chrome { background: #fff !important; }
+
+  .team-view {
+    display: block !important;
+    min-height: 0;
+  }
+  .team-view__col {
+    background: #fff !important;
+    min-height: 0;
+    padding: 0 !important;
+    animation: none !important;
+  }
+  .team-view__col--summary {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 14px;
+    border-bottom: 1.5px solid #111;
+  }
+  .team-view__col--summary .team-view__actions { display: none !important; }
+  .team-view__name { font-size: 22px; margin: 0; }
+  .team-view__faction { font-size: 13px; }
+  .team-view__rating, .team-view__count { font-size: 12px; }
+
+  .team-view__section {
+    max-width: none !important;
+    margin-bottom: 14px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .team-view__cards {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .asset-card {
+    background: #fff !important;
+    border: 1px solid #bbb;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    padding: 10px 12px 12px !important;
+  }
+  /* Trim hover affordances since clicks don't exist on paper. */
+  .term-link, .hoverbox__trait-link {
+    border-bottom: none;
+    cursor: default;
+    color: inherit !important;
+  }
+}
+
 /* ==== Responsive ====
    Tablet: drop summary when armory open (keep detail + armory).
    Phone: only show the deepest open column. */
-@media (max-width: 1100px) {
-  .builder.has-armory {
-    grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
-  }
-  .builder.has-armory .builder__col--summary { display: none; }
-}
+/* No responsive grid overrides — fixed widths are intentional per the
+   page-8 reference. At narrow viewports the builder scrolls horizontally
+   rather than re-arranging the columns. */
 @media (max-width: 760px) {
-  .builder,
-  .builder.has-detail,
-  .builder.has-armory {
-    grid-template-columns: 1fr;
-  }
-  .builder__col {
-    min-height: auto;
-    padding: 20px 18px 30px;
-    border-right: 0 !important;
-  }
-  .builder.has-detail .builder__col--summary,
-  .builder.has-armory .builder__col--summary,
-  .builder.has-armory .builder__col--detail {
-    display: none;
-  }
   .topbar { padding: 0 14px; }
 }

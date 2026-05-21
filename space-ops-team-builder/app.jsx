@@ -107,14 +107,275 @@ const writeCurrent = (team) => {
 };
 
 // ============================================================
+// PDF EXPORT — jsPDF-driven, ported from the live tracker so the output
+// matches the //SPACE-OPS 3030/ROSTER sheet (US Letter portrait, 2×3 cards/pg).
+// ============================================================
+function exportTeamToPDF(team, player) {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    alert('PDF library still loading — please try again in a moment.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('portrait', 'mm', 'letter');
+
+  const pw = 215.9, ph = 279.4; // US Letter mm
+  const mx = 10, my = 10;
+  const cols = 2, rows = 3;
+  const gap = 6;
+  const cardW = (pw - mx * 2 - gap) / cols;
+  const headerH = 28;
+  const cardH = (ph - my - headerH - my - gap * (rows - 1)) / rows;
+
+  const assets = team.assets || [];
+  const totalPts = assets.reduce((s, a) => s + assetRating(a), 0);
+  const perPage = cols * rows;
+  const totalPages = Math.max(1, Math.ceil(assets.length / perPage));
+
+  function drawHeader() {
+    // Hatch box top-left
+    const hatchW = 22, hatchH = 18;
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.8);
+    doc.rect(mx, my, hatchW, hatchH);
+    doc.setLineWidth(0.4);
+    for (let i = 0; i < hatchW + hatchH; i += 3) {
+      const x1 = mx + Math.min(i, hatchW);
+      const y1 = my + Math.max(0, i - hatchW);
+      const x2 = mx + Math.max(0, i - hatchH);
+      const y2 = my + Math.min(i, hatchH);
+      doc.line(x1, y2, x2, y1);
+    }
+    // Barcode bars
+    const bx = mx + hatchW + 4, by = my + 2;
+    doc.setLineWidth(0.6);
+    const barWidths = [1,2,1,3,1,2,1,1,3,1,2,1,1,2,3,1,1,2,1,3,1,2,1,1,2,1,3,1,2];
+    let bPos = 0;
+    barWidths.forEach((w, idx) => {
+      if (idx % 2 === 0) {
+        doc.setFillColor(0);
+        doc.rect(bx + bPos, by, w * 0.8, 10, 'F');
+      }
+      bPos += w * 0.8;
+    });
+    // Title
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0);
+    doc.text('//SPACE-OPS 3030/ROSTER', bx, by + 16);
+    // Player / Faction
+    const infoX = pw / 2 + 5;
+    doc.setLineWidth(1.5);
+    doc.line(infoX - 2, my + 2, infoX - 2, my + headerH - 4);
+    doc.setLineWidth(0.3);
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text('PLAYER:', infoX, my + 6);
+    doc.text('FACTION:', infoX, my + 13);
+    doc.text('TEAM:', infoX, my + 20);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(player || '', infoX + 20, my + 6);
+    doc.text(team.factionId || '', infoX + 22, my + 13);
+    doc.text(team.name || '', infoX + 14, my + 20);
+    // Rating
+    doc.setLineWidth(1.5);
+    const ptX = pw - mx - 30;
+    doc.line(ptX - 2, my + 2, ptX - 2, my + headerH - 4);
+    doc.setLineWidth(0.3);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+    doc.text('RATING', ptX, my + 6);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(12);
+    doc.text(String(totalPts), ptX, my + 14);
+  }
+
+  function drawCard(asset, cx, cy) {
+    const m = findModel(asset.modelId);
+    if (!m) return;
+    const pad = 4;
+    // Border
+    doc.setDrawColor(0); doc.setLineWidth(0.8);
+    doc.rect(cx, cy, cardW, cardH);
+    // MODEL + HEALTH
+    let y = cy + pad + 4;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(0);
+    doc.text('MODEL:', cx + pad, y);
+    doc.setFontSize(10);
+    doc.text(displayName(m), cx + pad + 18, y);
+    doc.setFontSize(8);
+    doc.text('HEALTH', cx + cardW - pad - 1, y, { align: 'right' });
+    const hbW = 14, hbH = 7;
+    doc.setLineWidth(0.3);
+    doc.rect(cx + cardW - pad - hbW, y + 2, hbW, hbH);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+    doc.text(String(m.health || ''), cx + cardW - pad - hbW / 2, y + 7, { align: 'center' });
+    y += 12;
+    // Stat boxes — SPEED SHOOT FIGHT DEFENSE GRIT
+    const statLabels = ['SPEED', 'SHOOT', 'FIGHT', 'DEFENSE', 'GRIT'];
+    const statKeys = ['speed', 'shoot', 'fight', 'defense', 'grit'];
+    const n = statLabels.length;
+    const boxW = (cardW - pad * 2 - (n - 1) * 2) / n;
+    const boxH = 10;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(0);
+    for (let si = 0; si < n; si++) {
+      const bx = cx + pad + si * (boxW + 2);
+      doc.text(statLabels[si], bx + boxW / 2, y, { align: 'center' });
+    }
+    y += 3;
+    for (let si = 0; si < n; si++) {
+      const bx = cx + pad + si * (boxW + 2);
+      doc.setFillColor(40, 40, 40);
+      doc.rect(bx, y, boxW, boxH, 'F');
+      const val = m[statKeys[si]];
+      if (val !== undefined && val !== '') {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+        doc.setTextColor(255, 255, 255);
+        doc.text(String(val), bx + boxW / 2, y + boxH - 3, { align: 'center' });
+      }
+    }
+    doc.setTextColor(0);
+    y += boxH + 5;
+    // STANDARD EQUIPMENT (loadout + FB default weapons)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
+    doc.text('STANDARD EQUIPMENT:', cx + pad, y);
+    y += 4;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+    const std = []
+      .concat(asset.defaults?.weapons || [])
+      .concat(parseLoadout(m))
+      .filter((v, i, a) => v && a.indexOf(v) === i)
+      .join(', ');
+    if (std) {
+      const lines = doc.splitTextToSize(std, cardW - pad * 2);
+      doc.text(lines.slice(0, 2), cx + pad, y);
+      y += 4 * Math.min(lines.length, 2);
+    } else {
+      doc.setDrawColor(180); doc.setLineWidth(0.2);
+      doc.line(cx + pad, y + 1, cx + cardW - pad, y + 1);
+      y += 5;
+    }
+    y += 2;
+    // GEAR slots — show purchased extras in a 2×2 grid (pad to 4)
+    const gearItems = (asset.slots || []).filter((s) => s && s.name).map((s) => s.name);
+    while (gearItems.length < 4) gearItems.push('');
+    const halfW = (cardW - pad * 2 - 4) / 2;
+    for (let gi = 0; gi < 4; gi++) {
+      const gCol = gi % 2;
+      const gRow = Math.floor(gi / 2);
+      const gx = cx + pad + gCol * (halfW + 4);
+      const gy = y + gRow * 12;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(0);
+      doc.text('GEAR:', gx, gy);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+      if (gearItems[gi]) doc.text(gearItems[gi], gx + 13, gy);
+      doc.setDrawColor(180); doc.setLineWidth(0.2);
+      doc.line(gx + 13, gy + 1, gx + halfW, gy + 1);
+    }
+  }
+
+  for (let page = 0; page < totalPages; page++) {
+    if (page > 0) doc.addPage();
+    drawHeader();
+    for (let ci = 0; ci < perPage; ci++) {
+      const idx = page * perPage + ci;
+      if (idx >= assets.length) break;
+      const col = ci % cols;
+      const row = Math.floor(ci / cols);
+      const cx = mx + col * (cardW + gap);
+      const cy = my + headerH + row * (cardH + gap);
+      drawCard(assets[idx], cx, cy);
+    }
+  }
+
+  const safe = (s) => String(s || '').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 40);
+  const fileName = `${safe(player || 'Team')}_${safe(team.name || team.factionId || 'Roster')}.pdf`;
+  doc.save(fileName);
+}
+
+// ============================================================
+// FIREBASE BRIDGE (read-only — surfaces live tracker's saved teams)
+// ============================================================
+const FIREBASE_DB_URL = 'https://space-ops-3030-default-rtdb.firebaseio.com';
+
+async function fetchFirebaseTeams(playerName) {
+  if (!playerName) return [];
+  try {
+    const url = `${FIREBASE_DB_URL}/players/${encodeURIComponent(playerName)}/teams.json`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data) return [];
+    return Object.entries(data).map(([fbId, fbTeam]) => convertFbTeam(fbId, fbTeam));
+  } catch (err) {
+    console.warn('[fb] fetch failed:', err);
+    return [];
+  }
+}
+
+function convertFbTeam(fbId, fb) {
+  const factionId = fb.faction || 'Arc Rangers';
+  const fbModels = Array.isArray(fb.models) ? fb.models : [];
+  const assets = [];
+  for (const fbm of fbModels) {
+    if (!fbm || !fbm.name) continue;
+    const def = DATA.models.find((m) => m.name === fbm.name)
+      || DATA.models.find((m) => (m.name || '').toLowerCase() === (fbm.name || '').toLowerCase());
+    if (!def) {
+      console.warn('[fb] unknown model (skipped):', fbm.name);
+      continue;
+    }
+    const totalSlots = num(def.totalSlots) || 0;
+    const slots = Array.from({ length: totalSlots }, () => null);
+    const defaultInv = Array.isArray(fbm.defaultInventory) ? fbm.defaultInventory : [];
+    const defaultWep = Array.isArray(fbm.defaultWeapons) ? fbm.defaultWeapons : [];
+    const defaultInvSet = new Set(defaultInv);
+    const defaultWepSet = new Set(defaultWep);
+    // Live tracker stores some items in BOTH weapons[] and inventory[] (e.g. grenades,
+    // cyberdecks). Dedup by name, then classify each via the gameData lookup.
+    const seen = new Set();
+    const itemNames = [];
+    const collect = (src, defaults) => {
+      if (!Array.isArray(src)) return;
+      for (const v of src) {
+        const name = (typeof v === 'string' ? v : v?.name) || '';
+        if (!name || defaults.has(name) || seen.has(name)) continue;
+        seen.add(name);
+        itemNames.push(name);
+      }
+    };
+    collect(fbm.weapons, defaultWepSet);
+    collect(fbm.inventory, defaultInvSet);
+    let slotIdx = 0;
+    for (const name of itemNames) {
+      if (slotIdx >= totalSlots) break;
+      const kind = findWeapon(name) ? 'weapon' : (findEquipment(name) ? 'equipment' : null);
+      if (!kind) continue;
+      slots[slotIdx++] = { kind, name };
+    }
+    assets.push({
+      instanceId: ++nextInstanceId,
+      modelId: def.id,
+      slots,
+      // Preserve free defaults so the view page can render the full model loadout.
+      defaults: { weapons: defaultWep, equipment: defaultInv },
+    });
+  }
+  return {
+    id: 'fb-' + fbId,
+    name: fb.name || 'Untitled',
+    factionId,
+    assets,
+    createdAt: fb.created || Date.now(),
+    savedAt: fb.modified || fb.created,
+    _source: 'firebase',
+  };
+}
+
+// ============================================================
 // ROOT APP
 // ============================================================
 function App() {
-  const [screen, setScreen] = useState('home'); // 'home' | 'builder'
+  const [screen, setScreen] = useState('home'); // 'home' | 'builder' | 'view'
   const [player, setPlayer] = useState(() => localStorage.getItem(PLAYER_KEY) || '');
   const [team, setTeam] = useState(null);
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null); // {kind:'load'} | {kind:'login'}
+  const [firebaseTeams, setFirebaseTeams] = useState(null); // null = loading, [] = empty
 
   useEffect(() => {
     if (player) localStorage.setItem(PLAYER_KEY, player);
@@ -123,6 +384,13 @@ function App() {
   useEffect(() => {
     if (team) writeCurrent(team);
   }, [team]);
+  useEffect(() => {
+    if (!player) { setFirebaseTeams([]); return; }
+    let cancelled = false;
+    setFirebaseTeams(null);
+    fetchFirebaseTeams(player).then((teams) => { if (!cancelled) setFirebaseTeams(teams); });
+    return () => { cancelled = true; };
+  }, [player]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -176,7 +444,18 @@ function App() {
         crumbs={
           screen === 'home'
             ? [{ label: 'Space Ops 3030', onClick: () => setScreen('home') }, { label: 'Team Builder' }]
-            : [{ label: 'Space Ops 3030', onClick: () => setScreen('home') }, { label: 'Team Builder', onClick: () => setScreen('home') }, { label: team?.name || 'Untitled' }]
+            : screen === 'view'
+              ? [
+                  { label: 'Space Ops 3030', onClick: () => setScreen('home') },
+                  { label: 'Team Builder', onClick: () => setScreen('home') },
+                  { label: team?.name || 'Untitled', onClick: () => setScreen('builder') },
+                  { label: 'View' },
+                ]
+              : [
+                  { label: 'Space Ops 3030', onClick: () => setScreen('home') },
+                  { label: 'Team Builder', onClick: () => setScreen('home') },
+                  { label: team?.name || 'Untitled' },
+                ]
         }
       />
 
@@ -194,7 +473,7 @@ function App() {
             if (!player) { setModal({ kind: 'login', next: 'load' }); return; }
             setModal({ kind: 'load' });
           }}
-          hasSaved={loadSavedTeams().length > 0}
+          hasSaved={loadSavedTeams().length > 0 || (firebaseTeams && firebaseTeams.length > 0)}
         />
       )}
       {screen === 'builder' && team && (
@@ -205,13 +484,39 @@ function App() {
           onSave={saveTeam}
           onLoadOpen={() => setModal({ kind: 'load' })}
           onDelete={deleteTeamGlobal}
-          onExport={() => showToast('PDF export — coming soon')}
+          onView={() => setScreen('view')}
           onBack={() => setScreen('home')}
+        />
+      )}
+      {screen === 'view' && team && (
+        <TeamView
+          team={team}
+          player={player}
+          onBack={() => setScreen('builder')}
+          onLoadOpen={() => setModal({ kind: 'load' })}
+          onRenameAsset={(instanceId, newName) => {
+            setTeam((t) => ({
+              ...t,
+              assets: (t.assets || []).map((a) =>
+                a.instanceId === instanceId ? { ...a, customName: newName || undefined } : a
+              ),
+            }));
+          }}
+          onExportPDF={() => {
+            try {
+              exportTeamToPDF(team, player);
+              showToast('PDF downloaded');
+            } catch (err) {
+              console.error('[pdf] export failed:', err);
+              showToast('PDF export failed — see console');
+            }
+          }}
         />
       )}
 
       {modal?.kind === 'load' && (
         <LoadModal
+          firebaseTeams={firebaseTeams}
           onPick={loadTeam}
           onClose={() => setModal(null)}
           onDelete={(id) => {
@@ -360,13 +665,16 @@ function LoginModal({ onLogin, onClose }) {
 // ============================================================
 // BUILDER (3-column layout)
 // ============================================================
-function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onExport, onBack }) {
+function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, onBack }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedInstanceId, setSelectedInstanceId] = useState(null);
   const [armoryOpen, setArmoryOpen] = useState(false);
   const [armoryTargetSlot, setArmoryTargetSlot] = useState(null); // {slotIdx} or null = any
   const [armoryFilter, setArmoryFilter] = useState('ranged');
   const [expandedArmoryKey, setExpandedArmoryKey] = useState(null);
+  const [hoverEntry, setHoverEntry] = useState(null); // {kind, name, x, y}
+  const openHover = (entry) => setHoverEntry(entry);
+  const closeHover = () => setHoverEntry(null);
 
   const selected = useMemo(
     () => team.assets.find((a) => a.instanceId === selectedInstanceId) || null,
@@ -496,7 +804,7 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onExport
           onRemoveModel={removeOneModel}
           onSave={onSave}
           onLoad={onLoadOpen}
-          onExport={onExport}
+          onView={onView}
           onDelete={onDelete}
           onBack={onBack}
         />
@@ -511,8 +819,10 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onExport
             onDelete={deleteSelected}
             onUnequip={(slotIdx) => equipItem(slotIdx, null)}
             onOpenArmoryForSlot={openArmoryForSlot}
+            onOpenHover={openHover}
+            selectedSlotIdx={armoryOpen && armoryTargetSlot ? armoryTargetSlot.slotIdx : null}
             onPillClick={(slot, slotIdx) => {
-              // open hover/detail by toggling armory expanded view with that name pre-expanded
+              setArmoryTargetSlot({ slotIdx });
               if (!armoryOpen) {
                 // Set filter to category
                 if (slot.kind === 'weapon') {
@@ -553,9 +863,12 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onExport
             expandedKey={expandedArmoryKey}
             onToggleExpand={(k) => setExpandedArmoryKey((cur) => (cur === k ? null : k))}
             onClose={() => setArmoryOpen(false)}
+            onOpenHover={openHover}
           />
         </div>
       )}
+
+      <HoverBox entry={hoverEntry} onOpen={openHover} onClose={closeHover} />
     </div>
   );
 }
@@ -568,7 +881,7 @@ function SummaryColumn(props) {
     team, player, rating, cap, overBudget,
     pickerOpen, factionModels, selectedInstanceId, countOf,
     onChangeName, onChangeFaction, onTogglePicker, onSelectAsset,
-    onAddModel, onRemoveModel, onSave, onLoad, onExport, onDelete, onBack,
+    onAddModel, onRemoveModel, onSave, onLoad, onView, onDelete, onBack,
   } = props;
 
   const grouped = useMemo(() => {
@@ -677,7 +990,7 @@ function SummaryColumn(props) {
         <h3 className="management__title">Team Management</h3>
         <div className="management__list">
           <button onClick={onSave}>Save Team</button>
-          <button onClick={onExport}>Export Team to PDF</button>
+          <button onClick={onView}>View Team</button>
           <button onClick={onLoad}>Load Team</button>
           <button onClick={onDelete}>Delete Team</button>
           <button onClick={onBack} style={{ marginTop: 10, color: 'var(--muted)' }}>← Back to Home</button>
@@ -690,7 +1003,7 @@ function SummaryColumn(props) {
 // ============================================================
 // ASSET DETAIL
 // ============================================================
-function AssetDetail({ asset, onDuplicate, onDelete, onUnequip, onOpenArmoryForSlot, onPillClick }) {
+function AssetDetail({ asset, onDuplicate, onDelete, onUnequip, onOpenArmoryForSlot, onPillClick, onOpenHover, selectedSlotIdx }) {
   const m = findModel(asset.modelId);
   if (!m) return null;
   const loadout = parseLoadout(m);
@@ -700,6 +1013,23 @@ function AssetDetail({ asset, onDuplicate, onDelete, onUnequip, onOpenArmoryForS
     isLeader(m) ? 'Operator Leader'
     : /support/i.test(m.assetType || '') ? 'Support Asset'
     : 'Operator Asset';
+
+  // Resolve each loadout item to a clickable term if it matches a weapon or equipment.
+  const renderLoadoutItem = (name, i) => {
+    const isW = !!findWeapon(name);
+    const isE = !!findEquipment(name);
+    const kind = isW ? 'weapon' : (isE ? 'equipment' : null);
+    if (!kind || !onOpenHover) return <span key={i}>{name}</span>;
+    return (
+      <span
+        key={i}
+        className="term-link"
+        onClick={(e) => onOpenHover({ kind, name, x: e.clientX, y: e.clientY })}
+      >
+        {name}
+      </span>
+    );
+  };
 
   return (
     <div>
@@ -717,7 +1047,14 @@ function AssetDetail({ asset, onDuplicate, onDelete, onUnequip, onOpenArmoryForS
 
       <div className="tag" style={{ color: 'var(--red)' }}>Loadout</div>
       <div className="loadout-line">
-        {loadout.length === 0 ? <span style={{ color: 'var(--muted)' }}>None</span> : loadout.join(', ')}
+        {loadout.length === 0
+          ? <span style={{ color: 'var(--muted)' }}>None</span>
+          : loadout.map((name, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && ', '}
+                {renderLoadoutItem(name, i)}
+              </React.Fragment>
+            ))}
       </div>
 
       <div className="tag" style={{ color: 'var(--red)' }}>Carry Capacity</div>
@@ -727,12 +1064,13 @@ function AssetDetail({ asset, onDuplicate, onDelete, onUnequip, onOpenArmoryForS
             const item = slot && (slot.kind === 'weapon' ? findWeapon(slot.name) : findEquipment(slot.name));
             const cat = pillCategory(item);
             const rcost = num(item?.rating);
+            const selected = selectedSlotIdx === i;
             if (slot) {
               return (
                 <div className="slot" key={i}>
                   <button className="slot__action" title="Remove" onClick={() => onUnequip(i)}>−</button>
                   <div
-                    className={'slot__pill pill--' + cat}
+                    className={'slot__pill pill--' + cat + (selected ? ' is-selected' : '')}
                     onClick={() => onPillClick(slot, i)}
                     title="Click for details"
                   >
@@ -745,7 +1083,10 @@ function AssetDetail({ asset, onDuplicate, onDelete, onUnequip, onOpenArmoryForS
             return (
               <div className="slot" key={i}>
                 <button className="slot__action" title="Equip" onClick={() => onOpenArmoryForSlot(i)}>+</button>
-                <div className="slot__pill slot__pill--empty" onClick={() => onOpenArmoryForSlot(i)}>
+                <div
+                  className={'slot__pill slot__pill--empty' + (selected ? ' is-selected' : '')}
+                  onClick={() => onOpenArmoryForSlot(i)}
+                >
                   Equip from the Armory
                 </div>
               </div>
@@ -784,7 +1125,7 @@ const ARMORY_TABS = [
   { key: 'cybertech', label: 'Cybertech' },
 ];
 
-function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expandedKey, onToggleExpand, onClose }) {
+function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expandedKey, onToggleExpand, onClose, onOpenHover }) {
   // Build items list based on filter
   const items = useMemo(() => {
     if (filter === 'ranged') {
@@ -854,7 +1195,7 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
                 </div>
               </div>
               {expanded && (
-                <ArmoryExpand item={it} onClose={() => onToggleExpand(key)} />
+                <ArmoryExpand item={it} onClose={() => onToggleExpand(key)} onOpenHover={onOpenHover} />
               )}
             </React.Fragment>
           );
@@ -876,14 +1217,14 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
   );
 }
 
-function ArmoryExpand({ item, onClose }) {
+function ArmoryExpand({ item, onClose, onOpenHover }) {
   const r = item.record;
   const isWeapon = item.kind === 'weapon';
   const range = isWeapon ? r.range : r.range;
   const attacks = isWeapon ? r.attacks : r.attacks;
   const power = isWeapon ? r.power : r.power;
   const damage = isWeapon ? r.damage : r.damage;
-  const traits = (r.traits || '').trim();
+  const traitList = splitTraits(r.traits);
   const description = (r.description || '').trim();
   const passive = (r.passiveAbility || '').trim();
   const actionName = (r.actionName || '').trim();
@@ -901,10 +1242,26 @@ function ArmoryExpand({ item, onClose }) {
           <div><span className="lbl">Damage</span><span className="val">{damage || '—'}</span></div>
         </div>
       )}
-      {traits && (
+      {traitList.length > 0 && (
         <div className="armory-expand__traits">
           <span className="lbl">Traits</span>
-          <span>{traits}</span>
+          <span>
+            {traitList.map((t, j) => (
+              <React.Fragment key={t + ':' + j}>
+                {j > 0 && ', '}
+                {onOpenHover ? (
+                  <span
+                    className="hoverbox__trait-link"
+                    onClick={(e) => onOpenHover({ kind: 'trait', name: t, x: e.clientX, y: e.clientY })}
+                  >
+                    {t}
+                  </span>
+                ) : (
+                  <span>{t}</span>
+                )}
+              </React.Fragment>
+            ))}
+          </span>
         </div>
       )}
       {passive && (
@@ -928,28 +1285,423 @@ function ArmoryExpand({ item, onClose }) {
 }
 
 // ============================================================
+// HOVER BOX — info card for items, traits, conditions
+// Mock spec: page 5 of WebApp_v2.pdf
+// ============================================================
+const splitTraits = (s) =>
+  (s || '').split(',').map((x) => x.trim()).filter(Boolean);
+
+// Resolve a trait name like "Ammo 1" / "Ammo (1)" / "Ammo (x)" to its definition.
+const findTrait = (name) => {
+  if (!name) return null;
+  const exact = DATA.traits.find((t) => (t.name || '').toLowerCase() === name.toLowerCase());
+  if (exact) return exact;
+  // Normalize: strip any "(...)" group and any trailing " N", then compare stems.
+  const normalize = (s) => (s || '').toLowerCase()
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s+\d+\s*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const stem = normalize(name);
+  return DATA.traits.find((t) => normalize(t.name) === stem) || null;
+};
+const findCondition = (name) =>
+  name ? DATA.conditions.find((c) => (c.name || '').toLowerCase() === name.toLowerCase()) : null;
+
+function HoverBox({ entry, onClose, onOpen }) {
+  if (!entry) return null;
+  const { kind, name, x, y } = entry;
+
+  // Resolve record and build sections
+  let title = name;
+  const sections = []; // [{ label?, content?, traits? }]
+  if (kind === 'weapon' || kind === 'equipment') {
+    const r = kind === 'weapon' ? findWeapon(name) : findEquipment(name);
+    if (r) {
+      title = r.name || name;
+      if (kind === 'weapon') {
+        sections.push({
+          label: 'STATS',
+          content: `Range ${r.range || '—'} · Atk ${r.attacks || '—'} · Pwr ${r.power || '—'} · Dmg ${r.damage || '—'}`,
+        });
+      }
+      const passive = (r.passiveAbility || '').trim();
+      if (passive) sections.push({ label: 'PASSIVE', content: passive });
+      const actName = (r.actionName || '').trim();
+      const actDesc = (r.actionDescription || '').trim();
+      if (actName) sections.push({ label: actName.toUpperCase(), content: actDesc });
+      const tlist = splitTraits(r.traits);
+      if (tlist.length) sections.push({ label: 'TRAITS', traits: tlist });
+      const desc = (r.description || '').trim();
+      if (desc) sections.push({ content: desc, muted: true });
+    }
+  } else if (kind === 'trait') {
+    const t = findTrait(name);
+    if (t) {
+      title = t.name;
+      sections.push({ label: 'TRAIT', content: t.description || '—' });
+    } else {
+      sections.push({ content: 'No description for this trait.', muted: true });
+    }
+  } else if (kind === 'condition') {
+    const c = findCondition(name);
+    if (c) {
+      title = c.name;
+      if (c.effect) sections.push({ label: 'EFFECT', content: c.effect });
+      if (c.duration) sections.push({ label: 'DURATION', content: c.duration });
+    }
+  }
+
+  // Position the card near the click, clamped to viewport.
+  const W = 300;
+  const Hguess = 220;
+  const margin = 16;
+  const vw = (typeof window !== 'undefined') ? window.innerWidth : 1280;
+  const vh = (typeof window !== 'undefined') ? window.innerHeight : 800;
+  const left = Math.max(margin, Math.min(x ?? margin, vw - W - margin));
+  const top = Math.max(margin, Math.min(y ?? margin, vh - Hguess - margin));
+
+  return (
+    <div className="hoverbox" style={{ left, top, position: 'fixed' }}>
+      <div className="hoverbox__name">{title}</div>
+      {sections.map((s, i) => (
+        <div key={i}>
+          {s.label && <div className="hoverbox__section">{s.label}</div>}
+          {s.content && (
+            <div style={{ marginTop: s.label ? 4 : 6, opacity: s.muted ? 0.85 : 1 }}>{s.content}</div>
+          )}
+          {s.traits && (
+            <div style={{ marginTop: 4 }}>
+              {s.traits.map((t, j) => (
+                <React.Fragment key={t + ':' + j}>
+                  {j > 0 && ', '}
+                  <span
+                    className="hoverbox__trait-link"
+                    onClick={(e) => onOpen({ kind: 'trait', name: t, x: e.clientX, y: e.clientY })}
+                  >
+                    {t}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+      <button className="hoverbox__close" onClick={onClose}>Close</button>
+    </div>
+  );
+}
+
+// ============================================================
+// TEAM VIEW — read-only roster page for play-time reference / PDF export
+// ============================================================
+function TeamView({ team, player, onBack, onExportPDF, onLoadOpen, onRenameAsset }) {
+  const rating = teamRating(team);
+  const cap = 60;
+  const [hoverEntry, setHoverEntry] = useState(null);
+  const openHover = (entry) => setHoverEntry(entry);
+  const closeHover = () => setHoverEntry(null);
+
+  return (
+    <div className="team-view">
+      <div className="team-view__inner">
+        <header className="team-view__header">
+          <div className="tag">PLAYER: {(player || '').toUpperCase()}</div>
+          <h1 className="team-view__name">{team.name}</h1>
+          <div className="team-view__faction">
+            <span>{team.factionId}</span>
+            <span className="team-view__faction-caret">▾</span>
+          </div>
+          <div className="team-view__rating"><strong>{rating}</strong>/{cap} Rating</div>
+        </header>
+
+        <div className="team-view__grid">
+          {team.assets.length === 0 ? (
+            <div className="team-view__empty">No assets in this team yet.</div>
+          ) : (
+            team.assets.map((asset) => (
+              <AssetCard
+                key={asset.instanceId}
+                asset={asset}
+                onOpenHover={openHover}
+                onRename={onRenameAsset ? (newName) => onRenameAsset(asset.instanceId, newName) : null}
+              />
+            ))
+          )}
+
+          {/* Team Management container — sits in the same auto-fill grid so it
+              flows naturally with the asset cards. */}
+          <section className="team-view__management">
+            <h2 className="team-view__management-title">Team Management</h2>
+            <button className="team-view__management-btn" onClick={onExportPDF}>Export Team to PDF</button>
+            <button className="team-view__management-btn" onClick={onLoadOpen}>Load Team</button>
+            <button className="team-view__management-btn team-view__management-btn--muted" onClick={onBack}>← Back to Builder</button>
+          </section>
+        </div>
+      </div>
+
+      <HoverBox entry={hoverEntry} onOpen={openHover} onClose={closeHover} />
+    </div>
+  );
+}
+
+// Collect all gear (weapons + equipment) for an asset, merging:
+//  - free defaults (from FB-loaded asset.defaults OR the model's LOADOUT field), and
+//  - paid slot items.
+// Deduped by item name. Each item carries a _free flag so the card can label cost.
+function collectAssetGear(asset) {
+  const m = findModel(asset.modelId);
+  const weapons = [];
+  const equipment = [];
+  const seen = new Set();
+
+  const add = (name, isFree) => {
+    if (!name || seen.has(name)) return;
+    const wRec = findWeapon(name);
+    const eRec = findEquipment(name);
+    if (wRec) { weapons.push({ ...wRec, _free: isFree }); seen.add(name); }
+    else if (eRec) { equipment.push({ ...eRec, _free: isFree }); seen.add(name); }
+  };
+
+  // Free defaults from FB-loaded team (defaultWeapons, defaultInventory)
+  for (const name of (asset.defaults?.weapons || [])) add(name, true);
+  for (const name of (asset.defaults?.equipment || [])) add(name, true);
+
+  // Free equipment from model's LOADOUT field (XLSX)
+  if (m) for (const name of parseLoadout(m)) add(name, true);
+
+  // Paid slot items (purchased)
+  for (const slot of (asset.slots || [])) {
+    if (!slot) continue;
+    add(slot.name, false);
+  }
+  return { weapons, equipment };
+}
+
+function AssetCard({ asset, onOpenHover, onRename }) {
+  const m = findModel(asset.modelId);
+  if (!m) return null;
+  const rating = assetRating(asset);
+  const bucketKey = assetBucket(asset);
+  const bucketLabel = (BUCKETS.find((b) => b.key === bucketKey)?.label || 'Asset').toUpperCase();
+  const baseName = displayName(m);
+  const customName = asset.customName || baseName;
+  const { weapons, equipment } = useMemo(
+    () => collectAssetGear(asset),
+    [asset.modelId, asset.slots?.map((s) => s?.name).join('|'), JSON.stringify(asset.defaults || null)]
+  );
+  const loadout = parseLoadout(m);
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(customName);
+  useEffect(() => { setDraft(customName); }, [customName]);
+
+  const commitRename = () => {
+    setEditing(false);
+    const n = draft.trim();
+    if (onRename && n && n !== customName) onRename(n);
+    else if (onRename && !n) onRename('');
+  };
+
+  const renderTerm = (name, kind) => (
+    <span
+      className="term-link"
+      onClick={(e) => onOpenHover && onOpenHover({ kind, name, x: e.clientX, y: e.clientY })}
+    >{name}</span>
+  );
+
+  return (
+    <article className="asset-card">
+      <div className="asset-card__type">{bucketLabel} / {baseName.toUpperCase()}</div>
+
+      <div className="asset-card__name-row">
+        {editing ? (
+          <input
+            className="asset-card__name asset-card__name--editing"
+            value={draft}
+            autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') { setDraft(customName); setEditing(false); }
+            }}
+          />
+        ) : (
+          <h3
+            className="asset-card__name"
+            title={onRename ? 'Click to rename' : ''}
+            onClick={() => onRename && setEditing(true)}
+          >
+            {customName} <span className="asset-card__rating">({rating}r)</span>
+          </h3>
+        )}
+      </div>
+
+      <div className="stat-row">
+        <StatCell label="Speed"   value={m.speed} />
+        <StatCell label="Shoot"   value={m.shoot} />
+        <StatCell label="Fight"   value={m.fight} />
+        <StatCell label="Defense" value={m.defense} />
+        <StatCell label="Grit"    value={m.grit} />
+        <StatCell label="Health"  value={m.health} />
+      </div>
+
+      {loadout.length > 0 && (
+        <div className="asset-card__row">
+          <div className="tag">Loadout</div>
+          <div className="asset-card__loadout">
+            {loadout.map((name, i) => {
+              const kind = findWeapon(name) ? 'weapon' : (findEquipment(name) ? 'equipment' : null);
+              return (
+                <React.Fragment key={i}>
+                  {i > 0 && ', '}
+                  {kind ? renderTerm(name, kind) : <span>{name}</span>}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(weapons.length > 0 || equipment.length > 0) && (
+        <div className="asset-card__row">
+          <div className="tag">Carry Capacity</div>
+          <div className="asset-card__slots">
+            {weapons.map((w, i) => (
+              <WeaponBox key={'w' + i} w={w} onOpenHover={onOpenHover} />
+            ))}
+            {equipment.map((e, i) => (
+              <EquipmentRow key={'e' + i} e={e} onOpenHover={onOpenHover} />
+            ))}
+          </div>
+        </div>
+      )}
+    </article>
+  );
+}
+
+const traitLinkClass = (t) =>
+  'term-link' + (/^dangerous$/i.test((t || '').trim()) ? ' is-dangerous' : '');
+
+function WeaponBox({ w, onOpenHover }) {
+  const traits = splitTraits(w.traits);
+  const fire = (kind, name) => (e) => onOpenHover && onOpenHover({ kind, name, x: e.clientX, y: e.clientY });
+  return (
+    <div className="weapon-box">
+      <div className="weapon-box__head">
+        <span className="term-link" onClick={fire('weapon', w.name)}>{w.name}</span>
+        <span className="weapon-box__cost">({w._free ? '0r' : num(w.rating) + 'r'})</span>
+      </div>
+      <div className="weapon-box__stats">
+        <div><div className="lbl">Range</div><div className="val">{w.range || '—'}</div></div>
+        <div><div className="lbl">Attacks</div><div className="val">{w.attacks || '—'}</div></div>
+        <div><div className="lbl">Power</div><div className="val">{w.power || '—'}</div></div>
+        <div><div className="lbl">Damage</div><div className="val">{w.damage || '—'}</div></div>
+      </div>
+      {traits.length > 0 && (
+        <div className="weapon-box__traits">
+          <div className="lbl">Traits</div>
+          <div className="weapon-box__traits-list">
+            {traits.map((t, j) => (
+              <React.Fragment key={t + ':' + j}>
+                {j > 0 && ', '}
+                <span className={traitLinkClass(t)} onClick={fire('trait', t)}>{t}</span>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EquipmentRow({ e, onOpenHover }) {
+  const [open, setOpen] = useState(false);
+  const traits = splitTraits(e.traits);
+  const passive = (e.passiveAbility || '').trim();
+  const actionName = (e.actionName || '').trim();
+  const actionDesc = (e.actionDescription || '').trim();
+  const description = (e.description || '').trim();
+  const hasDetail = !!(passive || actionName || description || traits.length);
+  const fire = (kind, name) => (ev) => {
+    ev.stopPropagation();
+    onOpenHover && onOpenHover({ kind, name, x: ev.clientX, y: ev.clientY });
+  };
+  return (
+    <div className={'equip-row' + (open ? ' is-open' : '')}>
+      <div className="equip-row__head" onClick={() => hasDetail && setOpen(!open)}>
+        <span className="equip-row__name">{e.name}</span>
+        <span className="equip-row__cost">({e._free ? '0r' : num(e.rating) + 'r'})</span>
+        {hasDetail && <span className="equip-row__chevron">{open ? '▴' : '▾'}</span>}
+      </div>
+      {open && (
+        <div className="equip-row__body">
+          {passive && (
+            <div className="equip-row__line"><span className="lbl">Passive</span> {passive}</div>
+          )}
+          {actionName && (
+            <div className="equip-row__line"><span className="lbl">{actionName}</span> {actionDesc}</div>
+          )}
+          {traits.length > 0 && (
+            <div className="equip-row__line">
+              <span className="lbl">Traits</span>{' '}
+              {traits.map((t, j) => (
+                <React.Fragment key={t + ':' + j}>
+                  {j > 0 && ', '}
+                  <span className={traitLinkClass(t)} onClick={fire('trait', t)}>{t}</span>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+          {description && (
+            <div className="equip-row__line equip-row__line--muted">{description}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // LOAD MODAL
 // ============================================================
-function LoadModal({ onPick, onClose, onDelete }) {
-  const list = loadSavedTeams();
+function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
+  const local = loadSavedTeams();
+  const fbLoading = firebaseTeams === null;
+  const fb = Array.isArray(firebaseTeams) ? firebaseTeams : [];
+  const list = [...local, ...fb];
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>Load Team</h2>
-        {list.length === 0 ? (
+        {list.length === 0 && !fbLoading ? (
           <div className="modal__empty">No saved teams yet.<br />Build one and hit Save Team.</div>
         ) : (
           <div className="modal__list">
-            {list.map((t) => (
-              <button key={t.id} onClick={() => onPick(t)}>
-                <div>
-                  <div style={{ fontWeight: 700 }}>{t.name}</div>
-                  <div className="meta">{t.factionId} · {teamRating(t)}r · {(t.assets || []).length} assets</div>
-                </div>
-                <span className="meta">{new Date(t.savedAt || t.createdAt).toLocaleString()}</span>
-                <span className="del" onClick={(e) => { e.stopPropagation(); onDelete(t.id); }}>Delete</span>
-              </button>
-            ))}
+            {list.map((t) => {
+              const isFb = t._source === 'firebase';
+              return (
+                <button key={t.id} onClick={() => onPick(t)}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>
+                      {t.name}
+                      {isFb && (
+                        <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--muted)', textTransform: 'uppercase' }}>· Cloud</span>
+                      )}
+                    </div>
+                    <div className="meta">{t.factionId} · {teamRating(t)}r · {(t.assets || []).length} assets</div>
+                  </div>
+                  <span className="meta">{t.savedAt || t.createdAt ? new Date(t.savedAt || t.createdAt).toLocaleString() : '—'}</span>
+                  {isFb
+                    ? <span className="meta" title="Read-only from cloud">read-only</span>
+                    : <span className="del" onClick={(e) => { e.stopPropagation(); onDelete(t.id); }}>Delete</span>}
+                </button>
+              );
+            })}
+            {fbLoading && (
+              <div className="meta" style={{ padding: '10px 4px' }}>Loading cloud teams…</div>
+            )}
           </div>
         )}
         <div className="modal__actions">

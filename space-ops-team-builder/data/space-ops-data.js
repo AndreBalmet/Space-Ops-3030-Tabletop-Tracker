@@ -787,214 +787,6 @@ window.SPACE_OPS_DATA = {
       "damage": 1,
       "traits": "Take Cover, Rare",
       "description": ""
-    },
-    {
-      "name": "",
-      "id": 220,
-      "weaponType": "Vehicle Ranged",
-      "quality": "STANDARD",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": 221,
-      "weaponType": "Vehicle Ranged",
-      "quality": "STANDARD",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": 222,
-      "weaponType": "Vehicle Ranged",
-      "quality": "STANDARD",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": "",
-      "weaponType": "",
-      "quality": "",
-      "rating": "",
-      "range": "Full",
-      "attacks": "",
-      "power": "",
-      "damage": "",
-      "traits": "",
-      "description": ""
     }
   ],
   "equipment": [
@@ -1176,7 +968,7 @@ window.SPACE_OPS_DATA = {
       "rating": 1,
       "passiveAbility": "",
       "actionName": "Hack",
-      "actionDescription": "When a model activates and is equipped with a Cyberdeck, it may use the Hack unique action. A model cannot use any action that requires a melee or ranged attack in the same activation as a Hack action. \r\nSee the rulebook for more on Hacking.\r\n\n",
+      "actionDescription": "When a model activates and is equipped with a Cyberdeck, it may use the Hack unique action. A model cannot use any action that requires a melee or ranged attack in the same activation as a Hack action. \nSee the rulebook for more on Hacking.\n\n",
       "traits": "",
       "memory": 5,
       "cpu": 3,
@@ -1713,27 +1505,6 @@ window.SPACE_OPS_DATA = {
       "damage": ""
     },
     {
-      "name": "",
-      "id": 333,
-      "faction": "",
-      "equipmentType": "",
-      "quality": "",
-      "bools": "",
-      "rating": "",
-      "passiveAbility": "",
-      "actionName": "",
-      "actionDescription": "",
-      "traits": "",
-      "memory": "",
-      "cpu": "",
-      "integrity": "",
-      "firewall": "",
-      "range": "",
-      "attacks": "",
-      "power": "",
-      "damage": ""
-    },
-    {
       "name": "Ancient Talisman",
       "id": "",
       "faction": "Space-Wyrm",
@@ -2170,16 +1941,6 @@ window.SPACE_OPS_DATA = {
       "name": "Weaken",
       "id": 419,
       "description": "Applies the Weakened Condition on a target upon successful attack roll (Ranged or Melee)"
-    },
-    {
-      "name": "",
-      "id": 420,
-      "description": ""
-    },
-    {
-      "name": "",
-      "id": 421,
-      "description": ""
     }
   ],
   "actions": [
@@ -2246,14 +2007,6 @@ window.SPACE_OPS_DATA = {
       "when": "When a model activates",
       "description": "",
       "traits": ""
-    },
-    {
-      "name": "",
-      "category": "",
-      "id": "",
-      "when": "",
-      "description": "",
-      "traits": " "
     }
   ],
   "actionCategories": [
@@ -2344,12 +2097,6 @@ window.SPACE_OPS_DATA = {
       "id": 709,
       "effect": "Plus 1 to Ranged Attack rolls. Immune to the Suppress condition. ",
       "duration": "Lasts until the end of the game round."
-    },
-    {
-      "name": "",
-      "id": 710,
-      "effect": "",
-      "duration": ""
     }
   ]
 };
