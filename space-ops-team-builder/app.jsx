@@ -532,6 +532,8 @@ function App({ dataVersion }) {
             setModal({ kind: 'load' });
           }}
           hasSaved={loadSavedTeams().length > 0 || (firebaseTeams && firebaseTeams.length > 0)}
+          isAdmin={isAdmin}
+          onAdminUpload={() => setModal({ kind: 'xlsx' })}
         />
       )}
       {screen === 'builder' && team && (
@@ -585,6 +587,17 @@ function App({ dataVersion }) {
         />
       )}
 
+      {modal?.kind === 'xlsx' && (
+        <XlsxUploadModal
+          onClose={() => setModal(null)}
+          onUploaded={() => {
+            // Refetch fresh game data immediately so the admin sees the
+            // result of their own upload without waiting for the 60s poll.
+            loadGameDataFromFirebase().then(() => showToast('Game data updated'));
+          }}
+        />
+      )}
+
       {modal?.kind === 'login' && (
         <LoginModal
           onLogin={(name, admin) => {
@@ -633,7 +646,7 @@ function Topbar({ crumbs }) {
 // ============================================================
 // HOME SCREEN
 // ============================================================
-function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, hasSaved }) {
+function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, hasSaved, isAdmin, onAdminUpload }) {
   const [editingName, setEditingName] = useState(false);
   const [draft, setDraft] = useState(player);
   useEffect(() => { setDraft(player); }, [player]);
@@ -668,6 +681,9 @@ function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, has
       <div className="home__menu">
         <button onClick={onCreate}>Create Team</button>
         <button onClick={onLoad} disabled={!hasSaved}>Load Team</button>
+        {isAdmin && (
+          <button onClick={onAdminUpload}>Update Game Data (Admin)</button>
+        )}
         {loggedIn
           ? <button onClick={onLogout}>Log Out</button>
           : <button onClick={onLogin}>Log In</button>
@@ -768,6 +784,154 @@ function LoginModal({ onLogin, onClose }) {
             onClick={submit}
             disabled={!name.trim() || submitting || (isAdminAttempt && !password)}
           >{submitting ? 'Checking…' : 'Log In'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ADMIN: XLSX UPLOAD MODAL
+// Ported from the legacy tracker so admins can update Firebase /gameData
+// directly from the team-builder. Same SheetJS parse, same column-to-key
+// camelCase rule, same per-category Firebase target paths.
+// ============================================================
+const XLSX_SHEET_MAP = {
+  'Factions':         { key: 'factions',         nameCol: 'FACTIONS' },
+  'Models':           { key: 'models',           nameCol: 'MODEL' },
+  'Weapons':          { key: 'weapons',          nameCol: 'WEAPON' },
+  'Equipment':        { key: 'equipment',        nameCol: 'EQUIPMENT' },
+  'Traits':           { key: 'traits',           nameCol: 'TRAIT' },
+  'Actions':          { key: 'actions',          nameCol: 'ACTION' },
+  'Action Categories':{ key: 'actionCategories', nameCol: 'ACTION CATERGORY' },
+  'Conditions':       { key: 'conditions',       nameCol: 'CONDITIONS' },
+};
+
+function mapXlsxRows(rows, nameCol) {
+  return rows.map((r) => {
+    const out = {};
+    for (const k of Object.keys(r)) {
+      const val = r[k];
+      if (k.toUpperCase() === nameCol.toUpperCase()) {
+        out.name = val;
+        continue;
+      }
+      // Trim, lowercase, camelCase multi-word headers — matches legacy.
+      const key = k.trim().toLowerCase()
+        .replace(/[_\s]+(.)/g, (_, c) => c.toUpperCase())
+        .replace(/[_\s]+/g, '');
+      out[key] = val;
+    }
+    return out;
+  }).filter((r) => r.name && String(r.name).trim() !== '');
+}
+
+function XlsxUploadModal({ onClose, onUploaded }) {
+  const [status, setStatus] = useState('');
+  const [results, setResults] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleFile = async (file) => {
+    if (!file) return;
+    if (typeof window.XLSX === 'undefined') {
+      setStatus('SheetJS not loaded. Check your internet connection and reload.');
+      return;
+    }
+    setUploading(true);
+    setStatus('Reading file…');
+    setResults([]);
+    setDone(false);
+    const localResults = [];
+
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = window.XLSX.read(new Uint8Array(buf), { type: 'array' });
+
+      for (const sheetName of wb.SheetNames) {
+        const info = XLSX_SHEET_MAP[sheetName];
+        if (!info) {
+          localResults.push({ sheet: sheetName, msg: 'skipped (unknown sheet)', ok: false });
+          continue;
+        }
+        const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
+        if (rows.length === 0) {
+          localResults.push({ sheet: sheetName, msg: 'empty (0 rows)', ok: false });
+          continue;
+        }
+        const mapped = mapXlsxRows(rows, info.nameCol);
+        if (mapped.length === 0) {
+          localResults.push({ sheet: sheetName, msg: 'no valid rows after filtering', ok: false });
+          continue;
+        }
+        setStatus(`Uploading ${sheetName} (${mapped.length} rows)…`);
+        const res = await fetch(`${FIREBASE_DB_URL}/gameData/${info.key}.json`, {
+          method: 'PUT',
+          body: JSON.stringify(mapped),
+        });
+        if (!res.ok) {
+          const err = await res.text().catch(() => '');
+          localResults.push({ sheet: sheetName, msg: `upload failed (HTTP ${res.status}) ${err.slice(0, 120)}`, ok: false });
+        } else {
+          localResults.push({ sheet: sheetName, msg: `${mapped.length} items uploaded`, ok: true });
+        }
+        setResults([...localResults]);
+      }
+
+      // Stamp lastUpdated with Firebase server-side timestamp.
+      setStatus('Stamping lastUpdated…');
+      await fetch(`${FIREBASE_DB_URL}/gameData/lastUpdated.json`, {
+        method: 'PUT',
+        body: JSON.stringify({ '.sv': 'timestamp' }),
+      });
+
+      setStatus(`Done — ${localResults.filter((r) => r.ok).length} of ${localResults.length} sheets uploaded.`);
+      setDone(true);
+      setUploading(false);
+      onUploaded && onUploaded();
+    } catch (err) {
+      console.error('[xlsx] upload failed:', err);
+      setStatus('Error: ' + (err?.message || err));
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={uploading ? null : onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+        <h2>Update Game Data</h2>
+        <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: -6, marginBottom: 16 }}>
+          Upload a single <strong>.xlsx</strong> file with sheets for each category (Factions, Models, Weapons, Equipment, Traits, Actions, Action Categories, Conditions). Replaces the matching paths under Firebase <code>/gameData</code>.
+        </p>
+        <label style={{
+          display: 'block', padding: '24px 16px', border: '2px dashed var(--red)',
+          borderRadius: 6, textAlign: 'center', cursor: uploading ? 'wait' : 'pointer',
+          background: 'rgba(228,74,74,0.05)', fontWeight: 700, fontSize: 13,
+          letterSpacing: '0.05em', color: 'var(--red)', textTransform: 'uppercase',
+        }}>
+          {uploading ? 'Uploading…' : 'Click to select .xlsx file'}
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            disabled={uploading}
+            onChange={(e) => handleFile(e.target.files && e.target.files[0])}
+            style={{ display: 'none' }}
+          />
+        </label>
+        {status && (
+          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text)' }}>{status}</div>
+        )}
+        {results.length > 0 && (
+          <ul style={{ fontSize: 12, marginTop: 8, listStyle: 'none', padding: 0, lineHeight: 1.7 }}>
+            {results.map((r, i) => (
+              <li key={i} style={{ color: r.ok ? '#2D8A50' : 'var(--muted)' }}>
+                {r.ok ? '✓' : '–'} {r.sheet}: {r.msg}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="modal__actions">
+          <button onClick={onClose} disabled={uploading}>{done ? 'Done' : 'Cancel'}</button>
         </div>
       </div>
     </div>
