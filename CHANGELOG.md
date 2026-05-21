@@ -4,6 +4,120 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0 — 2026-05-20
+
+### Major: Team-Builder pivot (now the default URL)
+
+The project now serves two coexisting apps:
+
+- **Root URL** (`andrebalmet.github.io/Space-Ops-3030-Tabletop-Tracker/`) — a new React-based **team-builder** focused on building, viewing, and exporting teams.
+- **`/tracker.html`** — the legacy v14.83 single-file tracker (admin sign-in, Firebase sessions, combat tracker, XLSX upload, PDF export) — fully intact, just at a new path.
+
+Root `index.html` is now a small meta-refresh redirect to `/space-ops-team-builder/`. The previous root tracker was renamed (`index.html` → `tracker.html`) with no other modifications.
+
+### New team-builder
+
+Lives in `/space-ops-team-builder/`:
+
+| File | Role |
+|---|---|
+| `index.html` | Babel-in-browser bootstrap (loads React, jsPDF, SheetJS) |
+| `app.jsx` | Single React file — `AppRoot`, `App`, `Home`, `Builder`, `TeamView`, `HoverBox`, `XlsxUploadModal`, `LoginModal`, `LoadModal` |
+| `styles.css` | All styles |
+| `data/space-ops-data.js` | Bundled snapshot of game data (fallback if Firebase fails) |
+
+#### Landing page
+- Pixel-matched to page 1 of `WebApp_v2.pdf`: title, diagonal stripe band, player line, vertical menu.
+- Stripe pattern: `repeating-linear-gradient(132deg, ...)` — 42° off vertical, 55px stripe / 28px gap horizontal, phase-aligned so white sits top-left like the mock.
+- Content band left-edge x=320, right-edge x=890 — same horizontal grid as the builder, so flipping between Home and Builder leaves elements on the same column positions.
+
+#### Builder (3-column layout)
+- **Fixed column widths**: col 1 (white, 600px) + col 2 (light gray, 290px) + col 3 (mid-gray, 605px) = 1495px. No auto-resize; horizontal scroll at narrower viewports.
+- Columns extend full viewport height behind a transparent topbar (no vertical bg gap on tall screens).
+- No vertical dividers between columns — color shifts alone mark boundaries.
+- Section dividers (Team Assets / Asset Name / Armory) aligned across all three columns to a shared horizontal baseline.
+- Selected asset row bleeds full-width to col 2 boundary (red `#E44A4A`, no rounding on the trailing edge).
+- Selected slot pill bleeds full-width to col 3 boundary (same treatment).
+- Slot pills use `var(--radius-pill: 10px)` border-radius and `--pill-dark: #2D2D2D` bg (pixel-sampled from mock).
+- Stat row centered with red caps labels.
+- Slide-in animation when detail/armory columns mount.
+
+#### Team View
+- Responsive grid `repeat(auto-fill, minmax(380px, 1fr))` of asset cards.
+- Each card: bucket tag (`OPERATOR LEADER / RANGER-CAPTAIN`), editable model name + rating, centered 6-stat row, Loadout, Carry Capacity.
+- **Weapons always expanded** with inline Range / Attacks / Power / Damage and Traits list. Stat cells centered.
+- **Equipment collapsed** by default — pill with chevron `▾`, click to expand for Passive / Action / Traits / description.
+- **Dangerous trait** rendered red + bold automatically (case-insensitive `is-dangerous` class).
+- Team Management container (Export to PDF, Load Team, Back to Builder) flows as the last grid item.
+- Model names editable via click → input → Enter to commit. `customName` stored on the asset and auto-saved.
+
+#### HoverBox
+- Click any term (loadout item, equipped pill, weapon name in armory expand, trait in any context) → dark info card with stats + traits + actions.
+- Trait names inside a HoverBox are themselves clickable, opening a trait HoverBox (recursive).
+- Trait resolution handles `(x)` and trailing-number variants — `"Ammo (1)"` resolves to `"Ammo (x)"`.
+
+### Data: live Firebase sync
+
+- On app mount the team-builder fetches `/gameData` from Firebase (same path the legacy tracker writes to via XLSX upload) — no more reliance on the bundled snapshot.
+- Field mapping: Firebase's `carryCapacity` mirrored to `totalSlots` so existing code keeps working.
+- Bundled `space-ops-data.js` retained as a fallback if Firebase is unreachable.
+- **Auto-refresh**: polls `/gameData/lastUpdated` every 60s + on `visibilitychange` (tab regain). If the timestamp changed (admin pushed a new XLSX), refetches `/gameData`, bumps `window.SPACE_OPS_DATA._version`, and cascades a re-render via a `dataVersion` prop on `App`. `AssetCard`'s gear `useMemo` includes the version in deps so stale lookups invalidate.
+- Every team — saved locally or loaded from Firebase — recomputes stats/ratings/traits/passives from the freshest data automatically.
+
+### Firebase team read (saved teams from legacy tracker)
+
+- The team-builder reads saved teams from `/players/<player>/teams` (the legacy tracker's storage path) — read-only.
+- FB-sourced entries appear in the Load Team modal marked `· Cloud` with a `read-only` indicator.
+- Item names from FB-stored teams are deduped — items that appear in both `weapons[]` and `inventory[]` arrays (H4 Grenade, Ghost Trace, Cyberdeck, etc.) are classified to the correct kind via the current `/gameData` rather than double-added.
+- Loading an FB team carries its `defaultWeapons` / `defaultInventory` so the view layer can render free items even though they don't occupy purchased slots.
+
+### Admin
+
+- **Admin login**: typing player name `admin` in `LoginModal` reveals a password field. Password is SHA-256-hashed in the browser (`crypto.subtle.digest`) and compared against Firebase `/admin/passwordHash` — same hash as the legacy tracker, so `enterthereach` works in both apps. State persisted to `localStorage.spaceops.isAdmin.v1`.
+- **Admin XLSX upload**: when signed in as admin, an `Update Game Data (Admin)` entry appears in the home menu. Opens `XlsxUploadModal`, which parses the .xlsx via SheetJS `0.20.3` (same as legacy), maps recognized sheets (Factions / Models / Weapons / Equipment / Traits / Actions / Action Categories / Conditions) to their `/gameData/{key}` paths, PUTs each via REST, and stamps `/gameData/lastUpdated` with `{".sv":"timestamp"}`.
+- After upload, immediately refetches `/gameData` so the admin sees their own changes without waiting for the 60s poll. Other clients pick up within 60s.
+
+### Persistence & reliability
+
+- **Session restore on remount**: `team` and `screen` (`builder` / `view`) are restored from localStorage on every App mount. Asset `instanceId`s are reassigned per session. Fixes the iPad bug where pull-to-refresh appeared to wipe custom model names.
+- **Auto-save**: every team mutation (rename, slot equip, asset add/remove, faction change) is debounced 500ms then written into `spaceops.teams.v1`. No manual Save click required — the existing Save Team button stays as a "save now + toast" shortcut. Fixes the View-Team customName loss when switching teams via Load.
+- **iOS overscroll suppressed**: `html, body { overscroll-behavior-y: none }` blocks iPad's pull-to-refresh and rubber-band reload.
+
+### Export to PDF
+
+- jsPDF (CDN-loaded `2.5.1`, same version as legacy) ported from the legacy tracker's `exportTeamToPDF`.
+- Generates a US Letter portrait PDF in the `//SPACE-OPS 3030/ROSTER` style: hatch box + barcode header with PLAYER / FACTION / TEAM / RATING, 2×3 grid of model cards per page (6 models per page), MODEL / HEALTH header, 5 stat boxes (SPEED / SHOOT / FIGHT / DEFENSE / GRIT), Standard Equipment line, 4 Gear slots.
+- Filename: `{Player}_{TeamName}.pdf`.
+
+### Bug fixes during the pivot
+
+- Custom model names lost on iPad pull-to-refresh — fixed by session restore + overscroll suppression.
+- Custom names lost when switching teams via Load from View Team (which has no Save button) — fixed by auto-save.
+- Weapon stat cells were left-aligned in Team View — now centered to match the model stat row.
+- Admin login (`admin` / `enterthereach`) wasn't surfaced in the team-builder — now wired through the existing LoginModal.
+
+### Known limitations
+
+- Firebase `/gameData/*` paths accept unauthenticated writes by design (inherited from legacy rules). The admin password gate is client-side only.
+- Auto-saved FB-loaded teams keep their FB id and `_source: 'firebase'` marker, so the Load Team modal shows two entries for the same team — one local (with customNames + recent timestamp), one cloud (original FB snapshot). Picking the local entry restores customNames; picking the cloud entry resets to the FB snapshot. Dedup is a future cleanup.
+- A few legacy FB teams reference the model name `Ranger-Captain in Hardsuit (Leader)` which no longer exists in current `/gameData/models` (renamed to `Ranger-Sergeant in Hardsuit (Leader)`). Those models are skipped on load with a console warning.
+
+### Commits
+
+| Hash | Title |
+|---|---|
+| `40afc7d` | Add space-ops-team-builder prototype scaffolding |
+| `2e31fa3` | Promote team-builder to default URL; move legacy tracker to /tracker.html |
+| `a47e548` | Fetch /gameData from Firebase in team-builder |
+| `491ff66` | Auto-refresh gameData on admin XLSX uploads |
+| `d7d12c4` | Add admin login flow to team-builder |
+| `878ec69` | Add admin XLSX upload to team-builder |
+| `8af0696` | Restore team session on remount; suppress iOS pull-to-refresh |
+| `3ac92d4` | Auto-save team on every change |
+| `bc53e61` | Center weapon stat cells in Team View (match model stat row) |
+
+---
+
 ## v14.83 — 2026-04-22
 
 ### Bug Fixes
