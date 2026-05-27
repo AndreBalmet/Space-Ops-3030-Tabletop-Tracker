@@ -1507,8 +1507,14 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
         .map((e) => ({ kind: 'equipment', record: e, name: e.name, rating: num(e.rating) }));
     }
     if (filter === 'cybertech') {
+      // Two ways to qualify for the Cyberdeck tab:
+      //   1. equipmentType matches /cyber/i (the upgrades — Cryo-Cooled,
+      //      Mil-Spec Hardware, etc.)
+      //   2. the item name itself contains "cyberdeck" (the Cyberdeck device
+      //      itself, which lives under equipmentType "Operator Equipment" so
+      //      it can also appear in the Equipment tab)
       return DATA.equipment
-        .filter((e) => /cyber/i.test(e.equipmentType || ''))
+        .filter((e) => /cyber/i.test(e.equipmentType || '') || /cyberdeck/i.test(e.name || ''))
         .filter(factionGate)
         .filter(assetTypeGate)
         .map((e) => ({ kind: 'equipment', record: e, name: e.name, rating: num(e.rating) }));
