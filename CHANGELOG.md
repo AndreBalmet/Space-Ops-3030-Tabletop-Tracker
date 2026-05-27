@@ -4,6 +4,18 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.3 — 2026-05-27
+
+### Malegeist faction recovered
+
+- **Fixed: Malegeist faction had no selectable models.** The Factions sheet on Firebase carried a stale `Maligeist` (i-spelling), while every model/weapon/equipment in that faction was tagged `Malegeist` (e-spelling). The dropdown showed `Maligeist`, the model filter looked for `Maligeist`, and matched zero records — so the faction was empty. Patched 5 stale `Maligeist` entries in Firebase `/gameData` (`factions[2]`, plus 4 XLSX header-row entries in `equipment[60]` / `models[18]` / `weapons[30]` / `traits[27]`). Stamped `lastUpdated` so live clients pick it up on the next 60s poll.
+- **Code-side defense:** `normalizeFactionId` aliases `Maligeist → Malegeist` at every read boundary (`loadSavedTeams`, `loadCurrent`, `convertFbTeam`), so any team that was saved on a user's iPad while the old spelling was live auto-migrates on next load. Master alias table lives at the top of `app.jsx` so future drifts are a one-line addition.
+
+## v15.0.2 — 2026-05-27
+
+- Cyberdeck device now appears in **both** the Equipment and Cyberdeck armory filters (existing Cyberdeck Upgrades unaffected).
+- Cache-bust query string (`?v=…`) added to `app.jsx`, `styles.css`, and `data/space-ops-data.js` so future deploys cleanly invalidate iOS Safari's aggressive cache.
+
 ## v15.0.1 — 2026-05-27
 
 ### Team-Builder bug fixes

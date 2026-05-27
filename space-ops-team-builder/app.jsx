@@ -95,14 +95,31 @@ const PLAYER_KEY = 'spaceops.player.v1';
 const ADMIN_KEY = 'spaceops.isAdmin.v1';
 const SCREEN_KEY = 'spaceops.screen.v1';
 
+// Aliases for faction names that drifted from canonical spelling at some
+// point. Apply at every read boundary (localStorage, FB) so a stale id like
+// "Maligeist" on a player's iPad auto-migrates to "Malegeist" the next time
+// the team loads. Mapping is one-way: alias -> canonical.
+const FACTION_ID_ALIASES = {
+  'Maligeist': 'Malegeist',
+};
+const normalizeFactionId = (id) => (id && FACTION_ID_ALIASES[id]) || id;
+const normalizeTeamFaction = (t) => {
+  if (!t || typeof t !== 'object') return t;
+  const fixed = normalizeFactionId(t.factionId);
+  return fixed === t.factionId ? t : { ...t, factionId: fixed };
+};
+
 const loadSavedTeams = () => {
-  try { return JSON.parse(localStorage.getItem(SAVED_TEAMS_KEY) || '[]'); } catch { return []; }
+  try {
+    const arr = JSON.parse(localStorage.getItem(SAVED_TEAMS_KEY) || '[]');
+    return Array.isArray(arr) ? arr.map(normalizeTeamFaction) : [];
+  } catch { return []; }
 };
 const writeSavedTeams = (arr) => {
   localStorage.setItem(SAVED_TEAMS_KEY, JSON.stringify(arr));
 };
 const loadCurrent = () => {
-  try { return JSON.parse(localStorage.getItem(CURRENT_TEAM_KEY) || 'null'); } catch { return null; }
+  try { return normalizeTeamFaction(JSON.parse(localStorage.getItem(CURRENT_TEAM_KEY) || 'null')); } catch { return null; }
 };
 const writeCurrent = (team) => {
   if (team) localStorage.setItem(CURRENT_TEAM_KEY, JSON.stringify(team));
@@ -365,7 +382,7 @@ async function fetchFirebaseTeams(playerName) {
 }
 
 function convertFbTeam(fbId, fb) {
-  const factionId = fb.faction || 'Arc Rangers';
+  const factionId = normalizeFactionId(fb.faction || 'Arc Rangers');
   const fbModels = Array.isArray(fb.models) ? fb.models : [];
   const assets = [];
   for (const fbm of fbModels) {
