@@ -6,7 +6,7 @@
 
 :root {
   /* Type */
-  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* Neutrals */
@@ -21,6 +21,7 @@
   /* Accents — sampled from WebApp_v2.pdf page 6 */
   --red: #D9302D;        /* primary red (PLAYER tag, ranged accent) */
   --red-bg: #E44A4A;     /* selected row bg (mock pixel #E44A4A) */
+  --red-on-dark: #e34a4a;/* labels on dark weapon/equipment boxes (readability over --pill-dark) */
   --green: #2D8A50;      /* melee */
   --blue: #2F5FB8;       /* equipment */
   --purple: #6E4FB7;     /* cybertech */
@@ -231,8 +232,9 @@ button { font-family: inherit; }
 /* ==== Section labels (small red caps) ==== */
 .tag {
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 1.25;
   color: var(--red);
   text-transform: uppercase;
   margin: 0 0 6px;
@@ -321,8 +323,9 @@ button { font-family: inherit; }
 .asset-group { margin-bottom: 10px; }
 .asset-group__tag {
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 1.25;
   color: var(--red);
   text-transform: uppercase;
   margin: 6px 0 4px;
@@ -425,8 +428,9 @@ button { font-family: inherit; }
 /* ==== Asset detail (right panel) ==== */
 .asset-detail__tag {
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 1.25;
   color: var(--red);
   text-transform: uppercase;
 }
@@ -447,8 +451,9 @@ button { font-family: inherit; }
 .stat-row__cell { text-align: center; }
 .stat-row__label {
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 1.25;
   color: var(--red);
   text-transform: uppercase;
 }
@@ -547,9 +552,15 @@ button { font-family: inherit; }
 .armory__filter {
   margin-top: 12px;
   display: flex;
-  gap: 14px;
+  flex-direction: column;
+  gap: 6px;
   font-size: 12px;
+}
+.armory__filter-tabs {
+  display: flex;
   flex-wrap: wrap;
+  column-gap: 14px;
+  row-gap: 6px;
   align-items: center;
 }
 .armory__filter .label {
@@ -633,7 +644,7 @@ button { font-family: inherit; }
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.14em;
-  color: var(--red);
+  color: var(--red-on-dark);
   text-transform: uppercase;
   display: block;
 }
@@ -645,7 +656,7 @@ button { font-family: inherit; }
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.14em;
-  color: var(--red);
+  color: var(--red-on-dark);
   text-transform: uppercase;
   display: block;
   margin-top: 4px;
@@ -1131,9 +1142,32 @@ span.is-dangerous {
 /* ==== Responsive ====
    Tablet: drop summary when armory open (keep detail + armory).
    Phone: only show the deepest open column. */
-/* No responsive grid overrides — fixed widths are intentional per the
-   page-8 reference. At narrow viewports the builder scrolls horizontally
-   rather than re-arranging the columns. */
+/* No responsive grid overrides at standard widths — fixed widths are
+   intentional per the page-8 reference. At narrow viewports the builder
+   scrolls horizontally rather than re-arranging the columns. */
 @media (max-width: 760px) {
   .topbar { padding: 0 14px; }
+}
+
+/* At 4K / wide monitors, scale the builder columns up by ~130% so content
+   isn't lost in a sea of side margin. Kicks in at 1700px+ so it doesn't
+   trigger on standard 1080p / 1440p screens. Proportions match the design
+   mock — only the scale changes. */
+@media (min-width: 1700px) {
+  .builder {
+    grid-template-columns: 780px;
+  }
+  .builder.has-detail {
+    grid-template-columns: 780px 377px;
+  }
+  .builder.has-armory {
+    grid-template-columns: 780px 377px 787px;
+  }
+  .builder__col--summary {
+    /* Same content-right-edge feel as the standard layout — scaled padding. */
+    padding-left: 416px;
+  }
+  .builder__col--armory {
+    padding-right: 377px;
+  }
 }

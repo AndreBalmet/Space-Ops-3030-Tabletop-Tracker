@@ -4,6 +4,27 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.1 — 2026-05-27
+
+### Team-Builder bug fixes
+
+- **Fix: adding any model added a Ranger-Captain instead.** Every XLSX-uploaded model arrived from Firebase with an empty `id` field, so `findModel('')` always resolved to the first entry in `DATA.models` (Ranger-Captain (Leader)). This also made the picker's `countOf` collapse across all models in a faction (every Kippin model showed the same `(x3)` count). `loadGameDataFromFirebase` now falls back to using `name` as `id` when the field is blank.
+- **Defensive: orphan assets are dropped on team restore.** Teams previously saved with broken `modelId: ''` would otherwise crash the renderer; they are now filtered out at hydration with a `[team] dropped N orphan asset(s)` console warning. `displayName()` and `isLeader()` are also null-safe.
+- **Armory now filters weapons and cybertech by faction** (equipment already did). Same rule as before: items with no `faction` are universal; items with a faction only appear in their faction's armory. Picks up the new Equipment Faction column without code changes.
+- **Fix: armory rows duplicated on every tab switch.** Items sharing a name (e.g. "Grav Rounds" exists as both Operator Equipment 1r and Vehicle Equipment 2r) caused duplicate React keys, which leaked stale DOM nodes on each Equipment ↔ Ranged cycle. The fix is two-layered: (1) keys are now globally unique (kind + name + type + faction); (2) the armory also filters by **assetType**, so an Operator asset only sees Operator-tier gear and a Support asset (vehicle) only sees Vehicle-tier gear — which is the right rule anyway and naturally dedupes the visible list. Also suppresses the "SPACE-WYRM/KIPPIN/MALIGEIST" XLSX header-row leakage (those rows have no assetType).
+- **Fix: equipment tab also requires a non-empty `equipmentType`** — the header-row rows used to slip through because empty equipmentType passed both `!cyber` and `!default loadout`.
+- **Fix: deleting the currently-loaded team always left one behind.** The auto-save effect would re-write the in-memory team back to localStorage 500ms after deletion. `LoadModal`'s onDelete handler now also clears `team` / `current` / `screen` when the deleted id matches the loaded team.
+
+### Team-Builder visual tweaks (per design notes)
+
+- Armory filter labels shortened: "Ranged Weapons" → "Ranged", "Melee Weapons" → "Melee", "Cybertech" → "Cyberdeck". Layout: "FILTER" sits on its own line above the tab strip; tab strip is a flex-wrap row so the 4 tabs sit on one line where space permits and wrap otherwise.
+- New `--red-on-dark: #e34a4a` token for labels on the dark armory-expand stat boxes (the existing `--red` was hard to read against `--pill-dark`).
+- Softer tag typography on `.asset-detail__tag`, `.stat-row__label`, `.asset-group__tag`, `.tag`: font-weight 400 (was 700), letter-spacing 0.14em (was 0.18em / 0.12em), line-height 1.25.
+- Font swap: body font is now Roboto (loaded via Google Fonts), falling back to Helvetica Neue then Arial.
+- Builder columns scale to ~130% at viewports ≥1700px (4K monitors): 600/290/605 → 780/377/787. Below that breakpoint, the original page-8 grid is unchanged.
+
+---
+
 ## v15.0 — 2026-05-20
 
 ### Major: Team-Builder pivot (now the default URL)

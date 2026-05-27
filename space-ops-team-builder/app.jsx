@@ -12,10 +12,11 @@ const num = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const isLeader = (m) => /\(Leader\)/i.test(m.name || '');
+const isLeader = (m) => /\(Leader\)/i.test((m && m.name) || '');
 
-// Strip "(Leader)" suffix for display
-const displayName = (m) => (m.name || '').replace(/\s*\(Leader\)\s*/i, '').trim();
+// Strip "(Leader)" suffix for display. Null-safe so orphan assets (modelId
+// that no longer resolves after a data refresh) don't crash the renderer.
+const displayName = (m) => ((m && m.name) || '').replace(/\s*\(Leader\)\s*/i, '').trim();
 
 // Look up a model by id
 const findModel = (id) => DATA.models.find((m) => m.id === id || String(m.id) === String(id));
@@ -311,10 +312,14 @@ async function loadGameDataFromFirebase() {
 
     // Firebase model schema uses `carryCapacity` where the app expects
     // `totalSlots`; mirror the field so existing code keeps working.
+    // Also: XLSX uploads don't include an `id` column, so every model arrives
+    // with id: '' — which collapses findModel() onto the first array entry
+    // (Ranger-Captain). Fall back to the unique `name` as the id when missing.
     const normalizeModel = (m) => {
       if (!m || typeof m !== 'object') return m;
       const out = { ...m };
       if (out.totalSlots == null && out.carryCapacity != null) out.totalSlots = out.carryCapacity;
+      if (out.id === '' || out.id == null) out.id = out.name;
       return out;
     };
 
@@ -441,8 +446,16 @@ function App({ dataVersion }) {
     const cur = loadCurrent();
     if (!cur || !Array.isArray(cur.assets)) return null;
     // Asset instanceIds need to be fresh per session (nextInstanceId is
-    // module-scoped and resets on reload).
-    return { ...cur, assets: cur.assets.map((a) => ({ ...a, instanceId: ++nextInstanceId })) };
+    // module-scoped and resets on reload). Also drop orphan assets whose
+    // modelId no longer resolves — happens to anyone whose team was saved
+    // while every Firebase model had id:'' (the bug fixed in this revision),
+    // since their assets all carry modelId:''.
+    const hydrated = cur.assets
+      .filter((a) => !!findModel(a.modelId))
+      .map((a) => ({ ...a, instanceId: ++nextInstanceId }));
+    const dropped = cur.assets.length - hydrated.length;
+    if (dropped > 0) console.warn(`[team] dropped ${dropped} orphan asset(s) on restore`);
+    return { ...cur, assets: hydrated };
   });
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null); // {kind:'load'} | {kind:'login'}
@@ -625,6 +638,15 @@ function App({ dataVersion }) {
           onDelete={(id) => {
             const list = loadSavedTeams().filter((t) => t.id !== id);
             writeSavedTeams(list);
+            // If we just deleted the currently-loaded team, clear the
+            // in-memory state too — otherwise the debounced auto-save effect
+            // re-writes the team back into savedTeams 500ms later. That's
+            // why deleting "the last team" always seemed to leave one.
+            if (team && team.id === id) {
+              setTeam(null);
+              writeCurrent(null);
+              setScreen('home');
+            }
             setModal({ kind: 'load' }); // force re-render
           }}
         />
@@ -1438,36 +1460,61 @@ function StatCell({ label, value }) {
 // ARMORY
 // ============================================================
 const ARMORY_TABS = [
-  { key: 'ranged', label: 'Ranged Weapons' },
-  { key: 'melee', label: 'Melee Weapons' },
+  { key: 'ranged', label: 'Ranged' },
+  { key: 'melee', label: 'Melee' },
   { key: 'equipment', label: 'Equipment' },
-  { key: 'cybertech', label: 'Cybertech' },
+  { key: 'cybertech', label: 'Cyberdeck' },
 ];
 
 function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expandedKey, onToggleExpand, onClose, onOpenHover }) {
-  // Build items list based on filter
+  // Build items list based on filter. Three gating rules layer here:
+  //  1. Faction gate — items with no `faction` are universal; items with a
+  //     faction value only appear in their faction's armory.
+  //  2. Asset-type gate — Operator assets only see Operator-tier items,
+  //     Support (vehicle) assets only see Support/Vehicle-tier items. This
+  //     also naturally dedupes name-collisions across tiers (e.g. "Grav
+  //     Rounds" exists as both Operator Equipment 1r and Vehicle Equipment
+  //     2r) and suppresses XLSX header-row rows (SPACE-WYRM / KIPPIN /
+  //     MALIGEIST) that have no assetType set.
+  //  3. equipmentType must be non-empty for the equipment tab — otherwise
+  //     the same header-row rows leak in as "universal" items.
+  const assetModel = findModel(asset.modelId);
+  const assetType = (assetModel && assetModel.assetType) || '';
+  const factionGate = (it) => !it.faction || it.faction === faction;
+  const assetTypeGate = (it) => !assetType || it.assetType === assetType;
   const items = useMemo(() => {
     if (filter === 'ranged') {
-      return DATA.weapons.filter((w) => /ranged/i.test(w.weaponType || ''))
+      return DATA.weapons
+        .filter((w) => /ranged/i.test(w.weaponType || ''))
+        .filter(factionGate)
+        .filter(assetTypeGate)
         .map((w) => ({ kind: 'weapon', record: w, name: w.name, rating: num(w.rating) }));
     }
     if (filter === 'melee') {
-      return DATA.weapons.filter((w) => /melee/i.test(w.weaponType || ''))
+      return DATA.weapons
+        .filter((w) => /melee/i.test(w.weaponType || ''))
+        .filter(factionGate)
+        .filter(assetTypeGate)
         .map((w) => ({ kind: 'weapon', record: w, name: w.name, rating: num(w.rating) }));
     }
     if (filter === 'equipment') {
       return DATA.equipment
-        .filter((e) => !/cyber/i.test(e.equipmentType || '') && !/default loadout/i.test(e.equipmentType || ''))
-        .filter((e) => !e.faction || e.faction === faction)
+        .filter((e) => e.equipmentType
+          && !/cyber/i.test(e.equipmentType)
+          && !/default loadout/i.test(e.equipmentType))
+        .filter(factionGate)
+        .filter(assetTypeGate)
         .map((e) => ({ kind: 'equipment', record: e, name: e.name, rating: num(e.rating) }));
     }
     if (filter === 'cybertech') {
       return DATA.equipment
         .filter((e) => /cyber/i.test(e.equipmentType || ''))
+        .filter(factionGate)
+        .filter(assetTypeGate)
         .map((e) => ({ kind: 'equipment', record: e, name: e.name, rating: num(e.rating) }));
     }
     return [];
-  }, [filter, faction]);
+  }, [filter, faction, assetType]);
 
   const countEquipped = (name) => asset.slots.filter((s) => s && s.name === name).length;
   const openSlots = asset.slots.filter((s) => !s).length;
@@ -1479,13 +1526,15 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
 
       <div className="armory__filter">
         <span className="label">Filter</span>
-        {ARMORY_TABS.map((t) => (
-          <button
-            key={t.key}
-            className={t.key === filter ? 'is-active' : ''}
-            onClick={() => onFilter(t.key)}
-          >{t.label}</button>
-        ))}
+        <div className="armory__filter-tabs">
+          {ARMORY_TABS.map((t) => (
+            <button
+              key={t.key}
+              className={t.key === filter ? 'is-active' : ''}
+              onClick={() => onFilter(t.key)}
+            >{t.label}</button>
+          ))}
+        </div>
       </div>
 
       <div className="armory__category-tag">
@@ -1497,16 +1546,23 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
 
       <div className="armory__list">
         {items.map((it) => {
-          const key = (it.kind === 'weapon' ? 'w:' : 'e:') + it.name;
+          // Expansion key stays simple (kind + name) so AssetDetail's pill
+          // click can target an armory row by name alone. React's
+          // reconciliation key needs to be globally unique — when two items
+          // share a name (e.g. duplicate-name entries within the same tier
+          // before the assetType gate runs), duplicate React keys leak DOM
+          // nodes across tab switches and the list grows unboundedly.
+          const expansionKey = (it.kind === 'weapon' ? 'w:' : 'e:') + it.name;
+          const reactKey = expansionKey + '::' + (it.record.weaponType || it.record.equipmentType || '') + '::' + (it.record.faction || '');
           const equipped = countEquipped(it.name);
-          const expanded = expandedKey === key;
+          const expanded = expandedKey === expansionKey;
           const cat = pillCategory(it.record);
           return (
-            <React.Fragment key={key}>
+            <React.Fragment key={reactKey}>
               <div className={'armory-row' + (expanded ? ' expanded' : '')}>
                 <button className="armory-row__step" onClick={() => onRemove(it.name)} disabled={equipped === 0}>−</button>
                 <button className="armory-row__step" onClick={() => onEquip({ kind: it.kind, name: it.name })} disabled={openSlots === 0}>+</button>
-                <div className={'armory-row__pill pill--' + cat} onClick={() => onToggleExpand(key)}>
+                <div className={'armory-row__pill pill--' + cat} onClick={() => onToggleExpand(expansionKey)}>
                   <span className="slot__pill__name">{it.name}</span>
                   <span style={{ float: 'right', opacity: 0.75 }}>
                     ({it.rating}r){equipped > 0 ? <span style={{ marginLeft: 6, color: '#ffd34a' }}>×{equipped}</span> : null}
@@ -1514,7 +1570,7 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
                 </div>
               </div>
               {expanded && (
-                <ArmoryExpand item={it} onClose={() => onToggleExpand(key)} onOpenHover={onOpenHover} />
+                <ArmoryExpand item={it} onClose={() => onToggleExpand(expansionKey)} onOpenHover={onOpenHover} />
               )}
             </React.Fragment>
           );
