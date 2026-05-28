@@ -1193,3 +1193,17 @@ span.is-dangerous {
     padding-right: 377px;
   }
 }
+
+/* ==== Team View grid on tablets (iPad) ====
+   Portrait: 2 asset cards per row. Landscape: 3 per row. Bounded to the
+   768–1366px CSS-width range so it targets iPads (incl. the 12.9" Pro,
+   which is 1024px portrait / 1366px landscape) without overriding the
+   auto-fill layout on phones (<768) or desktops (>1366). Orientation —
+   not width alone — is used so the 12.9" Pro's 1024px portrait gets 2
+   columns rather than colliding with smaller iPads' landscape width. */
+@media (min-width: 768px) and (max-width: 1366px) and (orientation: portrait) {
+  .team-view__grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 768px) and (max-width: 1366px) and (orientation: landscape) {
+  .team-view__grid { grid-template-columns: repeat(3, 1fr); }
+}
