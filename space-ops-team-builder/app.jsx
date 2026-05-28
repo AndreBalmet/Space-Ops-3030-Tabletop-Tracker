@@ -1591,7 +1591,7 @@ const ARMORY_TABS = [
 ];
 
 function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expandedKey, onToggleExpand, onClose, onOpenHover }) {
-  // Build items list based on filter. Three gating rules layer here:
+  // Build items list based on filter. Four gating rules layer here:
   //  1. Faction gate — items with no `faction` are universal; items with a
   //     faction value only appear in their faction's armory.
   //  2. Asset-type gate — Operator assets only see Operator-tier items,
@@ -1602,16 +1602,59 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
   //     MALIGEIST) that have no assetType set.
   //  3. equipmentType must be non-empty for the equipment tab — otherwise
   //     the same header-row rows leak in as "universal" items.
+  //  4. Model restriction gate — XLSX items whose name ends in "(ModelName)"
+  //     are exclusive to that model (e.g. "Cyber-Bite (War-dog)",
+  //     "War-Harness (War-Dog)"). Conversely, a "specialized" model
+  //     (one that has restricted items in the data) only sees its own
+  //     restricted items, never the general pool — so War-Dog doesn't see
+  //     general Operator Equipment like Med Pack or Stim Shot.
   const assetModel = findModel(asset.modelId);
   const assetType = (assetModel && assetModel.assetType) || '';
+  const modelName = (assetModel && assetModel.name) || '';
   const factionGate = (it) => !it.faction || it.faction === faction;
   const assetTypeGate = (it) => !assetType || it.assetType === assetType;
+  // Resolve a `(ModelName)` parenthetical in an item's name to a model record
+  // (case-insensitive — accommodates XLSX casing drift like '(War-dog)' vs
+  // '(War-Dog)'). Returns the canonical model name or null. Parentheticals
+  // that don't match a model (e.g. '(Pulse Carbine)') are not model
+  // restrictions and pass through transparently.
+  const parseModelRestriction = (it) => {
+    const m = (it.name || '').match(/\(([^)]+)\)/);
+    if (!m) return null;
+    const inside = m[1].trim().toLowerCase();
+    const hit = DATA.models.find((mm) => (mm.name || '').toLowerCase() === inside);
+    return hit ? hit.name : null;
+  };
+  // Set of model names that have at least one restricted item in the data.
+  // These are "specialized" models — they only see their own restricted
+  // items in the armory, never the general pool. Recomputed when gameData
+  // refreshes (admin XLSX upload bumps _version).
+  const specializedModelNames = useMemo(() => {
+    const set = new Set();
+    const scan = (arr) => {
+      for (const it of arr || []) {
+        if (!it || typeof it !== 'object') continue;
+        const r = parseModelRestriction(it);
+        if (r) set.add(r);
+      }
+    };
+    scan(DATA.weapons);
+    scan(DATA.equipment);
+    return set;
+  }, [window.SPACE_OPS_DATA._version]);
+  const modelIsSpecialized = specializedModelNames.has(modelName);
+  const modelRestrictionGate = (it) => {
+    const restricted = parseModelRestriction(it);
+    if (restricted) return restricted === modelName;
+    return !modelIsSpecialized;
+  };
   const items = useMemo(() => {
     if (filter === 'ranged') {
       return DATA.weapons
         .filter((w) => /ranged/i.test(w.weaponType || ''))
         .filter(factionGate)
         .filter(assetTypeGate)
+        .filter(modelRestrictionGate)
         .map((w) => ({ kind: 'weapon', record: w, name: w.name, rating: num(w.rating) }));
     }
     if (filter === 'melee') {
@@ -1619,6 +1662,7 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
         .filter((w) => /melee/i.test(w.weaponType || ''))
         .filter(factionGate)
         .filter(assetTypeGate)
+        .filter(modelRestrictionGate)
         .map((w) => ({ kind: 'weapon', record: w, name: w.name, rating: num(w.rating) }));
     }
     if (filter === 'equipment') {
@@ -1632,6 +1676,7 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
           && !/default loadout/i.test(e.equipmentType || ''))
         .filter(factionGate)
         .filter(assetTypeGate)
+        .filter(modelRestrictionGate)
         .map((e) => ({ kind: 'equipment', record: e, name: e.name, rating: num(e.rating) }));
     }
     if (filter === 'cybertech') {
@@ -1645,10 +1690,11 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
         .filter((e) => /cyber/i.test(e.equipmentType || '') || /cyberdeck/i.test(e.name || ''))
         .filter(factionGate)
         .filter(assetTypeGate)
+        .filter(modelRestrictionGate)
         .map((e) => ({ kind: 'equipment', record: e, name: e.name, rating: num(e.rating) }));
     }
     return [];
-  }, [filter, faction, assetType]);
+  }, [filter, faction, assetType, modelName, modelIsSpecialized]);
 
   const countEquipped = (name) => asset.slots.filter((s) => s && s.name === name).length;
   const openSlots = asset.slots.filter((s) => !s).length;
