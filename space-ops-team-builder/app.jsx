@@ -2072,6 +2072,36 @@ function TeamView({ team, player, onBack, onExportPDF, onLoadOpen, onRenameAsset
 //  - free defaults (from FB-loaded asset.defaults OR the model's LOADOUT field), and
 //  - paid slot items.
 // Deduped by item name. Each item carries a _free flag so the card can label cost.
+// Per the team-building rules: an asset wielding two identical melee weapons
+// gets the Dual Wield buff. Ported from the legacy tracker's
+// _modelHasDualWield. Counts raw weapon instances (collectAssetGear dedupes
+// for display, so we can't use its output): the free loadout (FB defaults ∪
+// model loadout, deduped so a data-duplicated entry isn't a false positive)
+// plus each equipped slot as its own instance. Two+ of the same melee name
+// → dual wield.
+function assetHasDualWield(asset) {
+  const m = findModel(asset.modelId);
+  const counts = {};
+  const bump = (name) => {
+    const w = findWeapon(name);
+    if (!w || !/melee/i.test(w.weaponType || '')) return;
+    const key = (name || '').toLowerCase().trim();
+    if (!key) return;
+    counts[key] = (counts[key] || 0) + 1;
+  };
+  const freeSeen = new Set();
+  for (const name of [...(asset.defaults?.weapons || []), ...(m ? parseLoadout(m) : [])]) {
+    const key = (name || '').toLowerCase().trim();
+    if (!key || freeSeen.has(key)) continue;
+    freeSeen.add(key);
+    bump(name);
+  }
+  for (const slot of (asset.slots || [])) {
+    if (slot && slot.kind === 'weapon') bump(slot.name);
+  }
+  return Object.values(counts).some((c) => c >= 2);
+}
+
 function collectAssetGear(asset) {
   const m = findModel(asset.modelId);
   const weapons = [];
@@ -2109,10 +2139,9 @@ function AssetCard({ asset, onOpenHover, onRename }) {
   const bucketLabel = (BUCKETS.find((b) => b.key === bucketKey)?.label || 'Asset').toUpperCase();
   const baseName = displayName(m);
   const customName = asset.customName || baseName;
-  const { weapons, equipment } = useMemo(
-    () => collectAssetGear(asset),
-    [asset.modelId, asset.slots?.map((s) => s?.name).join('|'), JSON.stringify(asset.defaults || null), window.SPACE_OPS_DATA?._version]
-  );
+  const gearDeps = [asset.modelId, asset.slots?.map((s) => s?.name).join('|'), JSON.stringify(asset.defaults || null), window.SPACE_OPS_DATA?._version];
+  const { weapons, equipment } = useMemo(() => collectAssetGear(asset), gearDeps);
+  const dualWield = useMemo(() => assetHasDualWield(asset), gearDeps);
   const loadout = parseLoadout(m);
 
   const [editing, setEditing] = useState(false);
@@ -2160,6 +2189,10 @@ function AssetCard({ asset, onOpenHover, onRename }) {
           </h3>
         )}
       </div>
+
+      {dualWield && (
+        <div className="asset-card__dualwield">⚔⚔ Dual Wield</div>
+      )}
 
       <div className="stat-row">
         <StatCell label="Speed"   value={m.speed} />
