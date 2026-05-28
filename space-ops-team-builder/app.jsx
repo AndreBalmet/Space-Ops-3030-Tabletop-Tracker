@@ -1017,6 +1017,13 @@ const XLSX_SHEET_MAP = {
   'Conditions':       { key: 'conditions',       nameCol: 'CONDITIONS' },
 };
 
+// Firebase REST forbids these characters in keys (any of `. # $ [ ] /`)
+// and forbids empty-string keys. A single bad XLSX column header (e.g.
+// an unnamed column SheetJS surfaces as `__EMPTY`, or a header containing
+// a period like "weapon.type") used to nuke the whole sheet upload with a
+// 400 "Invalid data; couldn't parse key" error. Sanitize each generated
+// key and skip rows where the result is empty.
+const FIREBASE_FORBIDDEN_KEY_CHARS = /[.#$\[\]\/]/g;
 function mapXlsxRows(rows, nameCol) {
   return rows.map((r) => {
     const out = {};
@@ -1027,9 +1034,20 @@ function mapXlsxRows(rows, nameCol) {
         continue;
       }
       // Trim, lowercase, camelCase multi-word headers — matches legacy.
-      const key = k.trim().toLowerCase()
+      let key = k.trim().toLowerCase()
         .replace(/[_\s]+(.)/g, (_, c) => c.toUpperCase())
         .replace(/[_\s]+/g, '');
+      // Strip Firebase-forbidden characters from the generated key. If the
+      // header is something like '$rating' or 'cost/slot' it would still
+      // produce a bad key — these are stripped silently.
+      key = key.replace(FIREBASE_FORBIDDEN_KEY_CHARS, '');
+      if (!key) {
+        // Empty key (header was blank/whitespace or only forbidden chars).
+        // Log once so the user can clean up the XLSX, but don't fail the
+        // upload over it.
+        console.warn('[xlsx] skipping column with unrepresentable header:', JSON.stringify(k));
+        continue;
+      }
       out[key] = val;
     }
     return out;
