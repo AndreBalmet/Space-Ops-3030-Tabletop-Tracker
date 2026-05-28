@@ -2349,6 +2349,16 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
 // polls /gameData/lastUpdated every 60s; if the timestamp changes (i.e. an
 // admin pushed a new XLSX upload), refetches the whole gameData object and
 // bumps a version counter to cascade re-renders into the React tree.
+// Version string this bundle was loaded as — read from our own <script>
+// tag's `?v=` query. Compared against the deployed index.html so a client
+// running stale cached JS can prompt the user to reload. No constant to
+// maintain — it's the same ?v= already bumped on every release.
+const RUNNING_APP_VERSION = (() => {
+  const s = document.querySelector('script[src*="app.jsx"]');
+  const m = s && s.src.match(/[?&]v=([^&]+)/);
+  return m ? m[1] : null;
+})();
+
 function AppRoot() {
   const [ready, setReady] = useState(false);
   // dataVersion is incremented every time loadGameDataFromFirebase succeeds.
@@ -2356,6 +2366,7 @@ function AppRoot() {
   // component itself doesn't directly read gameData — children's useMemo deps
   // can include `window.SPACE_OPS_DATA._version` to invalidate stale caches.
   const [dataVersion, setDataVersion] = useState(0);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -2368,6 +2379,24 @@ function AppRoot() {
         setReady(true);
       }
     });
+
+    // Detect a newer deployed build. Fetches our own index.html with
+    // cache:'no-store' and compares the deployed app.jsx ?v= against the
+    // version this bundle is running. If they differ, surface a reload
+    // banner. This is what stops the "I edited on browser A and browser B
+    // still runs old code" class of bug from recurring.
+    const checkVersion = async () => {
+      if (!RUNNING_APP_VERSION) return;
+      try {
+        const html = await fetch('./index.html', { cache: 'no-store' }).then((r) => r.text());
+        const m = html.match(/app\.jsx\?v=([0-9.]+)/);
+        const deployed = m ? m[1] : null;
+        if (deployed && deployed !== RUNNING_APP_VERSION && !cancelled) {
+          console.log(`[update] running ${RUNNING_APP_VERSION}, deployed ${deployed} — prompting reload`);
+          setUpdateAvailable(true);
+        }
+      } catch (err) { /* offline / transient — ignore */ }
+    };
 
     // Poll for admin XLSX updates every 60s — cheap GET against
     // /gameData/lastUpdated (a single timestamp), only refetches the full
@@ -2387,15 +2416,18 @@ function AppRoot() {
       } catch (err) { /* ignore transient network errors */ }
     };
     const id = setInterval(tick, 60_000);
+    checkVersion();
+    const versionId = setInterval(checkVersion, 120_000);
 
     // Also refresh whenever the tab regains visibility — covers laptops
     // waking from sleep or users tabbing back after a long idle.
-    const onVis = () => { if (document.visibilityState === 'visible') tick(); };
+    const onVis = () => { if (document.visibilityState === 'visible') { tick(); checkVersion(); } };
     document.addEventListener('visibilitychange', onVis);
 
     return () => {
       cancelled = true;
       clearInterval(id);
+      clearInterval(versionId);
       document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
@@ -2410,7 +2442,24 @@ function AppRoot() {
       </div>
     );
   }
-  return <App dataVersion={dataVersion} />;
+  return (
+    <>
+      {updateAvailable && (
+        <div
+          onClick={() => window.location.reload(true)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+            background: 'var(--red)', color: '#fff', textAlign: 'center',
+            padding: '10px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+            letterSpacing: '0.02em', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          }}
+        >
+          A new version is available — tap to reload
+        </div>
+      )}
+      <App dataVersion={dataVersion} />
+    </>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('app')).render(<AppRoot />);
