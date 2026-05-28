@@ -8,20 +8,27 @@ A real-time multiplayer companion tool for the Space-Ops 3030 tabletop miniature
 
 ## What It Is
 
-A single-file HTML web app (no install needed) that handles team building, session management, combat tracking, and live multiplayer sync for the Space-Ops 3030 tabletop game. Runs on any device with a browser -- phones, tablets, laptops. Open the link and start playing.
+A browser companion (no install needed) for the Space-Ops 3030 tabletop game. As of v15 it ships as **two coexisting apps** that share the same Firebase game data:
+
+- **Team Builder** (the root URL) — a React app focused on building, viewing, and exporting teams, with cross-device cloud sync.
+- **Legacy Tracker** (`/tracker.html`) — the original single-file app: admin sign-in, multiplayer sessions, combat tracker, dice/timer/VP tools, XLSX upload, PDF export.
+
+Runs on any device with a browser -- phones, tablets, laptops. Open the link and start playing.
 
 ---
 
 ## Features
 
 ### Team Builder
-- Build teams from faction rosters (Arc Rangers, Space-Wyrm, Kippin, and more)
-- Equip weapons and gear from data-driven loadouts
+- Build teams from faction rosters (Arc Rangers, Space-Wyrm, Maligeist, Kippin, and more)
+- Equip weapons and gear from a data-driven Armory, filtered by faction, asset type (Operator / Support), and model — so you only see what a given asset can actually take
 - Manage your team's Rating budget with live cost tracking
-- Save and load teams to the cloud
-- Auto Pilot pairing for vehicles (adding a vehicle automatically adds a matched Pilot)
-- Starter squad quick-build for fast setup
-- Weapon and equipment swap within loadout constraints
+- **Cloud sync**: hit Save Team to publish to your account; the same teams appear on every device you sign into. Edits while offline sync automatically when you reconnect
+- **Custom asset names** that persist with the team across devices
+- **Dual Wield** badge on a weapon when an asset carries two of the same melee weapon
+- Tap any item, trait, or condition for a hover card explaining it
+- Team View roster page with PDF export; responsive 1 / 2 / 3-column layout for phone / iPad-portrait / iPad-landscape
+- An update banner prompts a reload when a new build or new game data is published
 
 ### Session Management
 - Create or join multiplayer sessions with a session code
@@ -70,22 +77,23 @@ A single-file HTML web app (no install needed) that handles team building, sessi
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Single HTML file (~8,000+ lines), vanilla JavaScript, CSS Grid/Flexbox |
-| Backend | Firebase Realtime Database |
-| Game Data | XLSX import (SheetJS) |
+| Team Builder | React 18 (CDN + in-browser Babel), single `app.jsx` + `styles.css`, vanilla CSS Grid/Flexbox |
+| Legacy Tracker | Single HTML file (~8,000+ lines), vanilla JavaScript |
+| Backend | Firebase Realtime Database (REST from the team-builder; JS SDK in the legacy tracker) |
+| Game Data | XLSX import (SheetJS) → Firebase `/gameData` |
 | PDF Export | jsPDF |
-| Hosting | GitHub Pages |
+| Hosting | GitHub Pages (deploys from `main`) |
 
-No frameworks. No build step. No dependencies to install.
+No build step — both apps load their dependencies from CDNs. Static asset URLs carry a `?v=` cache-bust that bumps on every release.
 
 ---
 
 ## How to Use
 
-1. Open the [play link](https://andrebalmet.github.io/Space-Ops-3030-Tabletop-Tracker/)
-2. Enter your player name
-3. Build a team from available factions, or load a previously saved one
-4. Create a new session or join an existing one by code
+1. Open the [play link](https://andrebalmet.github.io/Space-Ops-3030-Tabletop-Tracker/) (the Team Builder)
+2. Enter your player name (signs you into your cloud team list)
+3. Build a team from available factions, or load a previously saved one; hit **Save Team** to publish it to your account
+4. For multiplayer play, open `/tracker.html` (the legacy tracker): create or join a session by code
 5. Play -- health, status effects, turns, and Victory Points sync live across all connected devices
 
 ---
@@ -98,9 +106,10 @@ Start a local server from the project root:
 python3 -m http.server 8091
 ```
 
-Then open `http://localhost:8091/index.html` in your browser.
+- Team Builder: `http://localhost:8091/space-ops-team-builder/`
+- Legacy Tracker: `http://localhost:8091/tracker.html`
 
-Always test locally before pushing to main. The GitHub Pages deployment serves directly from the `main` branch.
+Always test locally before pushing to main. The GitHub Pages deployment serves directly from the `main` branch. After changing `app.jsx` or `styles.css`, bump the `?v=` query in `space-ops-team-builder/index.html` so browsers fetch the new build.
 
 ---
 

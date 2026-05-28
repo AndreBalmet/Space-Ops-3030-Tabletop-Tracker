@@ -4,6 +4,77 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.21 — 2026-05-27
+
+### Dual Wield badge redesign
+- The Dual Wield buff badge now sits inline next to the **dual-wielded weapon's name** in its weapon box (was a standalone badge under the model name). Plain "DUAL WIELD" text (crossed-swords emoji removed), dark-gray pill (`--pill-dark`) matching the slot/armory pills. Still clickable → opens the Dual Wield trait HoverBox. Detection (`dualWieldedWeaponKeys`) returns the set of melee weapon names appearing 2+ times so only the relevant weapon is flagged.
+
+## v15.0.20 — 2026-05-27
+
+### Every trait is hoverable
+- The Team View Dual Wield badge opens the "Dual Wield" trait HoverBox (description pulled from `/gameData/traits`). Confirmed every trait surface is clickable for info: weapon trait lists, equipment trait lists, armory expansions, and recursive trait links inside an open HoverBox. `findTrait` normalizes parameterized names (`Ammo 1`, `AoE (x)`, `Transport (x)`) to their base trait.
+
+## v15.0.19 — 2026-05-27
+
+### Phone layout — fix right-side cutoff
+- The desktop layout (summary `padding-left:320px`, fixed 600/290/605 columns, armory `padding-right:290px`, selected-row bleed margins) overflowed the right edge on phones. Added a `max-width:760px` layout: Home/Builder/Team View collapse to a single fluid column with even 18px gutters; builder columns stack vertically; Team View shows one card per row; selected-row / selected-pill bleed margins retuned to the gutter; long topbar breadcrumbs truncate. Verified zero horizontal overflow at 375px.
+
+## v15.0.18 — 2026-05-27
+
+### Reload banner on XLSX data update
+- The "tap to reload" banner now also appears when an admin pushes new game data (`/gameData/lastUpdated` changes), with message "Game data was updated — tap to reload". Code-version updates still show "A new version is available". The in-place silent data refresh still runs; the banner offers a clean full reload so loaded teams re-hydrate against fresh gameData. Code prompts take priority over data prompts.
+
+## v15.0.17 — 2026-05-27
+
+### iPad Team View grid
+- Team View shows **2 cards per row in portrait, 3 per row in landscape** on iPads (orientation media queries bounded to the 768–1366px range, covering the 12.9" Pro). Phones and desktops keep their existing layouts.
+
+## v15.0.16 — 2026-05-27
+
+### Dual Wield buff in Team View (initial)
+- Ported the legacy tracker's dual-wield rule (two identical melee weapons → Dual Wield) into the React team-builder with a badge in Team View. (Presentation later revised in v15.0.20–.21.)
+
+## v15.0.15 — 2026-05-27
+
+### Custom asset names persist across devices
+- Renaming an asset in Team View (`customName`) was dropped on the Firebase round-trip — `convertTeamToFb` didn't write it and `convertFbTeam` didn't read it. Now persisted on the FB model object (same `customName` field the legacy tracker uses) and restored on load. Teams saved before this revision need their names re-applied + re-saved once.
+
+## v15.0.14 — 2026-05-27
+
+### Auto-update banner (stale-cache self-heal)
+- The app reads the `?v=` it was loaded with and periodically fetches `index.html` (cache:'no-store') to compare against the deployed version; on mismatch it shows a red "A new version is available — tap to reload" banner. Checks on mount, every 120s, and on tab refocus. Ends the "browser B is still running old cached code" class of bug — clients left open on an old build are told to reload as soon as a new one deploys.
+
+## v15.0.13 — 2026-05-27
+
+### XLSX upload key sanitizer
+- A bad column header in the uploaded XLSX (an unnamed column SheetJS surfaces as `__EMPTY`, or a header containing `. # $ [ ] /`) used to fail the entire sheet upload with Firebase 400 "Invalid data; couldn't parse key". `mapXlsxRows` now strips Firebase-forbidden characters from generated keys and skips columns whose key would be empty (logging a `[xlsx] skipping column…` warning), so one bad header no longer kills the sheet.
+
+## v15.0.12 — 2026-05-27
+
+### Delete buttons work on iOS
+- Replaced the native `confirm()` in Delete Team (silently suppressed by iOS DuckDuckGo, so the button looked dead) with an in-app armed two-tap: first tap → "Click again to confirm" (red), second tap within 3s deletes. Load Team's per-row Delete kept its one-tap behavior with a larger tap target.
+
+## v15.0.11 — 2026-05-27
+
+### Save semantics + Cloud label
+- Firebase writes now happen **only on explicit Save Team** (plus login/online backfill). Auto-save still preserves the working copy in localStorage every 500ms but no longer touches Firebase. Offline saves queue and sync on the next `online` event.
+- LoadModal's "Cloud" badge now reflects actual Firebase presence (a team built locally then saved up shows "Cloud", not just teams freshly loaded from FB). Removed the misleading "read-only" label; all teams have a Delete button.
+
+## v15.0.10 — 2026-05-27
+
+### Model-restricted gear
+- Items whose name ends in `(ModelName)` (e.g. `Cyber-Bite (War-dog)`, `War-Harness (War-Dog)`) are exclusive to that model. A "specialized" model (one that has any restricted item) only sees its own restricted items in the armory, never the general pool — so War-Dog no longer sees general Operator gear. Weapon-attachment parentheticals like `(Pulse Carbine)` are unaffected.
+
+## v15.0.9 — 2026-05-27
+
+### Load Team sorted by latest
+- The Load Team list is ordered by most-recently-modified (`savedAt`, falling back to `createdAt`), newest first, across local + cloud entries.
+
+## v15.0.8 — 2026-05-27
+
+### Deploy-recovery cache bump
+- A no-op version bump to force a fresh GitHub Pages build after a transient Pages deploy outage (500s) left v15.0.5–.7 unpublished. No behavior change.
+
 ## v15.0.7 — 2026-05-27
 
 ### Safer backfill: push only local-only teams
