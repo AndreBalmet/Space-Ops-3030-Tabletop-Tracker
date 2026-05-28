@@ -547,11 +547,12 @@ function App({ dataVersion }) {
     if (team) writeCurrent(team);
   }, [team]);
   useEffect(() => {
-    // Auto-save: every team change (rename, add/remove asset, equip, etc.)
-    // is debounced 500ms then written into the savedTeams list AND mirrored
-    // to Firebase under /players/<player>/teams/<id> so the same team is
-    // visible across all of the player's devices (iPad ↔ laptop) and from
-    // the legacy tracker. Skips when team is null or no player is set.
+    // Auto-save: every team change is debounced 500ms and written into
+    // localStorage's savedTeams list so an in-progress team survives a
+    // refresh / pull-to-refresh, even without an explicit Save Team click.
+    // Firebase is NOT touched here — the user has to click Save Team for
+    // their work to publish to the cloud. The login/online backfill picks
+    // up anything that's saved locally but missing from Firebase.
     if (!team) return;
     const handle = setTimeout(() => {
       const list = loadSavedTeams();
@@ -560,10 +561,9 @@ function App({ dataVersion }) {
       if (idx >= 0) list[idx] = snapshot;
       else list.unshift(snapshot);
       writeSavedTeams(list);
-      if (player) saveTeamToFirebase(player, snapshot);
     }, 500);
     return () => clearTimeout(handle);
-  }, [team, player]);
+  }, [team]);
   useEffect(() => {
     // Persist screen so refreshes return the user to where they were.
     if (screen === 'home') localStorage.removeItem(SCREEN_KEY);
@@ -581,38 +581,47 @@ function App({ dataVersion }) {
     fetchFirebaseTeams(player).then((teams) => { if (!cancelled) setFirebaseTeams(teams); });
     return () => { cancelled = true; };
   }, [player]);
-  useEffect(() => {
-    // Backfill on player login: push only the local teams that don't already
-    // exist on Firebase. Critical to compare AFTER fetching the FB list —
-    // pushing every local team unconditionally would risk overwriting a newer
-    // FB version with a stale local copy (e.g. when this device opened the
-    // page yesterday, saved a local snapshot of the team, then the other
-    // device edited it today). Active edits still mirror via the auto-save
-    // useEffect; this backfill only catches teams that never made it up
-    // (i.e. saved under the team-builder before v15.0.5 had FB-save wired).
-    if (!player) return;
-    let cancelled = false;
-    (async () => {
-      const local = loadSavedTeams();
-      if (local.length === 0) return;
-      const fbTeams = await fetchFirebaseTeams(player);
-      if (cancelled) return;
-      const fbIds = new Set(fbTeams.map((t) => stripFbPrefix(t.id)));
-      const toPush = local.filter((t) => !fbIds.has(stripFbPrefix(t.id)));
-      if (toPush.length === 0) return;
-      let pushed = 0;
-      await Promise.all(toPush.map((t) => saveTeamToFirebase(player, t).then((ok) => { if (ok) pushed++; })));
-      if (cancelled) return;
-      console.log(`[fb] backfilled ${pushed}/${toPush.length} local-only teams to /players/${player}/teams`);
-      if (pushed > 0) {
-        // Refresh the in-memory FB team list so LoadModal reflects the new
-        // cloud copies (otherwise Cloud entries only appear on next reload).
-        const refreshed = await fetchFirebaseTeams(player);
-        if (!cancelled) setFirebaseTeams(refreshed);
-      }
-    })().catch((err) => console.warn('[fb] backfill failed:', err));
-    return () => { cancelled = true; };
+  // Backfill: push any local team that isn't yet on Firebase. Returns the
+  // number pushed. Idempotent — running it repeatedly is safe. Used in two
+  // places: on player login (in-effect below) and on `online` event (so a
+  // team built while offline syncs as soon as connection returns).
+  const runBackfill = useCallback(async () => {
+    if (!player || !navigator.onLine) return 0;
+    const local = loadSavedTeams();
+    if (local.length === 0) return 0;
+    const fbTeams = await fetchFirebaseTeams(player);
+    const fbIds = new Set(fbTeams.map((t) => stripFbPrefix(t.id)));
+    const toPush = local.filter((t) => !fbIds.has(stripFbPrefix(t.id)));
+    if (toPush.length === 0) return 0;
+    let pushed = 0;
+    await Promise.all(toPush.map((t) => saveTeamToFirebase(player, t).then((ok) => { if (ok) pushed++; })));
+    console.log(`[fb] backfilled ${pushed}/${toPush.length} local-only teams to /players/${player}/teams`);
+    if (pushed > 0) {
+      const refreshed = await fetchFirebaseTeams(player);
+      setFirebaseTeams(refreshed);
+    }
+    return pushed;
   }, [player]);
+
+  useEffect(() => {
+    // On player login, run backfill once.
+    if (!player) return;
+    runBackfill().catch((err) => console.warn('[fb] backfill failed:', err));
+  }, [player, runBackfill]);
+
+  useEffect(() => {
+    // On connection regained (offline → online), re-run backfill so a team
+    // built/saved offline syncs up as soon as the network's back. Also
+    // refreshes firebaseTeams in case other devices added new teams while
+    // this one was offline.
+    const onOnline = () => {
+      if (player) {
+        runBackfill().catch((err) => console.warn('[fb] online backfill failed:', err));
+      }
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [player, runBackfill]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -646,14 +655,24 @@ function App({ dataVersion }) {
     const snapshot = { ...team, savedAt: Date.now() };
     if (idx >= 0) list[idx] = snapshot; else list.unshift(snapshot);
     writeSavedTeams(list);
-    // Mirror to Firebase so other devices see this team. If the user isn't
-    // logged in we just save locally — the toast still says "Team saved"
-    // because that's true; the cloud push is best-effort.
-    if (player) {
-      saveTeamToFirebase(player, snapshot).then((ok) => {
-        if (ok) showToast('Team saved (synced to cloud)');
-        else showToast('Team saved locally — cloud sync failed');
+    // Push to Firebase. This is the ONLY path that publishes to the cloud
+    // during normal use — auto-save no longer touches FB. After a
+    // successful push, refresh the in-memory firebaseTeams list so the
+    // Load Team modal shows the new "Cloud" badge immediately.
+    if (player && navigator.onLine) {
+      saveTeamToFirebase(player, snapshot).then(async (ok) => {
+        if (ok) {
+          showToast('Team saved (synced to cloud)');
+          const refreshed = await fetchFirebaseTeams(player);
+          setFirebaseTeams(refreshed);
+        } else {
+          showToast('Team saved locally — cloud sync failed');
+        }
       });
+    } else if (player) {
+      // Offline: save locally; the `online` event listener will sync this
+      // (and any other unsynced teams) once the network is back.
+      showToast('Team saved locally — will sync when online');
     } else {
       showToast('Team saved locally');
     }
@@ -2230,6 +2249,7 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
   // Hide the cloud entry whenever a local one already covers it — the local
   // copy carries the user's most recent edits.
   const localBases = new Set(local.map((t) => stripFbPrefix(t.id)));
+  const fbBases = new Set(fb.map((t) => stripFbPrefix(t.id)));
   const fbDeduped = fb.filter((t) => !localBases.has(stripFbPrefix(t.id)));
   // Sort by most recently modified first. `savedAt` is set on every local
   // save and is also the value `convertFbTeam` maps from FB `modified`, so
@@ -2249,7 +2269,11 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
         ) : (
           <div className="modal__list">
             {list.map((t) => {
-              const isFb = t._source === 'firebase';
+              // "Cloud" badge if the team currently exists in Firebase —
+              // whether or not its local copy was loaded from there. Without
+              // this, a team you built locally and synced via Save would
+              // never show "Cloud" because the local copy lacks _source.
+              const isFb = t._source === 'firebase' || fbBases.has(stripFbPrefix(t.id));
               return (
                 <button key={t.id} onClick={() => onPick(t)}>
                   <div>
