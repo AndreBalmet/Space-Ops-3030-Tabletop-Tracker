@@ -4,6 +4,18 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.4 — 2026-05-27
+
+### Canonical Maligeist spelling restored
+
+The canonical spelling is **Maligeist** (with an `i`). v15.0.3 incorrectly normalized in the other direction (e-spelling) based on what the data sheet looked like at the time. This release flips the alias the right way and finishes cleaning up Firebase.
+
+- **Firebase**: patched 11 stale `Malegeist` (e-spelling) strings in `/gameData/equipment` (1 header row + 10 faction values). All other sheets (factions, models, weapons, traits) were already on `Maligeist` — confirmed via full deep-scan. Stamped `lastUpdated` so live clients refresh within 60s.
+- **Code**: `FACTION_ID_ALIASES` reversed to `{ Malegeist: 'Maligeist' }`, so any team saved on a user's device under v15.0.3 silently migrates to the canonical spelling on next load.
+
+### XLSX heads-up
+The **Equipment sheet** in your master XLSX still has the e-spelling for both the section header row and the 10 faction values. Until you fix that, every fresh upload will reset Firebase back to `Malegeist` and we'll need to patch it again. Recommend a single find-and-replace `Malegeist` → `Maligeist` in the Equipment sheet.
+
 ## v15.0.3 — 2026-05-27
 
 ### Malegeist faction recovered

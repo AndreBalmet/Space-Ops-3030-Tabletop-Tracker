@@ -96,11 +96,14 @@ const ADMIN_KEY = 'spaceops.isAdmin.v1';
 const SCREEN_KEY = 'spaceops.screen.v1';
 
 // Aliases for faction names that drifted from canonical spelling at some
-// point. Apply at every read boundary (localStorage, FB) so a stale id like
-// "Maligeist" on a player's iPad auto-migrates to "Malegeist" the next time
-// the team loads. Mapping is one-way: alias -> canonical.
+// point. Apply at every read boundary (localStorage, FB) so a stale id on
+// a player's iPad auto-migrates the next time the team loads. Mapping is
+// one-way: alias -> canonical. The canonical spelling is "Maligeist" (with
+// an 'i'). A short-lived v15.0.3 release flipped it to "Malegeist" before
+// the canonical spelling was confirmed, so the alias migrates anything
+// saved under that release back to the right name.
 const FACTION_ID_ALIASES = {
-  'Maligeist': 'Malegeist',
+  'Malegeist': 'Maligeist',
 };
 const normalizeFactionId = (id) => (id && FACTION_ID_ALIASES[id]) || id;
 const normalizeTeamFaction = (t) => {
