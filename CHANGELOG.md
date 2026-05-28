@@ -4,6 +4,16 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.7 — 2026-05-27
+
+### Safer backfill: push only local-only teams
+
+The v15.0.6 backfill pushed every local team on login, which risked overwriting a newer Firebase version with a stale local snapshot (e.g. the device opened the page yesterday, saved a local copy, then the other device edited the same team today). Refined to **fetch the player's FB team list first, then push only the local teams whose IDs aren't already on Firebase**. Active edits continue to mirror via the auto-save mirror (which writes on every change with `modified = Date.now()`, so last-write-wins for ongoing collaboration). Backfill log now says `backfilled N/M local-only teams`. After a push, the in-memory `firebaseTeams` list refreshes so Load Team shows the new cloud entries without requiring a reload.
+
+### Firebase team audit
+- Confirmed: 22 players, 39 teams, 179 model-slots, no data corruption, every team has a faction.
+- Note for the team: prior to v15.0.5 the team-builder never wrote to Firebase on save (the v15.0 React rewrite did not carry over the legacy tracker's FB-save). That's why no Maligeist/Kippin teams exist in Firebase yet — every existing player team is an Arc Rangers / Space-Wyrm save from the legacy tracker.
+
 ## v15.0.6 — 2026-05-27
 
 ### Login-time backfill — every team is always on Firebase

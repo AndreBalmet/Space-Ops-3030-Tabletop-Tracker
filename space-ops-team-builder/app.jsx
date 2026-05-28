@@ -582,19 +582,36 @@ function App({ dataVersion }) {
     return () => { cancelled = true; };
   }, [player]);
   useEffect(() => {
-    // Backfill: when a player logs in (player goes from empty to set), push
-    // every locally-saved team up to Firebase so their account always
-    // reflects every team they've built. Idempotent — PUT replaces, so
-    // calling it on teams that already exist on FB is safe. Best-effort;
-    // failures are logged but don't block the UI.
+    // Backfill on player login: push only the local teams that don't already
+    // exist on Firebase. Critical to compare AFTER fetching the FB list —
+    // pushing every local team unconditionally would risk overwriting a newer
+    // FB version with a stale local copy (e.g. when this device opened the
+    // page yesterday, saved a local snapshot of the team, then the other
+    // device edited it today). Active edits still mirror via the auto-save
+    // useEffect; this backfill only catches teams that never made it up
+    // (i.e. saved under the team-builder before v15.0.5 had FB-save wired).
     if (!player) return;
-    const local = loadSavedTeams();
-    if (local.length === 0) return;
-    let pushed = 0;
-    Promise.all(local.map((t) => saveTeamToFirebase(player, t).then((ok) => { if (ok) pushed++; })))
-      .then(() => {
-        if (pushed > 0) console.log(`[fb] backfilled ${pushed}/${local.length} local teams to /players/${player}/teams`);
-      });
+    let cancelled = false;
+    (async () => {
+      const local = loadSavedTeams();
+      if (local.length === 0) return;
+      const fbTeams = await fetchFirebaseTeams(player);
+      if (cancelled) return;
+      const fbIds = new Set(fbTeams.map((t) => stripFbPrefix(t.id)));
+      const toPush = local.filter((t) => !fbIds.has(stripFbPrefix(t.id)));
+      if (toPush.length === 0) return;
+      let pushed = 0;
+      await Promise.all(toPush.map((t) => saveTeamToFirebase(player, t).then((ok) => { if (ok) pushed++; })));
+      if (cancelled) return;
+      console.log(`[fb] backfilled ${pushed}/${toPush.length} local-only teams to /players/${player}/teams`);
+      if (pushed > 0) {
+        // Refresh the in-memory FB team list so LoadModal reflects the new
+        // cloud copies (otherwise Cloud entries only appear on next reload).
+        const refreshed = await fetchFirebaseTeams(player);
+        if (!cancelled) setFirebaseTeams(refreshed);
+      }
+    })().catch((err) => console.warn('[fb] backfill failed:', err));
+    return () => { cancelled = true; };
   }, [player]);
 
   const showToast = (msg) => {
