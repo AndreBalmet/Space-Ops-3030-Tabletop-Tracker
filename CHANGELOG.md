@@ -4,6 +4,16 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.6 — 2026-05-27
+
+### Login-time backfill — every team is always on Firebase
+
+- When a player logs in (or sets their name), every team currently stored in localStorage is pushed up to `/players/<player>/teams/` so the cloud reflects every team the device has built. Idempotent (PUT semantics), so re-running on already-synced teams is a no-op. Best-effort with `[fb] backfilled N/M local teams` console log.
+- Combined with the v15.0.5 auto-save mirror, this guarantees: any team that exists locally for a logged-in player is also on Firebase. No more "I saved on iPad and can't see it on laptop" — the team is in the cloud by the time the user finishes typing their name on the other device.
+
+### TeamView clickability verified end-to-end
+- Tested with a fully-loaded Ranger-Captain (4/4 equipment slots filled). Default-loadout items (Jetpack / Company Badge / Captain Stripes) open HoverBoxes with PASSIVE + TRAITS sections. Equipped slot items (Med Pack / Stim Shot / Boarding Shield / Blink Harness) expand inline with action description + traits. Both interaction modes render full content from the XLSX when the source row is filled in.
+
 ## v15.0.5 — 2026-05-27
 
 ### Cross-device team sync + Maligeist equipment usable

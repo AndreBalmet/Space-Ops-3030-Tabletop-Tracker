@@ -581,6 +581,21 @@ function App({ dataVersion }) {
     fetchFirebaseTeams(player).then((teams) => { if (!cancelled) setFirebaseTeams(teams); });
     return () => { cancelled = true; };
   }, [player]);
+  useEffect(() => {
+    // Backfill: when a player logs in (player goes from empty to set), push
+    // every locally-saved team up to Firebase so their account always
+    // reflects every team they've built. Idempotent — PUT replaces, so
+    // calling it on teams that already exist on FB is safe. Best-effort;
+    // failures are logged but don't block the UI.
+    if (!player) return;
+    const local = loadSavedTeams();
+    if (local.length === 0) return;
+    let pushed = 0;
+    Promise.all(local.map((t) => saveTeamToFirebase(player, t).then((ok) => { if (ok) pushed++; })))
+      .then(() => {
+        if (pushed > 0) console.log(`[fb] backfilled ${pushed}/${local.length} local teams to /players/${player}/teams`);
+      });
+  }, [player]);
 
   const showToast = (msg) => {
     setToast(msg);
