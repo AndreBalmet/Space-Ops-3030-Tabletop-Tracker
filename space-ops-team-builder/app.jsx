@@ -403,13 +403,19 @@ function convertTeamToFb(team) {
       const m = findModel(a.modelId);
       const weapons = (a.slots || []).filter((s) => s && s.kind === 'weapon').map((s) => s.name);
       const inventory = (a.slots || []).filter((s) => s && s.kind === 'equipment').map((s) => s.name);
-      return {
+      const out = {
         name: (m && m.name) || a.modelId,
         weapons,
         inventory,
         defaultWeapons: (a.defaults && Array.isArray(a.defaults.weapons)) ? a.defaults.weapons : [],
         defaultInventory: (a.defaults && Array.isArray(a.defaults.equipment)) ? a.defaults.equipment : [],
       };
+      // Persist the per-asset custom name (the rename in Team View). Uses the
+      // same `customName` field the legacy tracker reads/writes, so the name
+      // round-trips through Firebase and shows on every device. Omitted when
+      // unset so Firebase doesn't store empty strings.
+      if (a.customName) out.customName = a.customName;
+      return out;
     }),
   };
 }
@@ -486,6 +492,10 @@ function convertFbTeam(fbId, fb) {
       slots,
       // Preserve free defaults so the view page can render the full model loadout.
       defaults: { weapons: defaultWep, equipment: defaultInv },
+      // Restore the per-asset custom name (rename in Team View). Ignore a
+      // customName that just echoes the model's own name — that's the legacy
+      // tracker's default, not a real rename.
+      ...(fbm.customName && fbm.customName !== def.name ? { customName: fbm.customName } : {}),
     });
   }
   return {
