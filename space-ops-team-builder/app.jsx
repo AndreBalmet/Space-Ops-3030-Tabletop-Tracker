@@ -2185,7 +2185,15 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
   // copy carries the user's most recent edits.
   const localBases = new Set(local.map((t) => stripFbPrefix(t.id)));
   const fbDeduped = fb.filter((t) => !localBases.has(stripFbPrefix(t.id)));
-  const list = [...local, ...fbDeduped];
+  // Sort by most recently modified first. `savedAt` is set on every local
+  // save and is also the value `convertFbTeam` maps from FB `modified`, so
+  // it's directly comparable across both sources. Falls back to `createdAt`
+  // when a team has never been saved (no `savedAt` yet).
+  const list = [...local, ...fbDeduped].sort((a, b) => {
+    const aTs = a.savedAt || a.createdAt || 0;
+    const bTs = b.savedAt || b.createdAt || 0;
+    return bTs - aTs;
+  });
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
