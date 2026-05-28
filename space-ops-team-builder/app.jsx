@@ -680,7 +680,9 @@ function App({ dataVersion }) {
 
   const deleteTeamGlobal = () => {
     if (!team) return;
-    if (!confirm(`Delete "${team.name}"? This removes the saved copy too.`)) return;
+    // No native confirm() — iOS DuckDuckGo and some other browsers
+    // silently suppress it, which is why the button looked unresponsive.
+    // The button itself uses an "armed" two-tap pattern (see SummaryColumn).
     const list = loadSavedTeams().filter((t) => t.id !== team.id);
     writeSavedTeams(list);
     // Also remove from Firebase so the cloud copy doesn't reappear next load.
@@ -1368,6 +1370,22 @@ function SummaryColumn(props) {
     onAddModel, onRemoveModel, onSave, onLoad, onView, onDelete, onBack,
   } = props;
 
+  // "Armed" state for the Delete Team button. First tap arms the button
+  // (label becomes "Click again to confirm"); a second tap within ~3s
+  // actually fires onDelete. Replaces the native confirm() dialog which
+  // iOS DuckDuckGo silently swallows. Auto-disarms on cancel timer or on
+  // any other interaction.
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  useEffect(() => {
+    if (!deleteArmed) return;
+    const t = setTimeout(() => setDeleteArmed(false), 3000);
+    return () => clearTimeout(t);
+  }, [deleteArmed]);
+  const handleDeleteClick = () => {
+    if (deleteArmed) { setDeleteArmed(false); onDelete(); }
+    else { setDeleteArmed(true); }
+  };
+
   const grouped = useMemo(() => {
     const out = { leader: [], operator: [], support: [] };
     for (const a of team.assets) out[assetBucket(a)].push(a);
@@ -1476,7 +1494,10 @@ function SummaryColumn(props) {
           <button onClick={onSave}>Save Team</button>
           <button onClick={onView}>View Team</button>
           <button onClick={onLoad}>Load Team</button>
-          <button onClick={onDelete}>Delete Team</button>
+          <button
+            onClick={handleDeleteClick}
+            style={deleteArmed ? { color: '#fff', background: 'var(--red)', borderRadius: 4, padding: '4px 8px', fontWeight: 700 } : undefined}
+          >{deleteArmed ? 'Click again to confirm' : 'Delete Team'}</button>
           <button onClick={onBack} style={{ marginTop: 10, color: 'var(--muted)' }}>← Back to Home</button>
         </div>
       </div>
