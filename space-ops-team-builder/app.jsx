@@ -2410,6 +2410,7 @@ function AppRoot() {
   // can include `window.SPACE_OPS_DATA._version` to invalidate stale caches.
   const [dataVersion, setDataVersion] = useState(0);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateReason, setUpdateReason] = useState(null); // null | 'code' | 'data'
 
   useEffect(() => {
     let cancelled = false;
@@ -2436,6 +2437,7 @@ function AppRoot() {
         const deployed = m ? m[1] : null;
         if (deployed && deployed !== RUNNING_APP_VERSION && !cancelled) {
           console.log(`[update] running ${RUNNING_APP_VERSION}, deployed ${deployed} — prompting reload`);
+          setUpdateReason('code');
           setUpdateAvailable(true);
         }
       } catch (err) { /* offline / transient — ignore */ }
@@ -2455,6 +2457,14 @@ function AppRoot() {
           lastTs = window.SPACE_OPS_DATA?._lastUpdated || ts;
           setDataVersion(window.SPACE_OPS_DATA?._version || 0);
           console.log('[gameData] live refresh applied (admin pushed new XLSX)');
+          // Surface the same reload banner used for code updates. The data
+          // already refreshed in-place above, but a full reload guarantees
+          // every loaded team re-hydrates against the new gameData (stats,
+          // weapons, equipment, factions) with no stale derived state.
+          // A pending 'code' prompt takes priority (it needs a reload to pick
+          // up new app logic); otherwise flag this as a 'data' update.
+          setUpdateReason((prev) => (prev === 'code' ? 'code' : 'data'));
+          setUpdateAvailable(true);
         }
       } catch (err) { /* ignore transient network errors */ }
     };
@@ -2497,7 +2507,9 @@ function AppRoot() {
             letterSpacing: '0.02em', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
         >
-          A new version is available — tap to reload
+          {updateReason === 'data'
+            ? 'Game data was updated — tap to reload'
+            : 'A new version is available — tap to reload'}
         </div>
       )}
       <App dataVersion={dataVersion} />
