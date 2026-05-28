@@ -2074,12 +2074,13 @@ function TeamView({ team, player, onBack, onExportPDF, onLoadOpen, onRenameAsset
 // Deduped by item name. Each item carries a _free flag so the card can label cost.
 // Per the team-building rules: an asset wielding two identical melee weapons
 // gets the Dual Wield buff. Ported from the legacy tracker's
-// _modelHasDualWield. Counts raw weapon instances (collectAssetGear dedupes
-// for display, so we can't use its output): the free loadout (FB defaults ∪
+// _modelHasDualWield. Returns a Set of lowercased weapon names that are
+// dual-wielded (melee, appearing 2+ times) so each WeaponBox can flag its
+// own name. Counts raw weapon instances (collectAssetGear dedupes for
+// display, so we can't use its output): the free loadout (FB defaults ∪
 // model loadout, deduped so a data-duplicated entry isn't a false positive)
-// plus each equipped slot as its own instance. Two+ of the same melee name
-// → dual wield.
-function assetHasDualWield(asset) {
+// plus each equipped slot as its own instance.
+function dualWieldedWeaponKeys(asset) {
   const m = findModel(asset.modelId);
   const counts = {};
   const bump = (name) => {
@@ -2099,7 +2100,9 @@ function assetHasDualWield(asset) {
   for (const slot of (asset.slots || [])) {
     if (slot && slot.kind === 'weapon') bump(slot.name);
   }
-  return Object.values(counts).some((c) => c >= 2);
+  const keys = new Set();
+  for (const [k, c] of Object.entries(counts)) if (c >= 2) keys.add(k);
+  return keys;
 }
 
 function collectAssetGear(asset) {
@@ -2141,7 +2144,7 @@ function AssetCard({ asset, onOpenHover, onRename }) {
   const customName = asset.customName || baseName;
   const gearDeps = [asset.modelId, asset.slots?.map((s) => s?.name).join('|'), JSON.stringify(asset.defaults || null), window.SPACE_OPS_DATA?._version];
   const { weapons, equipment } = useMemo(() => collectAssetGear(asset), gearDeps);
-  const dualWield = useMemo(() => assetHasDualWield(asset), gearDeps);
+  const dwKeys = useMemo(() => dualWieldedWeaponKeys(asset), gearDeps);
   const loadout = parseLoadout(m);
 
   const [editing, setEditing] = useState(false);
@@ -2190,14 +2193,6 @@ function AssetCard({ asset, onOpenHover, onRename }) {
         )}
       </div>
 
-      {dualWield && (
-        <div
-          className="asset-card__dualwield"
-          title="What does Dual Wield do?"
-          onClick={(e) => onOpenHover && onOpenHover({ kind: 'trait', name: 'Dual Wield', x: e.clientX, y: e.clientY })}
-        >⚔⚔ Dual Wield</div>
-      )}
-
       <div className="stat-row">
         <StatCell label="Speed"   value={m.speed} />
         <StatCell label="Shoot"   value={m.shoot} />
@@ -2229,7 +2224,12 @@ function AssetCard({ asset, onOpenHover, onRename }) {
           <div className="tag">Carry Capacity</div>
           <div className="asset-card__slots">
             {weapons.map((w, i) => (
-              <WeaponBox key={'w' + i} w={w} onOpenHover={onOpenHover} />
+              <WeaponBox
+                key={'w' + i}
+                w={w}
+                onOpenHover={onOpenHover}
+                dualWield={dwKeys.has((w.name || '').toLowerCase().trim())}
+              />
             ))}
             {equipment.map((e, i) => (
               <EquipmentRow key={'e' + i} e={e} onOpenHover={onOpenHover} />
@@ -2244,13 +2244,22 @@ function AssetCard({ asset, onOpenHover, onRename }) {
 const traitLinkClass = (t) =>
   'term-link' + (/^dangerous$/i.test((t || '').trim()) ? ' is-dangerous' : '');
 
-function WeaponBox({ w, onOpenHover }) {
+function WeaponBox({ w, onOpenHover, dualWield }) {
   const traits = splitTraits(w.traits);
   const fire = (kind, name) => (e) => onOpenHover && onOpenHover({ kind, name, x: e.clientX, y: e.clientY });
   return (
     <div className="weapon-box">
       <div className="weapon-box__head">
-        <span className="term-link" onClick={fire('weapon', w.name)}>{w.name}</span>
+        <span className="weapon-box__name-wrap">
+          <span className="term-link" onClick={fire('weapon', w.name)}>{w.name}</span>
+          {dualWield && (
+            <span
+              className="dualwield-badge"
+              title="What does Dual Wield do?"
+              onClick={fire('trait', 'Dual Wield')}
+            >Dual Wield</span>
+          )}
+        </span>
         <span className="weapon-box__cost">({w._free ? '0r' : num(w.rating) + 'r'})</span>
       </div>
       <div className="weapon-box__stats">
