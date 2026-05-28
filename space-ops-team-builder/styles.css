@@ -1168,7 +1168,49 @@ span.is-dangerous {
    intentional per the page-8 reference. At narrow viewports the builder
    scrolls horizontally rather than re-arranging the columns. */
 @media (max-width: 760px) {
+  /* ---- Phone layout ----
+     The desktop design right-aligns content inside the columns using large
+     left/right paddings (summary padding-left:320px, armory padding-right:
+     290px) and fixed column widths. On a phone that shoves everything off
+     the right edge. Collapse to a single fluid column with even 18px
+     gutters on both sides. */
+
+  /* Home */
+  .home { margin-top: 40px; padding: 0 18px 60px; }
+  .home__inner { width: 100%; max-width: 100%; }
+  .home__title { white-space: normal; font-size: 26px; }
+
+  /* Builder — stack the three columns vertically, full width, even gutters */
+  .builder,
+  .builder.has-detail,
+  .builder.has-armory { grid-template-columns: 1fr; }
+  .builder__col {
+    min-height: auto;
+    overflow: visible;
+    padding: 56px 18px 28px;
+  }
+  .builder__col--summary { padding-left: 18px; padding-right: 18px; }
+  .builder__col--armory { padding-right: 18px; }
+  /* Drop the desktop divider-alignment top offset when columns are stacked. */
+  .builder.has-detail .builder__col--detail,
+  .builder.has-armory .builder__col--armory { padding-top: 28px; }
+
+  /* Team View — one card per row so cards never exceed the viewport */
+  .team-view__inner { padding: 64px 18px 60px; }
+  .team-view__grid { grid-template-columns: 1fr; gap: 18px; }
+
+  /* The selected-row / selected-pill "bleed" effects use margin-right:-28px
+     to reach the desktop column edge. With an 18px gutter that overshoots
+     the viewport by 10px and reintroduces a right-side cutoff — retune the
+     bleed to the mobile gutter so the red bar still reaches the edge cleanly. */
+  .asset-row.is-selected { margin-right: -18px; padding-right: 18px; }
+  .slot__pill.is-selected,
+  .slot__pill--empty.is-selected { margin-right: -18px; padding-right: 24px; }
+
+  /* Long breadcrumbs ("SPACE OPS 3030 / Team Builder / <team>") shouldn't
+     widen the fixed topbar past the viewport — let them truncate. */
   .topbar { padding: 0 14px; }
+  .topbar__crumbs { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
 }
 
 /* At 4K / wide monitors, scale the builder columns up by ~130% so content
