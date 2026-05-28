@@ -384,6 +384,62 @@ async function fetchFirebaseTeams(playerName) {
   }
 }
 
+// Strip the 'fb-' prefix `convertFbTeam` adds when loading, so saving back to
+// Firebase writes to the original path and doesn't create a duplicate entry.
+const stripFbPrefix = (id) => (typeof id === 'string' && id.startsWith('fb-')) ? id.slice(3) : id;
+
+// Reverse of `convertFbTeam` — pack a local team object into the legacy
+// tracker's `/players/<player>/teams/<id>` shape so iPad ↔ laptop ↔ legacy
+// tracker can all see the same teams. We split each asset's slots back into
+// `weapons` and `inventory` by kind; `defaults.weapons` / `defaults.equipment`
+// (the free loadout the model ships with) round-trip via the same field names.
+function convertTeamToFb(team) {
+  return {
+    name: team.name || 'Untitled',
+    faction: team.factionId || 'Arc Rangers',
+    created: team.createdAt || Date.now(),
+    modified: Date.now(),
+    models: (team.assets || []).map((a) => {
+      const m = findModel(a.modelId);
+      const weapons = (a.slots || []).filter((s) => s && s.kind === 'weapon').map((s) => s.name);
+      const inventory = (a.slots || []).filter((s) => s && s.kind === 'equipment').map((s) => s.name);
+      return {
+        name: (m && m.name) || a.modelId,
+        weapons,
+        inventory,
+        defaultWeapons: (a.defaults && Array.isArray(a.defaults.weapons)) ? a.defaults.weapons : [],
+        defaultInventory: (a.defaults && Array.isArray(a.defaults.equipment)) ? a.defaults.equipment : [],
+      };
+    }),
+  };
+}
+
+async function saveTeamToFirebase(player, team) {
+  if (!player || !team || !team.id) return false;
+  const fbId = stripFbPrefix(team.id);
+  const url = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/teams/${encodeURIComponent(fbId)}.json`;
+  try {
+    const res = await fetch(url, { method: 'PUT', body: JSON.stringify(convertTeamToFb(team)) });
+    return res.ok;
+  } catch (err) {
+    console.warn('[fb] team save failed:', err);
+    return false;
+  }
+}
+
+async function deleteTeamFromFirebase(player, teamId) {
+  if (!player || !teamId) return false;
+  const fbId = stripFbPrefix(teamId);
+  const url = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/teams/${encodeURIComponent(fbId)}.json`;
+  try {
+    const res = await fetch(url, { method: 'DELETE' });
+    return res.ok;
+  } catch (err) {
+    console.warn('[fb] team delete failed:', err);
+    return false;
+  }
+}
+
 function convertFbTeam(fbId, fb) {
   const factionId = normalizeFactionId(fb.faction || 'Arc Rangers');
   const fbModels = Array.isArray(fb.models) ? fb.models : [];
@@ -492,11 +548,10 @@ function App({ dataVersion }) {
   }, [team]);
   useEffect(() => {
     // Auto-save: every team change (rename, add/remove asset, equip, etc.)
-    // is debounced 500ms then written into the savedTeams list, so edits
-    // made in View Team (which has no Save button) survive switching teams
-    // via Load. Skips when team is null and skips FB-only "templates" only
-    // if they have no edits — here we save regardless since FB teams get a
-    // local copy as soon as the user makes any change.
+    // is debounced 500ms then written into the savedTeams list AND mirrored
+    // to Firebase under /players/<player>/teams/<id> so the same team is
+    // visible across all of the player's devices (iPad ↔ laptop) and from
+    // the legacy tracker. Skips when team is null or no player is set.
     if (!team) return;
     const handle = setTimeout(() => {
       const list = loadSavedTeams();
@@ -505,9 +560,10 @@ function App({ dataVersion }) {
       if (idx >= 0) list[idx] = snapshot;
       else list.unshift(snapshot);
       writeSavedTeams(list);
+      if (player) saveTeamToFirebase(player, snapshot);
     }, 500);
     return () => clearTimeout(handle);
-  }, [team]);
+  }, [team, player]);
   useEffect(() => {
     // Persist screen so refreshes return the user to where they were.
     if (screen === 'home') localStorage.removeItem(SCREEN_KEY);
@@ -558,7 +614,17 @@ function App({ dataVersion }) {
     const snapshot = { ...team, savedAt: Date.now() };
     if (idx >= 0) list[idx] = snapshot; else list.unshift(snapshot);
     writeSavedTeams(list);
-    showToast('Team saved');
+    // Mirror to Firebase so other devices see this team. If the user isn't
+    // logged in we just save locally — the toast still says "Team saved"
+    // because that's true; the cloud push is best-effort.
+    if (player) {
+      saveTeamToFirebase(player, snapshot).then((ok) => {
+        if (ok) showToast('Team saved (synced to cloud)');
+        else showToast('Team saved locally — cloud sync failed');
+      });
+    } else {
+      showToast('Team saved locally');
+    }
   };
 
   const deleteTeamGlobal = () => {
@@ -566,6 +632,8 @@ function App({ dataVersion }) {
     if (!confirm(`Delete "${team.name}"? This removes the saved copy too.`)) return;
     const list = loadSavedTeams().filter((t) => t.id !== team.id);
     writeSavedTeams(list);
+    // Also remove from Firebase so the cloud copy doesn't reappear next load.
+    if (player) deleteTeamFromFirebase(player, team.id);
     setTeam(null);
     writeCurrent(null);
     setScreen('home');
@@ -658,6 +726,10 @@ function App({ dataVersion }) {
           onDelete={(id) => {
             const list = loadSavedTeams().filter((t) => t.id !== id);
             writeSavedTeams(list);
+            // Also remove from Firebase so the cloud mirror doesn't reappear
+            // the next time the player loads from another device. Strip any
+            // 'fb-' prefix the convertFbTeam wrapper added when listing.
+            if (player) deleteTeamFromFirebase(player, id);
             // If we just deleted the currently-loaded team, clear the
             // in-memory state too — otherwise the debounced auto-save effect
             // re-writes the team back into savedTeams 500ms later. That's
@@ -1519,9 +1591,13 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
     }
     if (filter === 'equipment') {
       return DATA.equipment
-        .filter((e) => e.equipmentType
-          && !/cyber/i.test(e.equipmentType)
-          && !/default loadout/i.test(e.equipmentType))
+        // Pass if either equipmentType OR faction is non-empty — this lets
+        // through Maligeist/Kippin equipment that lacks equipmentType in the
+        // XLSX, while still suppressing the truly-empty header-row rows
+        // (SPACE-WYRM / KIPPIN / MALIGEIST) which have *both* empty.
+        .filter((e) => (e.equipmentType || e.faction)
+          && !/cyber/i.test(e.equipmentType || '')
+          && !/default loadout/i.test(e.equipmentType || ''))
         .filter(factionGate)
         .filter(assetTypeGate)
         .map((e) => ({ kind: 'equipment', record: e, name: e.name, rating: num(e.rating) }));
@@ -2071,7 +2147,13 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
   const local = loadSavedTeams();
   const fbLoading = firebaseTeams === null;
   const fb = Array.isArray(firebaseTeams) ? firebaseTeams : [];
-  const list = [...local, ...fb];
+  // Dedup: a local team and its FB-loaded mirror share the same logical id
+  // (the local copy may have an 'fb-' prefix from a previous load round-trip).
+  // Hide the cloud entry whenever a local one already covers it — the local
+  // copy carries the user's most recent edits.
+  const localBases = new Set(local.map((t) => stripFbPrefix(t.id)));
+  const fbDeduped = fb.filter((t) => !localBases.has(stripFbPrefix(t.id)));
+  const list = [...local, ...fbDeduped];
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -2094,9 +2176,7 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
                     <div className="meta">{t.factionId} · {teamRating(t)}r · {(t.assets || []).length} assets</div>
                   </div>
                   <span className="meta">{t.savedAt || t.createdAt ? new Date(t.savedAt || t.createdAt).toLocaleString() : '—'}</span>
-                  {isFb
-                    ? <span className="meta" title="Read-only from cloud">read-only</span>
-                    : <span className="del" onClick={(e) => { e.stopPropagation(); onDelete(t.id); }}>Delete</span>}
+                  <span className="del" onClick={(e) => { e.stopPropagation(); onDelete(t.id); }}>Delete</span>
                 </button>
               );
             })}

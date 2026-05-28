@@ -4,6 +4,15 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.5 — 2026-05-27
+
+### Cross-device team sync + Maligeist equipment usable
+
+- **Maligeist equipment is now usable.** In v15.0.1 the armory's Equipment filter began requiring a non-empty `equipmentType` to suppress the SPACE-WYRM / KIPPIN / MALIGEIST XLSX header-row leakage. Side effect: Maligeist's 10 equipment items (and 4 Kippin items) all carry empty `equipmentType` in the XLSX, so they vanished from the armory entirely. New rule: pass if **either** `equipmentType` **or** `faction` is non-empty — Maligeist/Kippin equipment now appears, while header rows (both empty) are still suppressed.
+- **Teams sync across devices via Firebase.** Saved teams in the team-builder are now mirrored to `/players/<player>/teams/<id>` (the same path the legacy tracker writes to). On save / auto-save, the local team is also pushed to Firebase. On delete, the Firebase mirror is removed. iPad ↔ laptop ↔ legacy tracker now all see the same team list for a given player.
+- **LoadModal dedup.** When a team exists both locally (with an `fb-` prefix from a prior load) and in Firebase, only the local entry is shown — the cloud duplicate is hidden. Stripping the prefix on save means the same team round-trips through Firebase under a single ID.
+- **LoadModal: cloud teams are no longer read-only.** Removed the misleading "read-only" label. Every saved team now has a Delete button regardless of whether it originated locally or in the cloud (and Delete removes both copies).
+
 ## v15.0.4 — 2026-05-27
 
 ### Canonical Maligeist spelling restored
