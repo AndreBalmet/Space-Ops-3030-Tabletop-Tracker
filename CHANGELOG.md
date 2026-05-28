@@ -4,10 +4,25 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.23 — 2026-05-27
+
+### Dual Wield x2 suffix matches the weapon name
+- The `x2` suffix now matches the weapon name exactly — same font (Roboto), size (14px), weight (700), and color (`--text`), rendered lowercase — so "Vibro Blade x2" reads as one cohesive label (was a smaller, muted, `×2`).
+
+## v15.0.22 — 2026-05-27
+
+### Dual Wield — in-context buff presentation
+Replaced the dark-gray badge (v15.0.21) with a presentation that mirrors how the rule reads, per the owner's mock:
+- The dual-wielded weapon's name gets an `x2` suffix.
+- **Dual Wield** is appended to the weapon's trait list (clickable → trait HoverBox).
+- The weapon's **Attack stat is shown +1** (the Dual Wield modifier) when the base Attacks is numeric.
+- New **`--teal` (#1499BE)** token colors **both** the Dual Wield trait and the buffed Attack value, signaling the auto-applied modifier to the player.
+- Note: the +1-Attacks math is currently specific to Dual Wield (the only stat-modifying trait wired up). Other stat-modifying traits would each need their own rule.
+
 ## v15.0.21 — 2026-05-27
 
-### Dual Wield badge redesign
-- The Dual Wield buff badge now sits inline next to the **dual-wielded weapon's name** in its weapon box (was a standalone badge under the model name). Plain "DUAL WIELD" text (crossed-swords emoji removed), dark-gray pill (`--pill-dark`) matching the slot/armory pills. Still clickable → opens the Dual Wield trait HoverBox. Detection (`dualWieldedWeaponKeys`) returns the set of melee weapon names appearing 2+ times so only the relevant weapon is flagged.
+### Dual Wield badge (superseded by v15.0.22)
+- Inline dark-gray "DUAL WIELD" pill next to the dual-wielded weapon's name. Replaced in v15.0.22 by the x2-suffix / appended-trait / buffed-stat presentation. Detection (`dualWieldedWeaponKeys`) returns the set of melee weapon names appearing 2+ times so only the relevant weapon is flagged — retained.
 
 ## v15.0.20 — 2026-05-27
 

@@ -25,7 +25,7 @@ Runs on any device with a browser -- phones, tablets, laptops. Open the link and
 - Manage your team's Rating budget with live cost tracking
 - **Cloud sync**: hit Save Team to publish to your account; the same teams appear on every device you sign into. Edits while offline sync automatically when you reconnect
 - **Custom asset names** that persist with the team across devices
-- **Dual Wield** badge on a weapon when an asset carries two of the same melee weapon
+- **Dual Wield**: when an asset carries two of the same melee weapon, that weapon shows an `x2` suffix, gains the Dual Wield trait, and has its Attack stat auto-bumped +1 — the trait and the modified stat highlighted in teal so you can see the buff was applied
 - Tap any item, trait, or condition for a hover card explaining it
 - Team View roster page with PDF export; responsive 1 / 2 / 3-column layout for phone / iPad-portrait / iPad-landscape
 - An update banner prompts a reload when a new build or new game data is published
