@@ -2244,27 +2244,34 @@ function AssetCard({ asset, onOpenHover, onRename }) {
 const traitLinkClass = (t) =>
   'term-link' + (/^dangerous$/i.test((t || '').trim()) ? ' is-dangerous' : '');
 
+const isDualWieldTrait = (t) => /^dual\s*wield$/i.test((t || '').trim());
+
 function WeaponBox({ w, onOpenHover, dualWield }) {
-  const traits = splitTraits(w.traits);
   const fire = (kind, name) => (e) => onOpenHover && onOpenHover({ kind, name, x: e.clientX, y: e.clientY });
+
+  // Dual Wield (two identical melee weapons): the weapon gains the Dual Wield
+  // trait and its Attack stat increases by 1. Both the trait and the buffed
+  // stat render in teal to signal the auto-applied modifier.
+  const baseTraits = splitTraits(w.traits);
+  const traits = dualWield && !baseTraits.some(isDualWieldTrait)
+    ? [...baseTraits, 'Dual Wield']
+    : baseTraits;
+  const attacksIsNumeric = w.attacks !== '' && w.attacks != null && Number.isFinite(num(w.attacks));
+  const attacksBuffed = dualWield && attacksIsNumeric;
+  const attacksDisplay = attacksBuffed ? num(w.attacks) + 1 : (w.attacks || '—');
+
   return (
     <div className="weapon-box">
       <div className="weapon-box__head">
-        <span className="weapon-box__name-wrap">
+        <span>
           <span className="term-link" onClick={fire('weapon', w.name)}>{w.name}</span>
-          {dualWield && (
-            <span
-              className="dualwield-badge"
-              title="What does Dual Wield do?"
-              onClick={fire('trait', 'Dual Wield')}
-            >Dual Wield</span>
-          )}
+          {dualWield && <span className="weapon-box__multi"> ×2</span>}
         </span>
         <span className="weapon-box__cost">({w._free ? '0r' : num(w.rating) + 'r'})</span>
       </div>
       <div className="weapon-box__stats">
         <div><div className="lbl">Range</div><div className="val">{w.range || '—'}</div></div>
-        <div><div className="lbl">Attacks</div><div className="val">{w.attacks || '—'}</div></div>
+        <div><div className="lbl">Attacks</div><div className={'val' + (attacksBuffed ? ' val--buffed' : '')}>{attacksDisplay}</div></div>
         <div><div className="lbl">Power</div><div className="val">{w.power || '—'}</div></div>
         <div><div className="lbl">Damage</div><div className="val">{w.damage || '—'}</div></div>
       </div>
@@ -2275,7 +2282,10 @@ function WeaponBox({ w, onOpenHover, dualWield }) {
             {traits.map((t, j) => (
               <React.Fragment key={t + ':' + j}>
                 {j > 0 && ', '}
-                <span className={traitLinkClass(t)} onClick={fire('trait', t)}>{t}</span>
+                <span
+                  className={traitLinkClass(t) + (isDualWieldTrait(t) ? ' is-buffed' : '')}
+                  onClick={fire('trait', t)}
+                >{t}</span>
               </React.Fragment>
             ))}
           </div>

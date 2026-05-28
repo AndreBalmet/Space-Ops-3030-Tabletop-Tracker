@@ -25,6 +25,7 @@
   --green: #2D8A50;      /* melee */
   --blue: #2F5FB8;       /* equipment */
   --purple: #6E4FB7;     /* cybertech */
+  --teal: #1499BE;       /* buff applied — dual-wield trait + modified stat */
   --pill-dark: #2D2D2D;  /* pill background (mock pixel #2D2D2D) */
   --pill-text: #F2F2F2;
 
@@ -824,31 +825,18 @@ button { font-family: inherit; }
   font-weight: 700;
   color: var(--muted);
 }
-/* Dual Wield badge — sits inline next to a dual-wielded weapon's name.
-   Dark-gray pill (matches the slot/armory pills) with no icon. Clickable
-   to open the Dual Wield trait HoverBox. */
-.weapon-box__name-wrap {
-  display: inline-flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 8px;
+/* Dual Wield presentation — the weapon name gets a muted "×2" suffix, the
+   Dual Wield trait is appended in teal, and the buffed Attack stat renders
+   in the same teal so the player sees the auto-applied modifier at a glance.
+   Teal token: --teal. */
+.weapon-box__multi {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.85em;
 }
-.dualwield-badge {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--pill-text);
-  background: var(--pill-dark);
-  padding: 2px 7px;
-  border-radius: 4px;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-  transform: translateY(-1px);
-}
-.dualwield-badge:hover { filter: brightness(1.25); }
+.weapon-box__stats .val--buffed { color: var(--teal); }
+.term-link.is-buffed { color: var(--teal); }
+.term-link.is-buffed:hover { color: var(--teal); filter: brightness(0.9); }
 .asset-card .stat-row { margin: 14px 0 14px; }
 .asset-card__row { margin-top: 14px; font-size: 13px; }
 .asset-card__row .tag { margin-bottom: 4px; }
