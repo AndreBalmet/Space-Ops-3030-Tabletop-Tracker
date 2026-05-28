@@ -2191,7 +2191,11 @@ function AssetCard({ asset, onOpenHover, onRename }) {
       </div>
 
       {dualWield && (
-        <div className="asset-card__dualwield">⚔⚔ Dual Wield</div>
+        <div
+          className="asset-card__dualwield"
+          title="What does Dual Wield do?"
+          onClick={(e) => onOpenHover && onOpenHover({ kind: 'trait', name: 'Dual Wield', x: e.clientX, y: e.clientY })}
+        >⚔⚔ Dual Wield</div>
       )}
 
       <div className="stat-row">

@@ -835,7 +835,10 @@ button { font-family: inherit; }
   background: var(--green);
   padding: 3px 8px;
   border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
 }
+.asset-card__dualwield:hover { filter: brightness(1.08); }
 .asset-card .stat-row { margin: 14px 0 14px; }
 .asset-card__row { margin-top: 14px; font-size: 13px; }
 .asset-card__row .tag { margin-bottom: 4px; }
