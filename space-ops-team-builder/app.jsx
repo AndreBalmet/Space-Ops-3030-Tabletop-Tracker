@@ -2265,7 +2265,7 @@ function WeaponBox({ w, onOpenHover, dualWield }) {
       <div className="weapon-box__head">
         <span>
           <span className="term-link" onClick={fire('weapon', w.name)}>{w.name}</span>
-          {dualWield && <span className="weapon-box__multi"> ×2</span>}
+          {dualWield && <span className="weapon-box__multi"> x2</span>}
         </span>
         <span className="weapon-box__cost">({w._free ? '0r' : num(w.rating) + 'r'})</span>
       </div>

@@ -830,9 +830,9 @@ button { font-family: inherit; }
    in the same teal so the player sees the auto-applied modifier at a glance.
    Teal token: --teal. */
 .weapon-box__multi {
-  color: var(--muted);
+  /* Match the weapon name exactly — same font, size, weight, and color. */
+  color: var(--text);
   font-weight: 700;
-  font-size: 0.85em;
 }
 .weapon-box__stats .val--buffed { color: var(--teal); }
 .term-link.is-buffed { color: var(--teal); }
