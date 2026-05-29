@@ -4,6 +4,11 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.24 — 2026-05-28
+
+### Team rating cap lowered to 50
+- The team-building budget cap is now **50 Rating** (was 60), applied in both the Builder summary and the Team View header (`{rating}/{cap} Rating`). Over-budget detection (`rating > cap`) follows the new cap.
+
 ## v15.0.23 — 2026-05-27
 
 ### Dual Wield x2 suffix matches the weapon name

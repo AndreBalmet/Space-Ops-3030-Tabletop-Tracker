@@ -1293,7 +1293,7 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
   ].filter(Boolean).join(' ');
 
   const rating = teamRating(team);
-  const cap = 60;
+  const cap = 50;
   const overBudget = rating > cap;
 
   return (
@@ -2020,7 +2020,7 @@ function HoverBox({ entry, onClose, onOpen }) {
 // ============================================================
 function TeamView({ team, player, onBack, onExportPDF, onLoadOpen, onRenameAsset }) {
   const rating = teamRating(team);
-  const cap = 60;
+  const cap = 50;
   const [hoverEntry, setHoverEntry] = useState(null);
   const openHover = (entry) => setHoverEntry(entry);
   const closeHover = () => setHoverEntry(null);
