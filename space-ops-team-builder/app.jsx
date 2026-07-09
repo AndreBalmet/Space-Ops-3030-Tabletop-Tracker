@@ -503,20 +503,25 @@ function convertFbTeam(fbId, fb) {
     const defaultInvSet = new Set(defaultInv);
     const defaultWepSet = new Set(defaultWep);
     // Live tracker stores some items in BOTH weapons[] and inventory[] (e.g. grenades,
-    // cyberdecks). Dedup by name, then classify each via the gameData lookup.
+    // cyberdecks) — dedup inventory against everything. But duplicates WITHIN
+    // weapons[] are meaningful: two copies of the same melee weapon = Dual
+    // Wield, and each occupies its own slot. Collapsing them here is what
+    // silently stripped the second weapon (and the Dual Wield buff) every
+    // time a team round-tripped through the cloud.
     const seen = new Set();
     const itemNames = [];
-    const collect = (src, defaults) => {
+    const collect = (src, defaults, allowDupes) => {
       if (!Array.isArray(src)) return;
       for (const v of src) {
         const name = (typeof v === 'string' ? v : v?.name) || '';
-        if (!name || defaults.has(name) || seen.has(name)) continue;
+        if (!name || defaults.has(name)) continue;
+        if (!allowDupes && seen.has(name)) continue;
         seen.add(name);
         itemNames.push(name);
       }
     };
-    collect(fbm.weapons, defaultWepSet);
-    collect(fbm.inventory, defaultInvSet);
+    collect(fbm.weapons, defaultWepSet, true);
+    collect(fbm.inventory, defaultInvSet, false);
     let slotIdx = 0;
     for (const name of itemNames) {
       if (slotIdx >= totalSlots) break;

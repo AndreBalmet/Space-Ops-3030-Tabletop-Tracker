@@ -4,6 +4,14 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.28 — 2026-07-08
+
+### Fix: Dual Wield stripped when a team loads from the cloud
+- `convertFbTeam` (cloud → local team conversion) deduped all item names — a guard against the legacy tracker storing grenades/cyberdecks in both `weapons[]` and `inventory[]`. That dedup also collapsed `['Damp Claws', 'Damp Claws']` to one, silently dropping the second weapon, its slot, and the Dual Wield buff — and the auto-save then published the mutilated copy back to the cloud.
+- Latent for weeks: pre-v15.0.26 the conversion only ran on rare explicit cloud loads (local always won). Once the cloud became the source of truth, every team load went through it.
+- Fix: duplicates are preserved **within** `weapons[]` (two identical weapons = Dual Wield, one slot each); `inventory[]` still dedups against everything (the legacy double-storage case the guard was for).
+- Verified: planted cloud team with a 2× Damp Claws Husk → loads with both slots, Team View shows `x2` + Dual Wield trait + Attacks 2→3 in teal, and the auto-save round-trip leaves the cloud copy intact.
+
 ## v15.0.27 — 2026-07-08
 
 ### Load Team delete: confirmation popup + deletes that actually stick
