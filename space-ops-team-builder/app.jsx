@@ -451,14 +451,37 @@ async function saveTeamToFirebase(player, team) {
 async function deleteTeamFromFirebase(player, teamId) {
   if (!player || !teamId) return false;
   const fbId = stripFbPrefix(teamId);
-  const url = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/teams/${encodeURIComponent(fbId)}.json`;
+  const base = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}`;
   try {
-    const res = await fetch(url, { method: 'DELETE' });
+    // Tombstone FIRST, then delete. Without the tombstone, any other device
+    // that still holds a local copy would "backfill" the team right back
+    // into the cloud on its next login/reconnect — deletes never stuck.
+    // Devices compare the tombstone timestamp against their local savedAt:
+    // tombstone newer → purge local copy; local newer (team was edited after
+    // the delete elsewhere) → the edit wins and the tombstone is cleared.
+    await fetch(`${base}/deletedTeams/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: JSON.stringify(Date.now()) });
+    const res = await fetch(`${base}/teams/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' });
     return res.ok;
   } catch (err) {
     console.warn('[fb] team delete failed:', err);
     return false;
   }
+}
+
+// Map of tombstoned team id → deletion timestamp for a player, or {}.
+async function fetchDeletedTeamIds(player) {
+  if (!player) return {};
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/deletedTeams.json`);
+    if (!res.ok) return {};
+    return (await res.json()) || {};
+  } catch { return {}; }
+}
+
+async function clearTombstone(player, teamId) {
+  try {
+    await fetch(`${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/deletedTeams/${encodeURIComponent(stripFbPrefix(teamId))}.json`, { method: 'DELETE' });
+  } catch { /* non-fatal — a stale tombstone loses to a newer savedAt anyway */ }
 }
 
 function convertFbTeam(fbId, fb) {
@@ -626,7 +649,29 @@ function App({ dataVersion }) {
     if (!player) { setFirebaseTeams([]); return; }
     let cancelled = false;
     setFirebaseTeams(null);
-    const refresh = () => fetchFirebaseTeams(player).then((teams) => { if (!cancelled) setFirebaseTeams(teams); });
+    const refresh = async () => {
+      const [teams, dead] = await Promise.all([fetchFirebaseTeams(player), fetchDeletedTeamIds(player)]);
+      if (cancelled) return;
+      setFirebaseTeams(teams);
+      // Propagate deletions made on other devices: purge any local copy
+      // whose tombstone is newer than its last local save, and close the
+      // open team if it's among them.
+      const isDead = (t) => (dead[stripFbPrefix(t.id)] || 0) > (t.savedAt || 0);
+      const local = loadSavedTeams();
+      const keep = local.filter((t) => !isDead(t));
+      if (keep.length !== local.length) {
+        writeSavedTeams(keep);
+        console.log(`[fb] purged ${local.length - keep.length} team(s) deleted on another device`);
+      }
+      setTeam((prev) => {
+        if (!prev) return prev;
+        // Judge the open team by its savedTeams row when one exists — the
+        // in-memory copy's savedAt lags behind the auto-save's stamps.
+        const row = keep.find((t) => stripFbPrefix(t.id) === stripFbPrefix(prev.id));
+        if (isDead(row || prev)) { writeCurrent(null); return null; }
+        return prev;
+      });
+    };
     refresh();
     // Refetch when the tab returns to the foreground (iPad coming back from
     // the home screen / another app) so edits published from other devices
@@ -681,6 +726,17 @@ function App({ dataVersion }) {
       writeSavedTeams(local);
       console.log(`[fb] claimed ${claimed} legacy local team(s) for ${player}`);
     }
+    // Tombstones: teams deleted from the cloud must not be pushed back by a
+    // device that still holds a local copy. A tombstone newer than the local
+    // savedAt purges the local copy; a local copy edited AFTER the deletion
+    // wins instead and clears its tombstone below.
+    const dead = await fetchDeletedTeamIds(player);
+    const purged = local.filter((t) => (dead[stripFbPrefix(t.id)] || 0) > (t.savedAt || 0));
+    if (purged.length > 0) {
+      local = local.filter((t) => !purged.includes(t));
+      writeSavedTeams(local);
+      console.log(`[fb] backfill purged ${purged.length} team(s) deleted on another device`);
+    }
     // Only push teams this player owns — pushing unowned/foreign teams is how
     // one account's teams used to leak into another's cloud path. Push a team
     // when the cloud doesn't have it yet OR the local copy is newer (edits
@@ -691,6 +747,8 @@ function App({ dataVersion }) {
       const cloud = fbByBase.get(stripFbPrefix(t.id));
       return !cloud || (t.savedAt || 0) > (cloud.savedAt || 0);
     });
+    // Re-pushed teams that carried a (stale) tombstone are alive again.
+    toPush.forEach((t) => { if (dead[stripFbPrefix(t.id)]) clearTombstone(player, t.id); });
     if (toPush.length === 0) return 0;
     let pushed = 0;
     await Promise.all(toPush.map((t) => saveTeamToFirebase(player, t).then((ok) => { if (ok) pushed++; })));
@@ -902,6 +960,10 @@ function App({ dataVersion }) {
             const base = stripFbPrefix(id);
             const list = loadSavedTeams().filter((t) => stripFbPrefix(t.id) !== base);
             writeSavedTeams(list);
+            // Drop it from the in-memory cloud list immediately — the row
+            // otherwise keeps rendering from stale state until the next
+            // refetch, which made the Delete button look dead.
+            setFirebaseTeams((prev) => Array.isArray(prev) ? prev.filter((t) => stripFbPrefix(t.id) !== base) : prev);
             // Also remove from Firebase so the cloud mirror doesn't reappear
             // the next time the player loads from another device. Strip any
             // 'fb-' prefix the convertFbTeam wrapper added when listing.
@@ -2459,6 +2521,9 @@ function EquipmentRow({ e, onOpenHover }) {
 // LOAD MODAL
 // ============================================================
 function LoadModal({ onPick, onClose, onDelete, firebaseTeams, player }) {
+  // Two-step delete: first tap arms a confirmation box (native confirm() is
+  // suppressed by iOS DuckDuckGo — see deleteTeamGlobal), second confirms.
+  const [confirmTarget, setConfirmTarget] = useState(null);
   // Only this player's local teams — the savedTeams list is device-wide, so
   // without the owner filter every account on a shared device would see (and
   // be able to load) everyone else's teams.
@@ -2507,7 +2572,7 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams, player }) {
                     <div className="meta">{t.factionId} · {teamRating(t)}r · {(t.assets || []).length} assets</div>
                   </div>
                   <span className="meta">{t.savedAt || t.createdAt ? new Date(t.savedAt || t.createdAt).toLocaleString() : '—'}</span>
-                  <span className="del" onClick={(e) => { e.stopPropagation(); onDelete(t.id); }}>Delete</span>
+                  <span className="del" onClick={(e) => { e.stopPropagation(); setConfirmTarget(t); }}>Delete</span>
                 </button>
               );
             })}
@@ -2519,6 +2584,23 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams, player }) {
         <div className="modal__actions">
           <button onClick={onClose}>Cancel</button>
         </div>
+        {confirmTarget && (
+          <div className="confirm-overlay" onClick={() => setConfirmTarget(null)}>
+            <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
+              <div className="confirm-box__title">Delete "{confirmTarget.name}"?</div>
+              <div className="confirm-box__body">
+                This removes the team from your account on every device. It can't be undone.
+              </div>
+              <div className="confirm-box__actions">
+                <button onClick={() => setConfirmTarget(null)}>Cancel</button>
+                <button
+                  className="confirm-box__danger"
+                  onClick={() => { onDelete(confirmTarget.id); setConfirmTarget(null); }}
+                >Delete Team</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

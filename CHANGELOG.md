@@ -4,6 +4,13 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.27 — 2026-07-08
+
+### Load Team delete: confirmation popup + deletes that actually stick
+- **Delete confirmation**: tapping Delete in the Load Team list now opens an in-app "Delete "<team>"? … can't be undone" box with Cancel / Delete Team. Built as an in-modal overlay (not the browser's native `confirm()`, which iOS DuckDuckGo silently suppresses — the reason delete buttons have looked dead before).
+- **Row disappears immediately**: deleting now also updates the in-memory cloud list. Previously the row kept rendering from stale state until the next refetch, making the button look broken.
+- **Tombstones — deletes propagate instead of resurrecting**: deleting a team writes `/players/<player>/deletedTeams/<id> = <timestamp>` before removing the team. Other devices compare the tombstone against their local copy's `savedAt`: tombstone newer → local copy purged (on load, tab refocus, and backfill); local copy edited *after* the delete → the edit wins, is re-pushed, and clears its tombstone. Without this, any device still holding a local copy would backfill the "deleted" team right back into the cloud.
+
 ## v15.0.26 — 2026-07-08
 
 ### Cloud is now the source of truth for teams

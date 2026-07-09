@@ -1113,6 +1113,48 @@ span.is-dangerous {
   text-align: center;
   padding: 30px 0;
 }
+/* In-modal delete confirmation — an overlay INSIDE the app because native
+   confirm() is silently suppressed on iOS DuckDuckGo (buttons looked dead). */
+.confirm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: grid; place-items: center;
+  z-index: 200; /* above .modal-backdrop's 150 */
+}
+.confirm-box {
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 20px 22px;
+  width: 88%;
+  max-width: 380px;
+}
+.confirm-box__title {
+  font-size: 17px;
+  font-weight: 800;
+  border-bottom: 1.5px solid var(--text);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+.confirm-box__body {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.confirm-box__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.confirm-box__actions button {
+  background: none; border: 0;
+  font: inherit;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+.confirm-box__actions .confirm-box__danger { color: var(--red); }
+.confirm-box__actions button:hover { filter: brightness(0.8); }
 
 /* ==== Print (Export to PDF via browser print dialog) ====
    The team view's screen layout is repurposed: topbar/actions hidden, the
