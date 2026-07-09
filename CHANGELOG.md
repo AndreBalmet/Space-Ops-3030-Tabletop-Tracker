@@ -4,6 +4,15 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.25 — 2026-07-08
+
+### Team View — gray card boxes + more breathing room
+Per the owner's mock: each model in the Team View now sits in its own light gray rounded box so its stats/loadout read as one visual block.
+- `.asset-card` gets `--panel-1` (#F2F2F2) background, 10px radius, 18/20px inner padding (was flat white, zero padding).
+- Inner weapon boxes and equipment pills step down to `--panel-2` (#E5E5E5) inside the card so they still read against the gray.
+- Grid gap 28px → 36px, and the grid top-aligns (`align-items:start`) so a short card hugs its content instead of stretching to its row's tallest card.
+- Verified at desktop (3-col), iPad portrait 834px (2-col), and phone 375px (1-col) — no horizontal overflow at any width. Print/PDF styles unaffected (they already force white cards with borders).
+
 ## v15.0.24 — 2026-05-28
 
 ### Team rating cap lowered to 50

@@ -753,7 +753,10 @@ button { font-family: inherit; }
 .team-view__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 28px;
+  gap: 36px;
+  /* Top-align so a short card doesn't stretch to its row's tallest card —
+     each gray box hugs its own content. */
+  align-items: start;
 }
 
 .team-view__management {
@@ -784,9 +787,16 @@ button { font-family: inherit; }
 
 /* ==== Asset Card (new) ==== */
 .asset-card {
-  background: var(--bg);
-  padding: 0;
+  /* Light gray box around each model so its loadout reads as one visual
+     block in the team view grid. */
+  background: var(--panel-1);
+  border-radius: 10px;
+  padding: 18px 20px 20px;
 }
+/* Inner boxes (weapons / equipment pills) are --panel-1 by default, which
+   would vanish against the gray card — step them down to --panel-2. */
+.asset-card .weapon-box,
+.asset-card .equip-row { background: var(--panel-2); }
 .asset-card__type {
   font-size: 10px;
   font-weight: 700;

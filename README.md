@@ -27,7 +27,7 @@ Runs on any device with a browser -- phones, tablets, laptops. Open the link and
 - **Custom asset names** that persist with the team across devices
 - **Dual Wield**: when an asset carries two of the same melee weapon, that weapon shows an `x2` suffix, gains the Dual Wield trait, and has its Attack stat auto-bumped +1 — the trait and the modified stat highlighted in teal so you can see the buff was applied
 - Tap any item, trait, or condition for a hover card explaining it
-- Team View roster page with PDF export; responsive 1 / 2 / 3-column layout for phone / iPad-portrait / iPad-landscape
+- Team View roster page with PDF export; each model sits in its own light gray card so its loadout reads as one block; responsive 1 / 2 / 3-column layout for phone / iPad-portrait / iPad-landscape
 - An update banner prompts a reload when a new build or new game data is published
 
 ### Session Management
