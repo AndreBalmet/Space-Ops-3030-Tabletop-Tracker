@@ -403,6 +403,97 @@ async function fetchFirebaseTeams(playerName) {
 // Firebase writes to the original path and doesn't create a duplicate entry.
 const stripFbPrefix = (id) => (typeof id === 'string' && id.startsWith('fb-')) ? id.slice(3) : id;
 
+// ============================================================
+// FIREBASE AUTHENTICATION (REST — no SDK, same style as the DB bridge)
+// Email/password accounts with email verification + password reset.
+// The API key is the public client key (same one tracker.html ships) —
+// it identifies the project, it is not a secret; security comes from
+// Firebase Auth itself and (Phase 3) database rules.
+// ============================================================
+const FIREBASE_API_KEY = 'AIzaSyAtbd-U5_-sIoPPX8iViFmi6_-DgVD16vk';
+const AUTH_SESSION_KEY = 'spaceops.auth.v1';
+
+// Firebase returns terse error codes (sometimes with a " : detail" suffix) —
+// map the ones players can actually hit to human sentences.
+const AUTH_ERROR_MESSAGES = {
+  EMAIL_EXISTS: 'An account with that email already exists. Try logging in.',
+  EMAIL_NOT_FOUND: 'No account found with that email.',
+  INVALID_PASSWORD: 'Incorrect password.',
+  INVALID_LOGIN_CREDENTIALS: 'Incorrect email/username or password.',
+  INVALID_EMAIL: 'That email address doesn’t look valid.',
+  WEAK_PASSWORD: 'Password must be at least 6 characters.',
+  TOO_MANY_ATTEMPTS_TRY_LATER: 'Too many attempts — wait a few minutes and try again.',
+  USER_DISABLED: 'This account has been disabled.',
+};
+const authErrorMessage = (raw) => {
+  const code = String(raw || '').split(':')[0].trim();
+  return AUTH_ERROR_MESSAGES[code] || ('Sign-in error: ' + raw);
+};
+
+async function authRequest(endpoint, body) {
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${endpoint}?key=${FIREBASE_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || 'AUTH_ERROR');
+  return data;
+}
+const authSignUp = (email, password) => authRequest('signUp', { email, password, returnSecureToken: true });
+const authSignIn = (email, password) => authRequest('signInWithPassword', { email, password, returnSecureToken: true });
+const authSendVerifyEmail = (idToken) => authRequest('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken });
+const authSendPasswordReset = (email) => authRequest('sendOobCode', { requestType: 'PASSWORD_RESET', email });
+const authAccountInfo = (idToken) => authRequest('lookup', { idToken }).then((d) => (d.users && d.users[0]) || null);
+
+// --- Username registry ---
+// Usernames are unique case-insensitively; the lowercase form keys
+// /usernames/<key> → { uid, email } so "log in with username" can resolve
+// the email Firebase Auth actually authenticates with. Profile data lives
+// at /users/<uid> (username as typed, email, promo consent, createdAt).
+const USERNAME_RE = /^[A-Za-z0-9][A-Za-z0-9 _-]{2,19}$/;
+const usernameKey = (u) => (u || '').trim().toLowerCase();
+
+async function fetchUsernameRecord(username) {
+  const key = usernameKey(username);
+  if (!key) return null;
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/usernames/${encodeURIComponent(key)}.json`);
+    return res.ok ? await res.json() : null;
+  } catch { return null; }
+}
+async function writeUsernameRecord(username, rec) {
+  const res = await fetch(`${FIREBASE_DB_URL}/usernames/${encodeURIComponent(usernameKey(username))}.json`, {
+    method: 'PUT', body: JSON.stringify(rec),
+  });
+  // Throw on rules denial etc. — a silently-missing username record breaks
+  // login-by-username later, which is much harder to debug than failing here.
+  if (!res.ok) throw new Error('PROFILE_WRITE_FAILED');
+}
+async function writeUserProfile(uid, profile) {
+  const res = await fetch(`${FIREBASE_DB_URL}/users/${encodeURIComponent(uid)}.json`, {
+    method: 'PUT', body: JSON.stringify(profile),
+  });
+  if (!res.ok) throw new Error('PROFILE_WRITE_FAILED');
+}
+// Roll back a half-created account (auth user exists, profile writes failed)
+// so the player can retry cleanly instead of hitting EMAIL_EXISTS forever.
+const authDeleteAccount = (idToken) => authRequest('delete', { idToken }).catch(() => {});
+async function fetchUserProfile(uid) {
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/users/${encodeURIComponent(uid)}.json`);
+    return res.ok ? await res.json() : null;
+  } catch { return null; }
+}
+
+const loadAuthSession = () => {
+  try { return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || 'null'); } catch { return null; }
+};
+const writeAuthSession = (s) => {
+  if (s) localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(s));
+  else localStorage.removeItem(AUTH_SESSION_KEY);
+};
+
 // Reverse of `convertFbTeam` — pack a local team object into the legacy
 // tracker's `/players/<player>/teams/<id>` shape so iPad ↔ laptop ↔ legacy
 // tracker can all see the same teams. We split each asset's slots back into
@@ -639,6 +730,17 @@ function App({ dataVersion }) {
     // fall back to home so the UI doesn't render with missing data.
     if (!team && screen !== 'home') setScreen('home');
   }, [team, screen]);
+  useEffect(() => {
+    // Upgrade an already-logged-in auth session to admin if its account is
+    // flagged in /admins — covers flags granted after login (no re-login
+    // needed; takes effect on next app load / player change).
+    const sess = loadAuthSession();
+    if (!sess || !player || isAdmin) return;
+    fetch(`${FIREBASE_DB_URL}/admins/${encodeURIComponent(sess.uid)}.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((v) => { if (v === true) setIsAdmin(true); })
+      .catch(() => {});
+  }, [player, isAdmin]);
   useEffect(() => {
     // If the signed-in player switches to an account that doesn't own the
     // open team, close it — otherwise the auto-save would stamp the new
@@ -897,6 +999,7 @@ function App({ dataVersion }) {
             setTeam(null);
             writeCurrent(null);
             writeSavedTeams([]);
+            writeAuthSession(null);
             setScreen('home');
             setPlayer('');
             setIsAdmin(false);
@@ -999,7 +1102,7 @@ function App({ dataVersion }) {
       )}
 
       {modal?.kind === 'login' && (
-        <LoginModal
+        <AuthModal
           onLogin={(name, admin) => {
             setPlayer(name);
             setIsAdmin(!!admin);
@@ -1052,6 +1155,10 @@ function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, has
   useEffect(() => { setDraft(player); }, [player]);
 
   const loggedIn = !!player;
+  // Accounts created through Firebase Auth have a fixed username — the
+  // inline rename only applies to legacy (pre-auth) name sessions, where
+  // the typed name IS the identity.
+  const canRename = loggedIn && !loadAuthSession();
 
   return (
     <div className="home">
@@ -1060,7 +1167,7 @@ function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, has
       <div className="home__stripes" />
       <p className={'home__player' + (loggedIn ? '' : ' is-empty')}>
         Player Logged In:{' '}
-        {editingName ? (
+        {editingName && canRename ? (
           <input
             autoFocus
             value={draft}
@@ -1073,7 +1180,11 @@ function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, has
             style={{ background: 'none', border: 0, borderBottom: '1px dashed var(--red)', color: 'var(--red)', font: 'inherit', padding: '0 2px' }}
           />
         ) : (
-          <span style={{ cursor: 'pointer' }} onClick={() => setEditingName(true)} title="Click to rename">
+          <span
+            style={{ cursor: canRename ? 'pointer' : 'default' }}
+            onClick={canRename ? () => setEditingName(true) : undefined}
+            title={canRename ? 'Click to rename' : undefined}
+          >
             {player}
           </span>
         )}
@@ -1105,12 +1216,24 @@ async function sha256Hex(s) {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function LoginModal({ onLogin, onClose }) {
-  const [name, setName] = useState('');
+function AuthModal({ onLogin, onClose }) {
+  // modes: 'login' | 'create' | 'verify' (email confirmation pending) |
+  //        'forgot' | 'reset-sent'
+  const [mode, setMode] = useState('login');
+  const [identifier, setIdentifier] = useState(''); // login/forgot: username OR email
+  const [username, setUsername] = useState('');     // create
+  const [email, setEmail] = useState('');           // create
   const [password, setPassword] = useState('');
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const isAdminAttempt = name.trim().toLowerCase() === 'admin';
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+  // Account awaiting email verification: { idToken, uid, email, username, refreshToken }
+  const [pending, setPending] = useState(null);
+  // The reserved 'admin' name keeps the legacy shared-password flow until
+  // Phase 4 replaces it with per-account /admins flags.
+  const isAdminAttempt = mode === 'login' && identifier.trim().toLowerCase() === 'admin';
+
   const inputStyle = {
     width: '100%',
     padding: '10px 12px',
@@ -1120,71 +1243,297 @@ function LoginModal({ onLogin, onClose }) {
     borderRadius: 4,
     outline: 'none',
   };
+  const linkStyle = { color: 'var(--red)', cursor: 'pointer', fontWeight: 700 };
+  const switchMode = (m) => { setMode(m); setError(''); setNotice(''); setPassword(''); };
 
-  const submit = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setError('');
-    if (isAdminAttempt) {
-      if (!password) { setError('Admin password required'); return; }
-      setSubmitting(true);
-      try {
+  const completeLogin = async (uid, mail, uname, refreshToken) => {
+    writeAuthSession({ uid, email: mail, username: uname, refreshToken, at: Date.now() });
+    // Per-account admin flag (Phase 4): accounts listed in /admins get the
+    // admin tools with their own login — no shared password needed.
+    let admin = false;
+    try {
+      const res = await fetch(`${FIREBASE_DB_URL}/admins/${encodeURIComponent(uid)}.json`);
+      admin = res.ok && (await res.json()) === true;
+    } catch { /* offline — admin tools just stay hidden this session */ }
+    onLogin(uname, admin);
+  };
+
+  const submitLogin = async () => {
+    const id = identifier.trim();
+    if (!id || !password) return;
+    setError(''); setBusy(true);
+    try {
+      if (isAdminAttempt) {
         const [hash, res] = await Promise.all([
           sha256Hex(password),
           fetch(`${FIREBASE_DB_URL}/admin/passwordHash.json`),
         ]);
         const stored = res.ok ? await res.json() : null;
-        if (!stored) { setError('Admin not configured in Firebase.'); setSubmitting(false); return; }
-        if (hash !== stored) { setError('Incorrect admin password.'); setSubmitting(false); setPassword(''); return; }
-        onLogin(trimmed, true);
-      } catch (err) {
-        setError('Login failed: ' + (err?.message || err));
-        setSubmitting(false);
+        if (!stored) { setError('Admin not configured in Firebase.'); setBusy(false); return; }
+        if (hash !== stored) { setError('Incorrect admin password.'); setBusy(false); setPassword(''); return; }
+        onLogin('admin', true);
+        return;
       }
-      return;
+      // Username → email lookup so players can log in with either.
+      let loginEmail = id;
+      if (!id.includes('@')) {
+        const rec = await fetchUsernameRecord(id);
+        if (!rec || !rec.email) { setError('No account found with that username.'); setBusy(false); return; }
+        loginEmail = rec.email;
+      }
+      const data = await authSignIn(loginEmail, password);
+      const [info, profile] = await Promise.all([
+        authAccountInfo(data.idToken),
+        fetchUserProfile(data.localId),
+      ]);
+      const uname = (profile && profile.username) || loginEmail.split('@')[0];
+      if (!info || !info.emailVerified) {
+        setPending({ idToken: data.idToken, uid: data.localId, email: loginEmail, username: uname, refreshToken: data.refreshToken });
+        switchMode('verify');
+        setBusy(false);
+        return;
+      }
+      await completeLogin(data.localId, loginEmail, uname, data.refreshToken);
+    } catch (err) {
+      setError(authErrorMessage(err.message));
+      setBusy(false);
     }
-    onLogin(trimmed, false);
   };
+
+  const submitCreate = async () => {
+    const uname = username.trim();
+    const mail = email.trim();
+    setError('');
+    if (!USERNAME_RE.test(uname)) { setError('Username must be 3–20 characters: letters, numbers, spaces, dashes or underscores.'); return; }
+    if (usernameKey(uname) === 'admin') { setError('That username is reserved.'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(mail)) { setError('Enter a valid email address.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    setBusy(true);
+    try {
+      const existing = await fetchUsernameRecord(uname);
+      if (existing) { setError('That username is taken.'); setBusy(false); return; }
+      const data = await authSignUp(mail, password);
+      try {
+        await Promise.all([
+          writeUserProfile(data.localId, { username: uname, email: mail, promoConsent: !!consent, createdAt: Date.now() }),
+          writeUsernameRecord(uname, { uid: data.localId, email: mail }),
+        ]);
+      } catch (profileErr) {
+        // Profile writes denied (e.g. DB rules missing /users + /usernames).
+        // Roll the auth account back so a retry doesn't hit EMAIL_EXISTS.
+        await authDeleteAccount(data.idToken);
+        setError('Account setup failed (server rules). Nothing was saved — tell the admin, then try again.');
+        setBusy(false);
+        return;
+      }
+      await authSendVerifyEmail(data.idToken);
+      setPending({ idToken: data.idToken, uid: data.localId, email: mail, username: uname, refreshToken: data.refreshToken });
+      switchMode('verify');
+      setBusy(false);
+    } catch (err) {
+      setError(authErrorMessage(err.message));
+      setBusy(false);
+    }
+  };
+
+  const resendVerify = async () => {
+    if (!pending || busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      await authSendVerifyEmail(pending.idToken);
+      setNotice('Confirmation email re-sent to ' + pending.email + '.');
+    } catch (err) {
+      setError(authErrorMessage(err.message));
+    }
+    setBusy(false);
+  };
+
+  const checkVerified = async () => {
+    if (!pending || busy) return;
+    setBusy(true); setError('');
+    try {
+      const info = await authAccountInfo(pending.idToken);
+      if (info && info.emailVerified) {
+        await completeLogin(pending.uid, pending.email, pending.username, pending.refreshToken);
+        return;
+      }
+      setError('Not verified yet — tap the link in the email, then try again.');
+    } catch (err) {
+      setError(authErrorMessage(err.message));
+    }
+    setBusy(false);
+  };
+
+  const submitForgot = async () => {
+    const id = identifier.trim();
+    if (!id) return;
+    setError(''); setBusy(true);
+    try {
+      let mail = id;
+      if (!id.includes('@')) {
+        const rec = await fetchUsernameRecord(id);
+        if (!rec || !rec.email) { setError('No account found with that username.'); setBusy(false); return; }
+        mail = rec.email;
+      }
+      await authSendPasswordReset(mail);
+      switchMode('reset-sent');
+      setNotice('Password reset link sent to ' + mail + '. Set a new password, then log in with it here.');
+      setBusy(false);
+    } catch (err) {
+      setError(authErrorMessage(err.message));
+      setBusy(false);
+    }
+  };
+
+  const title = mode === 'create' ? 'Create Account'
+    : mode === 'verify' ? 'Confirm Your Email'
+    : mode === 'forgot' ? 'Reset Password'
+    : mode === 'reset-sent' ? 'Check Your Email'
+    : 'Log In';
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380 }}>
-        <h2>Log In</h2>
-        <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: -6, marginBottom: 16 }}>
-          {isAdminAttempt
-            ? 'Enter the admin password to access admin tools.'
-            : 'Enter a player name to continue.'}
-        </p>
-        <input
-          autoFocus
-          type="text"
-          value={name}
-          onChange={(e) => { setName(e.target.value); setError(''); }}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !isAdminAttempt) submit(); }}
-          placeholder="Player name"
-          style={inputStyle}
-        />
-        {isAdminAttempt && (
-          <input
-            type="password"
-            value={password}
-            autoFocus={false}
-            onChange={(e) => { setPassword(e.target.value); setError(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-            placeholder="Admin password"
-            style={{ ...inputStyle, marginTop: 8 }}
-          />
+        <h2>{title}</h2>
+
+        {mode === 'login' && (
+          <>
+            <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: -6, marginBottom: 16 }}>
+              {isAdminAttempt ? 'Enter the admin password to access admin tools.' : 'Log in with your username or email.'}
+            </p>
+            <input
+              autoFocus type="text" value={identifier}
+              onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
+              placeholder="Username or email"
+              autoCapitalize="none" autoCorrect="off"
+              style={inputStyle}
+            />
+            <input
+              type="password" value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitLogin(); }}
+              placeholder={isAdminAttempt ? 'Admin password' : 'Password'}
+              style={{ ...inputStyle, marginTop: 8 }}
+            />
+            {!isAdminAttempt && (
+              <div style={{ fontSize: 12, marginTop: 10, color: 'var(--muted)' }}>
+                <span style={linkStyle} onClick={() => switchMode('forgot')}>Forgot password?</span>
+              </div>
+            )}
+          </>
+        )}
+
+        {mode === 'create' && (
+          <>
+            <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: -6, marginBottom: 16 }}>
+              Pick a username, then confirm your email to start building teams.
+            </p>
+            <input
+              autoFocus type="text" value={username}
+              onChange={(e) => { setUsername(e.target.value); setError(''); }}
+              placeholder="Username"
+              autoCapitalize="none" autoCorrect="off"
+              style={inputStyle}
+            />
+            <input
+              type="email" value={email}
+              onChange={(e) => { setEmail(e.target.value); setError(''); }}
+              placeholder="Email"
+              autoCapitalize="none" autoCorrect="off"
+              style={{ ...inputStyle, marginTop: 8 }}
+            />
+            <input
+              type="password" value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitCreate(); }}
+              placeholder="Password (6+ characters)"
+              style={{ ...inputStyle, marginTop: 8 }}
+            />
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: 'var(--muted)', marginTop: 12, cursor: 'pointer' }}>
+              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: 2 }} />
+              <span>Send me Space-Ops 3030 news and updates by email (optional — you can unsubscribe anytime).</span>
+            </label>
+          </>
+        )}
+
+        {mode === 'verify' && pending && (
+          <>
+            <p style={{ fontSize: 13, marginTop: -6, marginBottom: 4, lineHeight: 1.5 }}>
+              We sent a confirmation link to <strong>{pending.email}</strong>.
+            </p>
+            <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+              Tap the link in that email, then come back here and continue. Check spam if it doesn't arrive.
+            </p>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+              Didn't get it? <span style={linkStyle} onClick={resendVerify}>Resend email</span>
+            </div>
+          </>
+        )}
+
+        {mode === 'forgot' && (
+          <>
+            <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: -6, marginBottom: 16 }}>
+              Enter your username or email and we'll send a password reset link.
+            </p>
+            <input
+              autoFocus type="text" value={identifier}
+              onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitForgot(); }}
+              placeholder="Username or email"
+              autoCapitalize="none" autoCorrect="off"
+              style={inputStyle}
+            />
+          </>
+        )}
+
+        {mode === 'reset-sent' && (
+          <p style={{ fontSize: 13, marginTop: -6, marginBottom: 8, lineHeight: 1.5 }}>{notice}</p>
+        )}
+
+        {notice && mode !== 'reset-sent' && (
+          <div style={{ color: 'var(--text)', fontSize: 12, marginTop: 8, fontWeight: 700 }}>{notice}</div>
         )}
         {error && (
           <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 8, fontWeight: 700 }}>{error}</div>
         )}
+
         <div className="modal__actions">
           <button onClick={onClose}>Cancel</button>
-          <button
-            onClick={submit}
-            disabled={!name.trim() || submitting || (isAdminAttempt && !password)}
-          >{submitting ? 'Checking…' : 'Log In'}</button>
+          {mode === 'login' && (
+            <button onClick={submitLogin} disabled={busy || !identifier.trim() || !password}>
+              {busy ? 'Checking…' : 'Log In'}
+            </button>
+          )}
+          {mode === 'create' && (
+            <button onClick={submitCreate} disabled={busy || !username.trim() || !email.trim() || !password}>
+              {busy ? 'Creating…' : 'Create Account'}
+            </button>
+          )}
+          {mode === 'verify' && (
+            <button onClick={checkVerified} disabled={busy}>
+              {busy ? 'Checking…' : "I've verified — continue"}
+            </button>
+          )}
+          {mode === 'forgot' && (
+            <button onClick={submitForgot} disabled={busy || !identifier.trim()}>
+              {busy ? 'Sending…' : 'Send Reset Link'}
+            </button>
+          )}
+          {mode === 'reset-sent' && (
+            <button onClick={() => switchMode('login')}>Back to Log In</button>
+          )}
         </div>
+
+        {mode === 'login' && !isAdminAttempt && (
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, textAlign: 'right' }}>
+            New player? <span style={linkStyle} onClick={() => switchMode('create')}>Create account</span>
+          </div>
+        )}
+        {mode === 'create' && (
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, textAlign: 'right' }}>
+            Have an account? <span style={linkStyle} onClick={() => switchMode('login')}>Log in</span>
+          </div>
+        )}
       </div>
     </div>
   );

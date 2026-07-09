@@ -23,6 +23,7 @@ Runs on any device with a browser -- phones, tablets, laptops. Open the link and
 - Build teams from faction rosters (Arc Rangers, Space-Wyrm, Maligeist, Kippin, and more)
 - Equip weapons and gear from a data-driven Armory, filtered by faction, asset type (Operator / Support), and model — so you only see what a given asset can actually take
 - Manage your team's Rating budget with live cost tracking
+- **Player accounts**: sign up with a username, email, and password (email confirmation included); log in with your username or email from any device. Forgot your password? Reset it by email. Your email is only used for login/recovery — plus optional news updates if you tick the box at signup
 - **Cloud sync**: your account in the cloud is the source of truth — every edit publishes automatically, the same teams appear on every device you sign into, and each account only sees its own teams. A device that's behind picks up the newest published copy automatically when you return to the app. Edits while offline sync when you reconnect, and logging out clears the device
 - **Custom asset names** that persist with the team across devices
 - **Dual Wield**: when an asset carries two of the same melee weapon, that weapon shows an `x2` suffix, gains the Dual Wield trait, and has its Attack stat auto-bumped +1 — the trait and the modified stat highlighted in teal so you can see the buff was applied

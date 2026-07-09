@@ -4,6 +4,20 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.1.0 — 2026-07-08
+
+### Real accounts: email/password login via Firebase Authentication
+The type-any-name login is replaced with proper accounts (REST, no SDK — same style as the DB bridge). Passwords are handled entirely by Firebase Auth (scrypt-hashed by Google; never stored in our database or localStorage).
+
+- **Log In** — with **username or email** + password. Usernames are unique case-insensitively; a `/usernames/<name>` registry maps each to its account so username login can resolve the email Firebase authenticates with.
+- **Create Account** — username + email + password + optional news/updates **consent checkbox** (stored as `promoConsent` on the `/users/<uid>` profile). Validates username format/uniqueness/reserved names, email shape, password length (6+). A failed signup rolls back its half-created auth account so retries don't hit EMAIL_EXISTS.
+- **Email verification** — confirmation link sent at signup; a "Confirm Your Email" screen gates login until verified, with a **Resend email** link (Firebase rate-limits rapid resends with a friendly message). Note: the default `@space-ops-3030.firebaseapp.com` sender lands in Gmail spam — custom-domain sender is planned.
+- **Forgot Password** — accepts username or email, sends Firebase's reset link, "Check Your Email" confirmation.
+- **Per-account admin flags** — accounts listed in `/admins/<uid>` get the admin tools with their own login (no shared password). Includes a catch-up check that upgrades an already-signed-in session. The legacy `admin` + shared password fallback remains until the security-rules phase retires it.
+- **Sessions** — `spaceops.auth.v1` stores uid/username/email/refresh token (never the password); logout clears it along with the local team wipe. Account usernames can't be inline-renamed on Home (legacy typed-name sessions still can).
+- **Infrastructure** (not in this repo): DB rules extended with `users`/`usernames`/`admins` nodes; admin accounts for Andy + Chris; shared Playtest1–4 accounts (pre-verified, no admin) that connect to their existing cloud teams by name.
+- Verified end-to-end: signup validation guards, consent storage, verify gate + resend, full password-reset cycle, username/email login for all six accounts, admin recognition, playtest team loading, cross-account isolation, logout wipe, session persistence.
+
 ## v15.0.28 — 2026-07-08
 
 ### Fix: Dual Wield stripped when a team loads from the cloud
