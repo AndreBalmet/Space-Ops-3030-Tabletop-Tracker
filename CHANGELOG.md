@@ -4,6 +4,27 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.0.26 — 2026-07-08
+
+### Cloud is now the source of truth for teams
+- **Every edit publishes.** The 500ms auto-save now writes to `/players/<player>/teams/<id>` as well as localStorage — no more "I edited on the PC but never hit Save Team, so the iPad never saw it". Save Team still works as an explicit save + confirmation toast.
+- **Logout wipes local team data** (`spaceops.teams.v1`, `spaceops.current.v1`). The next account on the device starts clean and reads its teams from its own cloud path.
+- **Backfill upsyncs offline edits**: a locally-newer copy (edited while offline) is pushed on login/reconnect, not just teams missing from the cloud entirely.
+- Adopted cloud copies keep the cloud's timestamp locally and are not echoed back up, so two open devices don't ping-pong writes.
+
+### Fix: teams leaking across accounts on shared devices
+The local savedTeams list (`spaceops.teams.v1`) is device-wide, so any account signing in on a shared device saw — and worse, backfilled into their own cloud path — every team on the device.
+- Teams now carry an **`owner`** field, stamped on create, save, cloud fetch, and load.
+- The Load Team modal, the login/online **backfill**, and the Home "Load Team" button all filter to the signed-in player's teams. The backfill only pushes teams the current player owns.
+- Migration: pre-v15.0.26 local teams (no owner) are claimed on login by the account whose cloud path already contains them; a foreign-owned open team is closed on account switch so auto-save can't re-stamp it.
+- Note: cross-copies that already happened live in Firebase under the wrong account's path — delete those rows via Load Team → Delete while signed into that account.
+
+### Fix: edits from another device never showed up (stale local shadowed cloud)
+- Load Team dedup now keeps whichever copy is **newer** (local `savedAt` vs cloud `modified`) instead of always hiding the cloud entry behind the local one.
+- The **currently-open team adopts a newer cloud copy** automatically (last write wins) when cloud teams refresh.
+- Cloud teams **refetch on tab refocus** (`visibilitychange`) — an iPad returning from the home screen picks up PC edits without a manual reload.
+- Loading a cloud team now strips its `fb-` id prefix, so auto-save updates the existing local row instead of creating a `fb-…` sibling duplicate; local deletes match by base id for the same reason.
+
 ## v15.0.25 — 2026-07-08
 
 ### Team View — gray card boxes + more breathing room

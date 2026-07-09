@@ -118,8 +118,22 @@ const loadSavedTeams = () => {
     return Array.isArray(arr) ? arr.map(normalizeTeamFaction) : [];
   } catch { return []; }
 };
+// The savedTeams list is device-wide, but teams belong to the player who
+// created/saved them. Filter at every surface (Load modal, backfill, hasSaved)
+// so signing into a second account on a shared device doesn't expose — or,
+// via backfill, cross-copy — another player's teams.
+const teamsOwnedBy = (player) => loadSavedTeams().filter((t) => t.owner === player);
 const writeSavedTeams = (arr) => {
   localStorage.setItem(SAVED_TEAMS_KEY, JSON.stringify(arr));
+};
+// Insert-or-replace a snapshot in the savedTeams list, matching by *base* id
+// (fb- prefix stripped) so a team loaded from the cloud updates the existing
+// local row instead of creating a sibling 'fb-<id>' duplicate.
+const upsertSavedTeam = (snapshot) => {
+  const base = stripFbPrefix(snapshot.id);
+  const list = loadSavedTeams().filter((t) => stripFbPrefix(t.id) !== base);
+  list.unshift(snapshot);
+  writeSavedTeams(list);
 };
 const loadCurrent = () => {
   try { return normalizeTeamFaction(JSON.parse(localStorage.getItem(CURRENT_TEAM_KEY) || 'null')); } catch { return null; }
@@ -377,7 +391,8 @@ async function fetchFirebaseTeams(playerName) {
     if (!res.ok) return [];
     const data = await res.json();
     if (!data) return [];
-    return Object.entries(data).map(([fbId, fbTeam]) => convertFbTeam(fbId, fbTeam));
+    // Stamp the owner — these teams live under /players/<playerName>/teams.
+    return Object.entries(data).map(([fbId, fbTeam]) => ({ ...convertFbTeam(fbId, fbTeam), owner: playerName }));
   } catch (err) {
     console.warn('[fb] fetch failed:', err);
     return [];
@@ -546,6 +561,9 @@ function App({ dataVersion }) {
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null); // {kind:'load'} | {kind:'login'}
   const [firebaseTeams, setFirebaseTeams] = useState(null); // null = loading, [] = empty
+  // Set when the open team is replaced by a fresher cloud copy, so the
+  // auto-save that follows doesn't push the identical data straight back up.
+  const skipCloudPushRef = useRef(false);
 
   useEffect(() => {
     if (player) localStorage.setItem(PLAYER_KEY, player);
@@ -557,23 +575,32 @@ function App({ dataVersion }) {
     if (team) writeCurrent(team);
   }, [team]);
   useEffect(() => {
-    // Auto-save: every team change is debounced 500ms and written into
-    // localStorage's savedTeams list so an in-progress team survives a
-    // refresh / pull-to-refresh, even without an explicit Save Team click.
-    // Firebase is NOT touched here — the user has to click Save Team for
-    // their work to publish to the cloud. The login/online backfill picks
-    // up anything that's saved locally but missing from Firebase.
+    // Auto-save: every team change is debounced and written to BOTH the
+    // localStorage savedTeams list (instant, survives refresh) and the
+    // player's cloud path. The cloud is the source of truth — every edit
+    // publishes, not just explicit Save Team clicks. Offline pushes fail
+    // silently here; the login/online backfill upsyncs anything whose local
+    // copy is newer than (or missing from) the cloud.
     if (!team) return;
     const handle = setTimeout(() => {
-      const list = loadSavedTeams();
-      const idx = list.findIndex((t) => t.id === team.id);
-      const snapshot = { ...team, savedAt: Date.now() };
-      if (idx >= 0) list[idx] = snapshot;
-      else list.unshift(snapshot);
-      writeSavedTeams(list);
+      // A copy just adopted FROM the cloud is written locally with the
+      // cloud's own timestamp and NOT pushed back up — it's byte-identical,
+      // and re-stamping `modified` would make every other device see a
+      // phantom "newer" copy and re-adopt in a loop (backfill included).
+      const adopted = skipCloudPushRef.current;
+      skipCloudPushRef.current = false;
+      const snapshot = {
+        ...team,
+        owner: team.owner || player,
+        savedAt: adopted ? (team.savedAt || Date.now()) : Date.now(),
+      };
+      upsertSavedTeam(snapshot);
+      if (!adopted && player && navigator.onLine && snapshot.owner === player) {
+        saveTeamToFirebase(player, snapshot);
+      }
     }, 500);
     return () => clearTimeout(handle);
-  }, [team]);
+  }, [team, player]);
   useEffect(() => {
     // Persist screen so refreshes return the user to where they were.
     if (screen === 'home') localStorage.removeItem(SCREEN_KEY);
@@ -585,23 +612,85 @@ function App({ dataVersion }) {
     if (!team && screen !== 'home') setScreen('home');
   }, [team, screen]);
   useEffect(() => {
+    // If the signed-in player switches to an account that doesn't own the
+    // open team, close it — otherwise the auto-save would stamp the new
+    // account as owner and the backfill would copy the team into their
+    // cloud path. The team stays in savedTeams for its real owner.
+    if (team && team.owner && player && team.owner !== player) {
+      setTeam(null);
+      writeCurrent(null);
+      setScreen('home');
+    }
+  }, [player, team]);
+  useEffect(() => {
     if (!player) { setFirebaseTeams([]); return; }
     let cancelled = false;
     setFirebaseTeams(null);
-    fetchFirebaseTeams(player).then((teams) => { if (!cancelled) setFirebaseTeams(teams); });
-    return () => { cancelled = true; };
+    const refresh = () => fetchFirebaseTeams(player).then((teams) => { if (!cancelled) setFirebaseTeams(teams); });
+    refresh();
+    // Refetch when the tab returns to the foreground (iPad coming back from
+    // the home screen / another app) so edits published from other devices
+    // show up without a manual reload.
+    const onVis = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVis); };
   }, [player]);
+  useEffect(() => {
+    // Cross-device sync for the OPEN team: if the cloud copy is newer than
+    // our local snapshot (another device hit Save Team after we last touched
+    // it here), adopt the cloud copy. Last write wins — `savedAt` maps from
+    // FB `modified` so the two sides are directly comparable.
+    if (!team || !Array.isArray(firebaseTeams)) return;
+    const base = stripFbPrefix(team.id);
+    const cloud = firebaseTeams.find((t) => stripFbPrefix(t.id) === base);
+    if (!cloud) return;
+    const localRow = loadSavedTeams().find((t) => stripFbPrefix(t.id) === base);
+    const localTs = (localRow && localRow.savedAt) || team.savedAt || team.createdAt || 0;
+    if ((cloud.savedAt || 0) > localTs) {
+      console.log('[fb] cloud copy of open team is newer — adopting');
+      skipCloudPushRef.current = true;
+      const { _source, ...rest } = cloud;
+      setTeam({
+        ...rest,
+        id: base,
+        owner: cloud.owner || player,
+        assets: (cloud.assets || []).map((a) => ({ ...a, instanceId: ++nextInstanceId })),
+      });
+    }
+  }, [firebaseTeams]);
   // Backfill: push any local team that isn't yet on Firebase. Returns the
   // number pushed. Idempotent — running it repeatedly is safe. Used in two
   // places: on player login (in-effect below) and on `online` event (so a
   // team built while offline syncs as soon as connection returns).
   const runBackfill = useCallback(async () => {
     if (!player || !navigator.onLine) return 0;
-    const local = loadSavedTeams();
+    let local = loadSavedTeams();
     if (local.length === 0) return 0;
     const fbTeams = await fetchFirebaseTeams(player);
     const fbIds = new Set(fbTeams.map((t) => stripFbPrefix(t.id)));
-    const toPush = local.filter((t) => !fbIds.has(stripFbPrefix(t.id)));
+    // Migration: local teams saved before the `owner` field existed have no
+    // owner. Claim the ones that already live in THIS player's cloud account
+    // (they were saved/backfilled under it pre-v15.0.26). Teams owned by —
+    // or unclaimed by — other accounts are left alone.
+    let claimed = 0;
+    local = local.map((t) => {
+      if (!t.owner && fbIds.has(stripFbPrefix(t.id))) { claimed++; return { ...t, owner: player }; }
+      return t;
+    });
+    if (claimed > 0) {
+      writeSavedTeams(local);
+      console.log(`[fb] claimed ${claimed} legacy local team(s) for ${player}`);
+    }
+    // Only push teams this player owns — pushing unowned/foreign teams is how
+    // one account's teams used to leak into another's cloud path. Push a team
+    // when the cloud doesn't have it yet OR the local copy is newer (edits
+    // made while offline; the auto-save's cloud push failed silently then).
+    const fbByBase = new Map(fbTeams.map((t) => [stripFbPrefix(t.id), t]));
+    const toPush = local.filter((t) => {
+      if (t.owner !== player) return false;
+      const cloud = fbByBase.get(stripFbPrefix(t.id));
+      return !cloud || (t.savedAt || 0) > (cloud.savedAt || 0);
+    });
     if (toPush.length === 0) return 0;
     let pushed = 0;
     await Promise.all(toPush.map((t) => saveTeamToFirebase(player, t).then((ok) => { if (ok) pushed++; })));
@@ -646,25 +735,32 @@ function App({ dataVersion }) {
       factionId: 'Arc Rangers',
       assets: [],
       createdAt: Date.now(),
+      owner: player,
     };
     setTeam(t);
     setScreen('builder');
   };
 
   const loadTeam = (saved) => {
-    // Re-instance loaded assets
-    setTeam({ ...saved, assets: (saved.assets || []).map((a) => ({ ...a, instanceId: ++nextInstanceId })) });
+    // Normalize the id (strip any 'fb-' prefix from a cloud listing) so the
+    // auto-save updates the team's existing local row rather than creating a
+    // sibling duplicate. Drop the _source marker — it only describes where
+    // this listing came from, not the team itself. Re-instance loaded assets.
+    const { _source, ...rest } = saved;
+    setTeam({
+      ...rest,
+      id: stripFbPrefix(saved.id),
+      owner: saved.owner || player,
+      assets: (saved.assets || []).map((a) => ({ ...a, instanceId: ++nextInstanceId })),
+    });
     setScreen('builder');
     setModal(null);
   };
 
   const saveTeam = () => {
     if (!team) return;
-    const list = loadSavedTeams();
-    const idx = list.findIndex((t) => t.id === team.id);
-    const snapshot = { ...team, savedAt: Date.now() };
-    if (idx >= 0) list[idx] = snapshot; else list.unshift(snapshot);
-    writeSavedTeams(list);
+    const snapshot = { ...team, owner: team.owner || player, savedAt: Date.now() };
+    upsertSavedTeam(snapshot);
     // Push to Firebase. This is the ONLY path that publishes to the cloud
     // during normal use — auto-save no longer touches FB. After a
     // successful push, refresh the in-memory firebaseTeams list so the
@@ -693,7 +789,8 @@ function App({ dataVersion }) {
     // No native confirm() — iOS DuckDuckGo and some other browsers
     // silently suppress it, which is why the button looked unresponsive.
     // The button itself uses an "armed" two-tap pattern (see SummaryColumn).
-    const list = loadSavedTeams().filter((t) => t.id !== team.id);
+    const base = stripFbPrefix(team.id);
+    const list = loadSavedTeams().filter((t) => stripFbPrefix(t.id) !== base);
     writeSavedTeams(list);
     // Also remove from Firebase so the cloud copy doesn't reappear next load.
     if (player) deleteTeamFromFirebase(player, team.id);
@@ -729,7 +826,19 @@ function App({ dataVersion }) {
           player={player}
           onChangePlayer={setPlayer}
           onLogin={() => setModal({ kind: 'login' })}
-          onLogout={() => { setPlayer(''); setIsAdmin(false); showToast('Logged out'); }}
+          onLogout={() => {
+            // Cloud is the source of truth — wipe all local team data on
+            // logout so nothing carries over to the next account on this
+            // device. Anything worth keeping is already in the cloud (the
+            // auto-save publishes every edit).
+            setTeam(null);
+            writeCurrent(null);
+            writeSavedTeams([]);
+            setScreen('home');
+            setPlayer('');
+            setIsAdmin(false);
+            showToast('Logged out');
+          }}
           onCreate={() => {
             if (!player) { setModal({ kind: 'login', next: 'create' }); return; }
             newTeam();
@@ -738,7 +847,7 @@ function App({ dataVersion }) {
             if (!player) { setModal({ kind: 'login', next: 'load' }); return; }
             setModal({ kind: 'load' });
           }}
-          hasSaved={loadSavedTeams().length > 0 || (firebaseTeams && firebaseTeams.length > 0)}
+          hasSaved={(player ? teamsOwnedBy(player) : loadSavedTeams()).length > 0 || (firebaseTeams && firebaseTeams.length > 0)}
           isAdmin={isAdmin}
           onAdminUpload={() => setModal({ kind: 'xlsx' })}
         />
@@ -784,10 +893,14 @@ function App({ dataVersion }) {
       {modal?.kind === 'load' && (
         <LoadModal
           firebaseTeams={firebaseTeams}
+          player={player}
           onPick={loadTeam}
           onClose={() => setModal(null)}
           onDelete={(id) => {
-            const list = loadSavedTeams().filter((t) => t.id !== id);
+            // Match by base id so deleting a cloud-listed team ('fb-<id>')
+            // also removes its plain-id local row, and vice versa.
+            const base = stripFbPrefix(id);
+            const list = loadSavedTeams().filter((t) => stripFbPrefix(t.id) !== base);
             writeSavedTeams(list);
             // Also remove from Firebase so the cloud mirror doesn't reappear
             // the next time the player loads from another device. Strip any
@@ -797,7 +910,7 @@ function App({ dataVersion }) {
             // in-memory state too — otherwise the debounced auto-save effect
             // re-writes the team back into savedTeams 500ms later. That's
             // why deleting "the last team" always seemed to leave one.
-            if (team && team.id === id) {
+            if (team && stripFbPrefix(team.id) === base) {
               setTeam(null);
               writeCurrent(null);
               setScreen('home');
@@ -2345,26 +2458,29 @@ function EquipmentRow({ e, onOpenHover }) {
 // ============================================================
 // LOAD MODAL
 // ============================================================
-function LoadModal({ onPick, onClose, onDelete, firebaseTeams }) {
-  const local = loadSavedTeams();
+function LoadModal({ onPick, onClose, onDelete, firebaseTeams, player }) {
+  // Only this player's local teams — the savedTeams list is device-wide, so
+  // without the owner filter every account on a shared device would see (and
+  // be able to load) everyone else's teams.
+  const local = teamsOwnedBy(player);
   const fbLoading = firebaseTeams === null;
   const fb = Array.isArray(firebaseTeams) ? firebaseTeams : [];
-  // Dedup: a local team and its FB-loaded mirror share the same logical id
-  // (the local copy may have an 'fb-' prefix from a previous load round-trip).
-  // Hide the cloud entry whenever a local one already covers it — the local
-  // copy carries the user's most recent edits.
-  const localBases = new Set(local.map((t) => stripFbPrefix(t.id)));
   const fbBases = new Set(fb.map((t) => stripFbPrefix(t.id)));
-  const fbDeduped = fb.filter((t) => !localBases.has(stripFbPrefix(t.id)));
-  // Sort by most recently modified first. `savedAt` is set on every local
-  // save and is also the value `convertFbTeam` maps from FB `modified`, so
-  // it's directly comparable across both sources. Falls back to `createdAt`
-  // when a team has never been saved (no `savedAt` yet).
-  const list = [...local, ...fbDeduped].sort((a, b) => {
-    const aTs = a.savedAt || a.createdAt || 0;
-    const bTs = b.savedAt || b.createdAt || 0;
-    return bTs - aTs;
-  });
+  // Dedup: a local team and its FB mirror share the same base id (the local
+  // copy may carry an 'fb-' prefix from a pre-v15.0.26 load round-trip).
+  // Keep whichever copy is NEWER — `savedAt` is set on every local save and
+  // maps from FB `modified`, so the two sides are directly comparable. The
+  // old rule ("local always wins") hid edits published from other devices
+  // behind this device's stale local copy.
+  const ts = (t) => t.savedAt || t.createdAt || 0;
+  const byBase = new Map();
+  for (const t of [...local, ...fb]) {
+    const base = stripFbPrefix(t.id);
+    const cur = byBase.get(base);
+    if (!cur || ts(t) > ts(cur)) byBase.set(base, t);
+  }
+  // Sort by most recently modified first.
+  const list = [...byBase.values()].sort((a, b) => ts(b) - ts(a));
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
