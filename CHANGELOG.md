@@ -4,6 +4,15 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.2.0 — 2026-07-08
+
+### Teams re-keyed to account storage (Phase 2 of the accounts plan)
+- **Canonical team storage moves to `/teams/<account-id>`** (tombstones to `/deletedTeams/<account-id>`) — a stable key the upcoming security rules can enforce owner-only writes against, and the prerequisite for username renames/personas later.
+- **Automatic one-time migration** per account on login: if account storage is empty and the legacy `/players/<username>/teams` path has teams, teams AND tombstones are copied across (idempotent; a populated account store is never overwritten). The backfill awaits migration so it can't race it.
+- **Legacy mirror**: every save/delete/tombstone by a signed-in account is mirrored to the old name-keyed path, so the legacy tracker's sessions (which read teams by player name) keep working unchanged, as do pre-v15.2 devices until they update.
+- **Legacy typed-name sessions** (pre-v15.1 logins with no account) continue reading/writing only the old paths — no migration is triggered without an account login.
+- Verified: Playtest3 migration (5 teams, legacy left intact), dual-location writes, delete + tombstones in both locations, re-login idempotency, legacy-session compatibility (Playtest4 by name, old path, no migration), zero console errors.
+
 ## v15.1.0 — 2026-07-08
 
 ### Real accounts: email/password login via Firebase Authentication

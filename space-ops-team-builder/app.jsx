@@ -383,15 +383,63 @@ async function loadGameDataFromFirebase() {
   }
 }
 
+// --- Team storage resolution (Phase 2: uid-keyed canonical storage) ---
+// Auth accounts store teams canonically under /teams/<uid> (a stable key the
+// Phase 3 rules can enforce owner-only writes against) with tombstones under
+// /deletedTeams/<uid>. Every write is ALSO mirrored to the legacy
+// /players/<username>/teams path so the legacy tracker (sessions/combat),
+// which reads teams by player name, keeps working. Legacy typed-name
+// sessions (pre-v15.1 logins with no auth session) use the old paths only.
+function teamStorage(player) {
+  const sess = loadAuthSession();
+  const legacyTeams = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/teams`;
+  const legacyTombs = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/deletedTeams`;
+  if (sess && sess.uid && sess.username === player) {
+    return {
+      isUid: true,
+      teamsUrl: `${FIREBASE_DB_URL}/teams/${encodeURIComponent(sess.uid)}`,
+      tombsUrl: `${FIREBASE_DB_URL}/deletedTeams/${encodeURIComponent(sess.uid)}`,
+      mirrorTeamsUrl: legacyTeams,
+      mirrorTombsUrl: legacyTombs,
+    };
+  }
+  return { isUid: false, teamsUrl: legacyTeams, tombsUrl: legacyTombs, mirrorTeamsUrl: null, mirrorTombsUrl: null };
+}
+
+// One-time migration per account: if the uid-keyed location is empty and the
+// legacy name-keyed location has teams, copy teams AND tombstones across.
+// Idempotent — a populated canonical location is never overwritten.
+async function migrateTeamsToUid(player) {
+  const st = teamStorage(player);
+  if (!st.isUid) return 0;
+  try {
+    const canonical = await fetch(`${st.teamsUrl}.json?shallow=true`).then((r) => (r.ok ? r.json() : null));
+    if (canonical && Object.keys(canonical).length > 0) return 0; // already migrated
+    const legacy = await fetch(`${st.mirrorTeamsUrl}.json`).then((r) => (r.ok ? r.json() : null));
+    if (!legacy || Object.keys(legacy).length === 0) return 0; // nothing to migrate
+    const res = await fetch(`${st.teamsUrl}.json`, { method: 'PUT', body: JSON.stringify(legacy) });
+    if (!res.ok) return 0;
+    // Tombstones too — otherwise a stale device's backfill could resurrect
+    // teams that were deleted before the migration.
+    const legacyTombs = await fetch(`${st.mirrorTombsUrl}.json`).then((r) => (r.ok ? r.json() : null));
+    if (legacyTombs && Object.keys(legacyTombs).length > 0) {
+      await fetch(`${st.tombsUrl}.json`, { method: 'PUT', body: JSON.stringify(legacyTombs) });
+    }
+    console.log(`[fb] migrated ${Object.keys(legacy).length} team(s) to account storage for ${player}`);
+    return Object.keys(legacy).length;
+  } catch (err) {
+    console.warn('[fb] team migration failed:', err);
+    return 0;
+  }
+}
+
 async function fetchFirebaseTeams(playerName) {
   if (!playerName) return [];
   try {
-    const url = `${FIREBASE_DB_URL}/players/${encodeURIComponent(playerName)}/teams.json`;
-    const res = await fetch(url);
+    const res = await fetch(`${teamStorage(playerName).teamsUrl}.json`);
     if (!res.ok) return [];
     const data = await res.json();
     if (!data) return [];
-    // Stamp the owner — these teams live under /players/<playerName>/teams.
     return Object.entries(data).map(([fbId, fbTeam]) => ({ ...convertFbTeam(fbId, fbTeam), owner: playerName }));
   } catch (err) {
     console.warn('[fb] fetch failed:', err);
@@ -529,9 +577,15 @@ function convertTeamToFb(team) {
 async function saveTeamToFirebase(player, team) {
   if (!player || !team || !team.id) return false;
   const fbId = stripFbPrefix(team.id);
-  const url = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/teams/${encodeURIComponent(fbId)}.json`;
+  const st = teamStorage(player);
+  const body = JSON.stringify(convertTeamToFb(team));
   try {
-    const res = await fetch(url, { method: 'PUT', body: JSON.stringify(convertTeamToFb(team)) });
+    const res = await fetch(`${st.teamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body });
+    // Mirror to the legacy name-keyed path (fire-and-forget) so the legacy
+    // tracker's sessions keep seeing this account's teams.
+    if (res.ok && st.mirrorTeamsUrl) {
+      fetch(`${st.mirrorTeamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body }).catch(() => {});
+    }
     return res.ok;
   } catch (err) {
     console.warn('[fb] team save failed:', err);
@@ -542,7 +596,7 @@ async function saveTeamToFirebase(player, team) {
 async function deleteTeamFromFirebase(player, teamId) {
   if (!player || !teamId) return false;
   const fbId = stripFbPrefix(teamId);
-  const base = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}`;
+  const st = teamStorage(player);
   try {
     // Tombstone FIRST, then delete. Without the tombstone, any other device
     // that still holds a local copy would "backfill" the team right back
@@ -550,8 +604,15 @@ async function deleteTeamFromFirebase(player, teamId) {
     // Devices compare the tombstone timestamp against their local savedAt:
     // tombstone newer → purge local copy; local newer (team was edited after
     // the delete elsewhere) → the edit wins and the tombstone is cleared.
-    await fetch(`${base}/deletedTeams/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: JSON.stringify(Date.now()) });
-    const res = await fetch(`${base}/teams/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' });
+    const ts = JSON.stringify(Date.now());
+    await fetch(`${st.tombsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: ts });
+    const res = await fetch(`${st.teamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' });
+    // Keep the legacy mirror in step so the legacy tracker (and any
+    // pre-v15.2 device still reading the old path) sees the delete too.
+    if (st.mirrorTeamsUrl) {
+      fetch(`${st.mirrorTombsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: ts }).catch(() => {});
+      fetch(`${st.mirrorTeamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' }).catch(() => {});
+    }
     return res.ok;
   } catch (err) {
     console.warn('[fb] team delete failed:', err);
@@ -563,15 +624,18 @@ async function deleteTeamFromFirebase(player, teamId) {
 async function fetchDeletedTeamIds(player) {
   if (!player) return {};
   try {
-    const res = await fetch(`${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/deletedTeams.json`);
+    const res = await fetch(`${teamStorage(player).tombsUrl}.json`);
     if (!res.ok) return {};
     return (await res.json()) || {};
   } catch { return {}; }
 }
 
 async function clearTombstone(player, teamId) {
+  const st = teamStorage(player);
+  const fbId = encodeURIComponent(stripFbPrefix(teamId));
   try {
-    await fetch(`${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/deletedTeams/${encodeURIComponent(stripFbPrefix(teamId))}.json`, { method: 'DELETE' });
+    await fetch(`${st.tombsUrl}/${fbId}.json`, { method: 'DELETE' });
+    if (st.mirrorTombsUrl) fetch(`${st.mirrorTombsUrl}/${fbId}.json`, { method: 'DELETE' }).catch(() => {});
   } catch { /* non-fatal — a stale tombstone loses to a newer savedAt anyway */ }
 }
 
@@ -756,7 +820,12 @@ function App({ dataVersion }) {
     if (!player) { setFirebaseTeams([]); return; }
     let cancelled = false;
     setFirebaseTeams(null);
+    // Phase 2 migration: on login, move this account's teams from the legacy
+    // name-keyed path to uid-keyed storage if that hasn't happened yet.
+    // Resolves before the first fetch so the list is right immediately.
+    const migrated = migrateTeamsToUid(player).catch(() => 0);
     const refresh = async () => {
+      await migrated;
       const [teams, dead] = await Promise.all([fetchFirebaseTeams(player), fetchDeletedTeamIds(player)]);
       if (cancelled) return;
       setFirebaseTeams(teams);
@@ -818,6 +887,10 @@ function App({ dataVersion }) {
     if (!player || !navigator.onLine) return 0;
     let local = loadSavedTeams();
     if (local.length === 0) return 0;
+    // Never push into an unmigrated canonical store — a push landing before
+    // the migration would make it look already-migrated and strand the
+    // legacy teams. Idempotent + cheap once migration has happened.
+    await migrateTeamsToUid(player).catch(() => {});
     const fbTeams = await fetchFirebaseTeams(player);
     const fbIds = new Set(fbTeams.map((t) => stripFbPrefix(t.id)));
     // Migration: local teams saved before the `owner` field existed have no
