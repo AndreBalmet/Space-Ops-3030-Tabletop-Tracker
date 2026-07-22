@@ -92,6 +92,36 @@ button { font-family: inherit; }
   padding: 0;
 }
 .topbar__menu svg { display: block; }
+
+/* Hamburger dropdown — page navigation. Backdrop closes on outside click. */
+.topbar__menu-backdrop { position: fixed; inset: 0; z-index: 55; }
+.topbar__dropdown {
+  position: fixed;
+  top: 42px; left: 12px;
+  z-index: 56;
+  min-width: 210px;
+  background: var(--bg);
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  padding: 6px 0;
+  display: flex;
+  flex-direction: column;
+  animation: modal-pop 0.24s var(--ease-spring);
+}
+.topbar__dropdown a,
+.topbar__dropdown button {
+  text-align: left;
+  background: none; border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  padding: 9px 18px;
+}
+.topbar__dropdown a:hover,
+.topbar__dropdown button:hover { background: rgba(0,0,0,0.04); color: var(--red); }
 .topbar__crumbs {
   font-size: 11px;
   color: var(--text);
@@ -225,6 +255,27 @@ button { font-family: inherit; }
   padding-top: var(--col-header-offset, 180px);
 }
 
+/* Mid widths (tablet portrait, half-screen windows): two 50/50 columns leave
+   only ~440px per side — content designed at 560/480 crams. Stack into ONE
+   centered column instead; the ≤760px phone rules further tighten gutters. */
+@media (max-width: 1039px) {
+  .builder { grid-template-columns: 1fr; }
+  .builder__col {
+    min-height: auto;
+    overflow: visible;
+  }
+  .builder__col--summary { align-items: center; }
+  .builder__col--summary > * { max-width: 640px; }
+  .builder__col--detail {
+    padding-top: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .builder__col--detail > * { max-width: 640px; }
+  .builder__col--detail.is-empty { display: none; }
+}
+
 /* ==== Motion ====
    Shared entrance/exit keyframes. Entrances use --ease-out (fast settle) or
    --ease-spring (subtle overshoot); exits are short plain eases — leaving
@@ -343,17 +394,6 @@ button { transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15
 .tour__nav { display: flex; gap: 14px; }
 .tour__nav button:hover { color: var(--red); }
 .tour__next { color: var(--red); font-weight: 800; text-decoration: underline; }
-
-/* Replay link on the Home screen */
-.home__replay-tour {
-  background: none; border: 0; padding: 0;
-  font: inherit; font-size: 12px;
-  color: var(--muted);
-  cursor: pointer;
-  margin-top: 26px;
-  text-decoration: underline;
-}
-.home__replay-tour:hover { color: var(--red); }
 
 /* ==== Section labels (small red caps) ==== */
 .tag {

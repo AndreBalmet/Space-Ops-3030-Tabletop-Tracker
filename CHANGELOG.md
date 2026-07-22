@@ -4,6 +4,17 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.4.0 — 2026-07-22
+
+### Legacy tracker retired — the app is now team building + viewing only
+- **`/tracker.html` (multiplayer sessions, combat tracker, dice/timer/VP tools) is retired from the live site.** Hosting/joining live sessions may return later; for now the app is focused on building teams and viewing them at the table.
+- The code is preserved at `legacy/tracker.html` (with a revival-notes README) and the git tag **`legacy-tracker-final`** marks the last commit where it was live.
+- Root redirect page no longer mentions the tracker; admin XLSX upload continues to live in the team builder itself.
+
+### Navigation + layout
+- **The hamburger menu now works**: it opens a page-navigation dropdown — Home, Team Builder / Team View (when a team is open), Load Team (login-gated), and Replay Tutorial (moved here from the Home screen). Outside click closes it; springy pop-in matching the rest of the motion pass.
+- Fixed the builder looking squished at mid widths (tablet portrait, half-screen windows): between 761–1039px the two 50/50 columns left only ~440px per side for content designed at 560+. The builder now stacks into a single centered column (max 640px) below 1040px; phones (≤760px) keep their tighter gutters; full 50/50 remains at 1040px+.
+
 ## v15.3.2 — 2026-07-22
 
 - Armory filter switches no longer flash: the row cascade is now motion-only (rows stay fully solid and ripple downward into place) — any opacity fade, even partial, read as the panel flashing bright on each switch.

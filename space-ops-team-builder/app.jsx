@@ -1374,6 +1374,29 @@ function App({ dataVersion }) {
   return (
     <div className="app-chrome">
       <Topbar
+        menuItems={[
+          { label: 'Home', onClick: () => setScreen('home') },
+          ...(team ? [
+            { label: 'Team Builder', onClick: () => setScreen('builder') },
+            { label: 'Team View', onClick: () => setScreen('view') },
+          ] : []),
+          {
+            label: 'Create Team',
+            onClick: () => {
+              if (!player) setModal({ kind: 'login', next: 'create' });
+              else newTeam();
+            },
+          },
+          {
+            label: 'Load Team',
+            onClick: () => {
+              if (!player) setModal({ kind: 'login', next: 'load' });
+              else setModal({ kind: 'load' });
+            },
+          },
+          // Resets the NUX flags; the welcome popup re-appears on Home.
+          { label: 'Replay Tutorial', onClick: () => { replayNux(); setScreen('home'); } },
+        ]}
         crumbs={
           screen === 'home'
             ? [{ label: 'Space Ops 3030', onClick: () => setScreen('home') }, { label: 'Team Builder' }]
@@ -1422,7 +1445,6 @@ function App({ dataVersion }) {
           hasSaved={(player ? teamsOwnedBy(player) : loadSavedTeams()).length > 0 || (firebaseTeams && firebaseTeams.length > 0)}
           isAdmin={isAdmin}
           onAdminUpload={() => setModal({ kind: 'xlsx' })}
-          onReplayTour={replayNux}
         />
       )}
       {/* NUX: intro popup, then the Home menu chapter. Suppressed while any
@@ -1574,12 +1596,25 @@ function App({ dataVersion }) {
 // ============================================================
 // TOPBAR
 // ============================================================
-function Topbar({ crumbs }) {
+function Topbar({ crumbs, menuItems }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className="topbar">
-      <button className="topbar__menu" aria-label="Menu">
+      <button className="topbar__menu" aria-label="Menu" onClick={() => setMenuOpen((o) => !o)}>
         <svg width="18" height="12" viewBox="0 0 18 12"><rect y="0" width="18" height="1.6" /><rect y="5.2" width="18" height="1.6" /><rect y="10.4" width="18" height="1.6" /></svg>
       </button>
+      {menuOpen && menuItems && menuItems.length > 0 && (
+        <React.Fragment>
+          <div className="topbar__menu-backdrop" onClick={() => setMenuOpen(false)} />
+          <nav className="topbar__dropdown">
+            {menuItems.map((it, i) => it.href ? (
+              <a key={i} href={it.href}>{it.label}</a>
+            ) : (
+              <button key={i} onClick={() => { setMenuOpen(false); it.onClick(); }}>{it.label}</button>
+            ))}
+          </nav>
+        </React.Fragment>
+      )}
       <div className="topbar__crumbs">
         {crumbs.map((c, i) => (
           <React.Fragment key={i}>
@@ -1598,7 +1633,7 @@ function Topbar({ crumbs }) {
 // ============================================================
 // HOME SCREEN
 // ============================================================
-function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, hasSaved, isAdmin, onAdminUpload, onReplayTour }) {
+function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, hasSaved, isAdmin, onAdminUpload }) {
   const [editingName, setEditingName] = useState(false);
   const [draft, setDraft] = useState(player);
   useEffect(() => { setDraft(player); }, [player]);
@@ -1649,7 +1684,6 @@ function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, has
           : <button data-tour="login" onClick={onLogin}>Log In</button>
         }
       </div>
-      <button className="home__replay-tour" onClick={onReplayTour}>Replay Tutorial</button>
       </div>
     </div>
   );

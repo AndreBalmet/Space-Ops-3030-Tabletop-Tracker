@@ -1,6 +1,6 @@
-# Space-Ops 3030 Tabletop Tracker
+# Space-Ops 3030 Team Builder
 
-A real-time multiplayer companion tool for the Space-Ops 3030 tabletop miniatures game.
+The team-building companion tool for the Space-Ops 3030 tabletop miniatures game: build your team, equip it from the Armory, and use Team View as your reference at the table.
 
 **Play now:** [https://andrebalmet.github.io/Space-Ops-3030-Tabletop-Tracker/](https://andrebalmet.github.io/Space-Ops-3030-Tabletop-Tracker/)
 
@@ -8,12 +8,9 @@ A real-time multiplayer companion tool for the Space-Ops 3030 tabletop miniature
 
 ## What It Is
 
-A browser companion (no install needed) for the Space-Ops 3030 tabletop game. As of v15 it ships as **two coexisting apps** that share the same Firebase game data:
+A browser companion (no install needed) for the Space-Ops 3030 tabletop game, focused on **building and viewing teams**. Runs on any device with a browser — phones, tablets, laptops.
 
-- **Team Builder** (the root URL) — a React app focused on building, viewing, and exporting teams, with cross-device cloud sync.
-- **Legacy Tracker** (`/tracker.html`) — the original single-file app: admin sign-in, multiplayer sessions, combat tracker, dice/timer/VP tools, XLSX upload, PDF export.
-
-Runs on any device with a browser -- phones, tablets, laptops. Open the link and start playing.
+> The original multiplayer session/combat tracker was retired in v15.4.0 (hosting/joining live sessions may return later). Its code is preserved at [`legacy/tracker.html`](legacy/tracker.html) and the git tag `legacy-tracker-final`.
 
 ---
 
@@ -31,39 +28,13 @@ Runs on any device with a browser -- phones, tablets, laptops. Open the link and
 - Deleting a team asks for confirmation, then removes it from your account on every device (it won't reappear from an old device's copy)
 - Team View roster page with PDF export; each model sits in its own light gray card so its loadout reads as one block; responsive 1 / 2 / 3-column layout for phone / iPad-portrait / iPad-landscape
 - An update banner prompts a reload when a new build or new game data is published
-
-### Session Management
-- Create or join multiplayer sessions with a session code
-- Real-time Firebase sync -- all players see the same game state
-- Team instancing: your saved team is deep-copied into the session, so edits in-game never overwrite your roster
-- Multi-player teams: multiple players can join and control the same team
-
-### Combat Tracker
-- Turn-by-turn tracking with a shared turn counter synced across all devices
-- Health management with optimistic local updates and atomic Firebase transactions
-- Damage and heal flash animations for visual feedback
-- Status effects (Overwatch, Suppressed, Stunned, and others) with duration tracking and auto-expiry on turn advance
-- "Add Effect..." dropdown on every model card
-- Next Turn resets all models to Ready across all teams
-
-### Game Tools
-- Dice roller supporting D4, D6, D8, D12, and D20
-- Session timer
-- Turn counter with increment/decrement controls
-- Per-team Victory Points tracker with live sync and combat log entries
+- First-time-user tutorial: a welcome popup plus spotlight tours that walk through each screen as you reach it (replay anytime from the hamburger menu)
 
 ### Data-Driven Game Content
 - All game data is loaded from XLSX uploads: models, weapons, equipment, factions, effects, traits, special actions, starter squads
 - Hover tooltips pulled from Excel data -- weapon stats, trait descriptions, equipment details
 - Fuzzy name matching handles mismatches between data sheets
 - Missing data displays placeholder text instead of breaking the UI
-
-### Multiplayer and Ownership
-- Real-time health and status sync across all connected devices
-- Team-only ownership: you can only edit your own team's models
-- Backend ownership checks via team member arrays
-- Session host retains admin-level access
-- Reconnection handling for backgrounded tabs (iPad/mobile)
 
 ### Export
 - PDF team roster export via jsPDF
@@ -80,23 +51,21 @@ Runs on any device with a browser -- phones, tablets, laptops. Open the link and
 | Layer | Technology |
 |-------|------------|
 | Team Builder | React 18 (CDN + in-browser Babel), single `app.jsx` + `styles.css`, vanilla CSS Grid/Flexbox |
-| Legacy Tracker | Single HTML file (~8,000+ lines), vanilla JavaScript |
-| Backend | Firebase Realtime Database (REST from the team-builder; JS SDK in the legacy tracker) |
+| Backend | Firebase Realtime Database (REST) + Firebase Authentication (REST) |
 | Game Data | XLSX import (SheetJS) → Firebase `/gameData` |
 | PDF Export | jsPDF |
 | Hosting | GitHub Pages (deploys from `main`) |
 
-No build step — both apps load their dependencies from CDNs. Static asset URLs carry a `?v=` cache-bust that bumps on every release.
+No build step — dependencies load from CDNs. Static asset URLs carry a `?v=` cache-bust that bumps on every release.
 
 ---
 
 ## How to Use
 
-1. Open the [play link](https://andrebalmet.github.io/Space-Ops-3030-Tabletop-Tracker/) (the Team Builder)
-2. Enter your player name (signs you into your cloud team list)
+1. Open the [play link](https://andrebalmet.github.io/Space-Ops-3030-Tabletop-Tracker/)
+2. Log in (or create an account) so your teams sync to the cloud
 3. Build a team from available factions, or load a previously saved one; hit **Save Team** to publish it to your account
-4. For multiplayer play, open `/tracker.html` (the legacy tracker): create or join a session by code
-5. Play -- health, status effects, turns, and Victory Points sync live across all connected devices
+4. At the table, open **Team View** — every model's stats, weapons, and gear on one screen, with tap-for-rules on every term, plus PDF export
 
 ---
 
@@ -109,7 +78,6 @@ python3 -m http.server 8091
 ```
 
 - Team Builder: `http://localhost:8091/space-ops-team-builder/`
-- Legacy Tracker: `http://localhost:8091/tracker.html`
 
 Always test locally before pushing to main. The GitHub Pages deployment serves directly from the `main` branch. After changing `app.jsx` or `styles.css`, bump the `?v=` query in `space-ops-team-builder/index.html` so browsers fetch the new build.
 
