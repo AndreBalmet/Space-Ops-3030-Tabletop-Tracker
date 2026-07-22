@@ -10,6 +10,9 @@ space-ops-3030-v14.76/
 space-ops-3030-v14.76.html
 space-ops-builder/
 
+# Cloud Functions backend (deploys to Firebase, not the website)
+functions/
+
 # Repo docs & tooling (not app assets)
 README.md
 CHANGELOG.md
