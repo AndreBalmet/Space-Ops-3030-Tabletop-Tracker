@@ -34,6 +34,14 @@
   --radius: 4px;
   --radius-lg: 6px;
   --radius-pill: 10px;
+
+  /* Motion — shared easing curves. --ease-out is a fast-then-settle
+     deceleration (entrances only — its long tail reads as stutter on layout
+     animations); --ease-smooth is evenly paced accelerate-then-settle for
+     height/size changes; --ease-spring overshoots ~5% for a subtle "pop". */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 * { box-sizing: border-box; }
@@ -206,7 +214,7 @@ button { font-family: inherit; }
   to   { opacity: 1; transform: translateX(0); }
 }
 .builder__col--detail > * {
-  animation: col-slide-in 0.28s ease-out;
+  animation: col-slide-in 0.32s var(--ease-out);
 }
 
 /* Page-6 alignment: push the detail column down so its first section divider
@@ -217,13 +225,41 @@ button { font-family: inherit; }
   padding-top: var(--col-header-offset, 180px);
 }
 
+/* ==== Motion ====
+   Shared entrance/exit keyframes. Entrances use --ease-out (fast settle) or
+   --ease-spring (subtle overshoot); exits are short plain eases — leaving
+   should always feel quicker than arriving. */
+@keyframes fade-in   { from { opacity: 0; } }
+@keyframes fade-out  { to   { opacity: 0; } }
+@keyframes modal-pop  { from { opacity: 0; transform: translateY(14px) scale(0.96); } }
+@keyframes modal-drop { to   { opacity: 0; transform: translateY(10px) scale(0.97); } }
+@keyframes rise-in   { from { opacity: 0; transform: translateY(8px); } }
+@keyframes pill-pop  { from { opacity: 0; transform: scale(0.92); } }
+@keyframes expand-in { from { opacity: 0; transform: translateY(-4px); } }
+
+/* Color/bg hovers everywhere settle smoothly instead of snapping. */
+button { transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ==== Armory popup (was column 3) ==== */
 .armory-modal-backdrop {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.4);
-  display: grid; place-items: center;
+  /* Top-anchored (not centered): a centered modal re-centers whenever its
+     content height changes, so expanding an item made the top edge jump.
+     Anchored, the popup only ever grows downward. */
+  display: grid;
+  justify-items: center;
+  align-items: start;
   z-index: 150;
-  padding: 24px;
+  padding: 8vh 24px 24px;
+  animation: fade-in 0.2s ease;
 }
 .armory-modal {
   background: var(--panel-2);
@@ -232,7 +268,15 @@ button { font-family: inherit; }
   max-height: 86vh;
   overflow-y: auto;
   padding: 28px 32px 36px;
-  animation: col-slide-in 0.28s ease-out;
+  animation: modal-pop 0.34s var(--ease-spring);
+}
+/* Exit: Builder holds the popup mounted with .is-closing for ~180ms. */
+.armory-modal-backdrop.is-closing { animation: fade-out 0.18s ease forwards; }
+.armory-modal-backdrop.is-closing .armory-modal { animation: modal-drop 0.18s ease forwards; }
+/* Rows cascade in as the popup opens (per-row --i set inline, capped). */
+.armory-modal .armory-row {
+  animation: rise-in 0.32s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 22ms);
 }
 
 /* No vertical dividers between columns — column color shifts mark the
@@ -266,6 +310,8 @@ button { font-family: inherit; }
   border-radius: 6px;
   padding: 16px 18px 14px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  /* Re-pops on every step (keyed remount) for a deliberate step-change feel. */
+  animation: modal-pop 0.3s var(--ease-spring);
 }
 .tour__title {
   font-size: 16px;
@@ -490,6 +536,7 @@ button { font-family: inherit; }
   padding: 14px 12px 36px;
   position: relative;
   margin-top: 2px;
+  animation: rise-in 0.28s var(--ease-out);
 }
 .picker__close {
   position: absolute;
@@ -578,6 +625,7 @@ button { font-family: inherit; }
   cursor: pointer;
   user-select: none;
   border: 1px solid transparent;
+  animation: pill-pop 0.28s var(--ease-spring);
 }
 .slot__pill:hover { filter: brightness(1.1); }
 .slot__pill--empty {
@@ -680,7 +728,10 @@ button { font-family: inherit; }
   cursor: pointer;
   font-size: 18px; line-height: 1;
   color: var(--text);
-  padding: 0;
+  /* Pin to the top so the steppers stay beside the name row when the pill
+     grows to hold its expanded info (instead of drifting to mid-height). */
+  align-self: start;
+  padding: 8px 0 0;
 }
 .armory-row__step:hover { color: var(--red); }
 .armory-row__step:disabled { color: #c8c8c8; cursor: not-allowed; }
@@ -695,25 +746,46 @@ button { font-family: inherit; }
   cursor: pointer;
   position: relative;
 }
-.armory-row.expanded .armory-row__pill {
-  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
-}
+/* Pills stay fully rounded even while expanded — the info box below is its
+   own rounded card, not a squared-off extension of the pill. */
 
+/* Snappy unfold: the wrapper's grid row animates 0fr → 1fr, so the dark box
+   grows downward out of the pill and the rows below slide (never jump) out
+   of the way. The box stays opaque throughout — no blank-gap flash (the old
+   opacity fade left one). Browsers without animatable fr tracks (pre-2023
+   WebKit) just show it instantly. */
+@keyframes unfold { from { grid-template-rows: 0fr; } }
+@keyframes fold   { to   { grid-template-rows: 0fr; } }
+/* The box's own padding doesn't shrink with the fr track — animate it in
+   lockstep so the box truly grows from 0 (no padding lip snapping in/out). */
+@keyframes unfold-pad { from { padding-top: 0; padding-bottom: 0; } }
+@keyframes fold-pad   { to   { padding-top: 0; padding-bottom: 0; } }
+.armory-expand-wrap {
+  /* Lives INSIDE .armory-row__pill: the pill itself grows taller as this
+     unfolds, so there is no seam and the pill's rounded corners are the only
+     corners — throughout the animation. Pill padding provides the sides. */
+  clear: both;
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: unfold 0.2s var(--ease-smooth);
+}
+.armory-expand-wrap > .armory-expand { animation: unfold-pad 0.2s var(--ease-smooth); }
+/* Outgoing info (moved to another item, or closed): fold shut instead of
+   vanishing — an instant unmount made the popup dip in height, then regrow.
+   Same duration + curve as the unfold so a switch reads as ONE motion. */
+.armory-expand-wrap.is-collapsing { animation: fold 0.2s var(--ease-smooth) forwards; }
+.armory-expand-wrap.is-collapsing > .armory-expand { animation: fold-pad 0.2s var(--ease-smooth) forwards; }
 .armory-expand {
-  /* Rendered as a SIBLING of .armory-row (not inside its grid), so align it
-     under the pill with a margin matching the row's −/+ gutter:
-     18px + 6px + 18px + 6px. */
-  margin-left: 48px;
-  background: var(--pill-dark);
+  overflow: hidden;
+  min-height: 0;
   color: var(--pill-text);
-  /* No top padding: the pill's own 8px bottom padding provides the gap, so
-     the space above the first red label matches the 8px above the item name. */
-  padding: 0 14px 12px;
-  border-radius: 0 0 var(--radius-pill) var(--radius-pill);
-  /* Cancel the list's 6px flex gap so the info box connects seamlessly to
-     the pill above it — one continuous dark block. */
-  margin-top: -6px;
+  /* Top padding = the gap between the name row and the info; bottom adds to
+     the pill's own 8px. Both animate to 0 with the fold/unfold. */
+  padding: 8px 0 4px;
   position: relative;
+  /* Info text shouldn't look like part of the clickable name row. */
+  cursor: default;
+  font-weight: 400;
 }
 .armory-expand__stats {
   display: grid;
@@ -839,6 +911,15 @@ button { font-family: inherit; }
      each gray box hugs its own content. */
   align-items: start;
 }
+/* Cards cascade in on entry — capped at 8 steps so big teams don't lag. */
+.team-view__grid > * { animation: rise-in 0.38s var(--ease-out) both; }
+.team-view__grid > *:nth-child(2) { animation-delay: 45ms; }
+.team-view__grid > *:nth-child(3) { animation-delay: 90ms; }
+.team-view__grid > *:nth-child(4) { animation-delay: 135ms; }
+.team-view__grid > *:nth-child(5) { animation-delay: 180ms; }
+.team-view__grid > *:nth-child(6) { animation-delay: 225ms; }
+.team-view__grid > *:nth-child(7) { animation-delay: 270ms; }
+.team-view__grid > *:nth-child(n+8) { animation-delay: 300ms; }
 
 .team-view__management {
   /* Same shape as an asset card so it flows naturally in the grid. */
@@ -1062,6 +1143,7 @@ span.is-dangerous {
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
   font-size: 12px;
   line-height: 1.5;
+  animation: modal-pop 0.22s var(--ease-out);
 }
 .hoverbox__name {
   font-size: 13px;
@@ -1126,7 +1208,9 @@ span.is-dangerous {
   background: rgba(0,0,0,0.4);
   display: grid; place-items: center;
   z-index: 150;
+  animation: fade-in 0.2s ease;
 }
+.modal { animation: modal-pop 0.32s var(--ease-spring); }
 .modal {
   background: var(--bg);
   border-radius: 6px;
@@ -1327,7 +1411,7 @@ span.is-dangerous {
   .builder__col--detail { padding-top: 28px; }
   .builder__col--detail.is-empty { display: none; }
   /* Armory popup gets the full phone width minus gutters. */
-  .armory-modal-backdrop { padding: 12px; }
+  .armory-modal-backdrop { padding: 4vh 12px 12px; }
   .armory-modal { padding: 20px 18px 28px; max-height: 92vh; }
 
   /* Team View — one card per row so cards never exceed the viewport */

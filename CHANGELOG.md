@@ -4,6 +4,15 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.3.1 — 2026-07-22
+
+### Motion polish (pure CSS, no new dependencies)
+- Shared easing tokens: `--ease-out` (fast settle) and `--ease-spring` (~5% overshoot "pop").
+- **Armory popup**: springy pop-in over a fading backdrop, rows cascade in with a 22ms stagger (capped), and a real exit animation — the popup drops/fades for 180ms before unmounting (backdrop click or Done).
+- **All modals** (Load, Login, Welcome, XLSX): same pop-in + backdrop fade.
+- **Micro-motion**: equipped slot pills pop on equip, armory info dropdown eases open, HoverBox pops, model picker and detail column rise in, Team View cards cascade (capped at 8 steps), tutorial cards re-pop on each step, all button hovers ease.
+- Respects `prefers-reduced-motion` (animations collapse to instant).
+
 ## v15.3.0 — 2026-07-22
 
 ### Builder layout: two 50/50 columns + Armory popup

@@ -987,7 +987,7 @@ function TourOverlay({ steps, onDone, onSkip }) {
           style={{ top: rect.top - 5, left: rect.left - 5, width: rect.width + 10, height: rect.height + 10 }}
         />
       )}
-      <div className="tour__card" style={cardStyle}>
+      <div className="tour__card" style={cardStyle} key={idx}>
         <div className="tag">Tutorial — {idx + 1}/{steps.length}</div>
         <h3 className="tour__title">{step.title}</h3>
         <p className="tour__body">{step.body}</p>
@@ -2165,6 +2165,23 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
   const [armoryTargetSlot, setArmoryTargetSlot] = useState(null); // {slotIdx} or null = any
   const [armoryFilter, setArmoryFilter] = useState('ranged');
   const [expandedArmoryKey, setExpandedArmoryKey] = useState(null);
+  // When the open info box changes (or closes), the outgoing box folds shut
+  // with the same grid-rows animation the new one unfolds with — removing it
+  // instantly made the popup dip in height before growing again. The box
+  // stays mounted under `collapsingArmoryKey` for the fold's duration.
+  const [collapsingArmoryKey, setCollapsingArmoryKey] = useState(null);
+  const collapseTimerRef = useRef(null);
+  // NOTE: no functional updater here — side effects inside an updater can
+  // re-fire when React rebases interleaved updates, which re-opened boxes.
+  const changeArmoryExpand = (next) => {
+    const cur = expandedArmoryKey;
+    if (cur && cur !== next) {
+      setCollapsingArmoryKey(cur);
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = setTimeout(() => setCollapsingArmoryKey(null), 200);
+    }
+    setExpandedArmoryKey(next);
+  };
   const [hoverEntry, setHoverEntry] = useState(null); // {kind, name, x, y}
   const openHover = (entry) => setHoverEntry(entry);
   const closeHover = () => setHoverEntry(null);
@@ -2265,6 +2282,16 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
     setArmoryOpen(true);
   };
 
+  // Animated close: hold the popup mounted with .is-closing while the CSS
+  // exit animation (180ms) plays, then unmount. Instant closes (asset
+  // deselected/deleted) still call setArmoryOpen(false) directly.
+  const [armoryClosing, setArmoryClosing] = useState(false);
+  const closeArmory = () => {
+    if (armoryClosing) return;
+    setArmoryClosing(true);
+    setTimeout(() => { setArmoryOpen(false); setArmoryClosing(false); }, 180);
+  };
+
   const rating = teamRating(team);
   const cap = 50;
   const overBudget = rating > cap;
@@ -2327,7 +2354,7 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
                 }
                 setArmoryOpen(true);
               }
-              setExpandedArmoryKey((slot.kind === 'weapon' ? 'w:' : 'e:') + slot.name);
+              changeArmoryExpand((slot.kind === 'weapon' ? 'w:' : 'e:') + slot.name);
             }}
           />
         )}
@@ -2401,7 +2428,10 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
       {/* === Armory popup — opens from "Equip from the Armory" / loadout pills.
           Backdrop click or Done closes it. === */}
       {armoryOpen && selected && (
-        <div className="armory-modal-backdrop" onClick={() => setArmoryOpen(false)}>
+        <div
+          className={'armory-modal-backdrop' + (armoryClosing ? ' is-closing' : '')}
+          onClick={closeArmory}
+        >
           <div className="armory-modal" onClick={(e) => e.stopPropagation()}>
           <ArmoryPanel
             faction={team.factionId}
@@ -2419,8 +2449,9 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
             }}
             onRemove={(name) => removeEquipNamed(name)}
             expandedKey={expandedArmoryKey}
-            onToggleExpand={(k) => setExpandedArmoryKey((cur) => (cur === k ? null : k))}
-            onClose={() => setArmoryOpen(false)}
+            collapsingKey={collapsingArmoryKey}
+            onToggleExpand={(k) => changeArmoryExpand(expandedArmoryKey === k ? null : k)}
+            onClose={closeArmory}
             onOpenHover={openHover}
           />
           </div>
@@ -2704,7 +2735,7 @@ const ARMORY_TABS = [
   { key: 'cybertech', label: 'Cyberdeck' },
 ];
 
-function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expandedKey, onToggleExpand, onClose, onOpenHover }) {
+function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expandedKey, collapsingKey, onToggleExpand, onClose, onOpenHover }) {
   // Build items list based on filter. Four gating rules layer here:
   //  1. Faction gate — items with no `faction` are universal; items with a
   //     faction value only appear in their faction's armory.
@@ -2839,7 +2870,7 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
       </div>
 
       <div className="armory__list" data-tour="armory-list">
-        {items.map((it) => {
+        {items.map((it, rowIdx) => {
           // Expansion key stays simple (kind + name) so AssetDetail's pill
           // click can target an armory row by name alone. React's
           // reconciliation key needs to be globally unique — when two items
@@ -2850,10 +2881,13 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
           const reactKey = expansionKey + '::' + (it.record.weaponType || it.record.equipmentType || '') + '::' + (it.record.faction || '');
           const equipped = countEquipped(it.name);
           const expanded = expandedKey === expansionKey;
+          const collapsing = !expanded && collapsingKey === expansionKey;
           const cat = pillCategory(it.record);
           return (
             <React.Fragment key={reactKey}>
-              <div className={'armory-row' + (expanded ? ' expanded' : '')}>
+              {/* --i drives the staggered cascade-in; capped so long lists
+                  don't keep the tail invisible for ages. */}
+              <div className={'armory-row' + (expanded ? ' expanded' : '')} style={{ '--i': Math.min(rowIdx, 12) }}>
                 <button className="armory-row__step" onClick={() => onRemove(it.name)} disabled={equipped === 0}>−</button>
                 <button className="armory-row__step" onClick={() => onEquip({ kind: it.kind, name: it.name })} disabled={openSlots === 0}>+</button>
                 <div className={'armory-row__pill pill--' + cat} onClick={() => onToggleExpand(expansionKey)}>
@@ -2861,11 +2895,14 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
                   <span style={{ float: 'right', opacity: 0.75 }}>
                     ({it.rating}r){equipped > 0 ? <span style={{ marginLeft: 6, color: '#ffd34a' }}>×{equipped}</span> : null}
                   </span>
+                  {/* Info renders INSIDE the pill, so expanding is literally the
+                      one rounded element growing taller — no seam, corners
+                      stay rounded through the whole animation. */}
+                  {(expanded || collapsing) && (
+                    <ArmoryExpand item={it} collapsing={collapsing} onClose={() => onToggleExpand(expansionKey)} onOpenHover={onOpenHover} />
+                  )}
                 </div>
               </div>
-              {expanded && (
-                <ArmoryExpand item={it} onClose={() => onToggleExpand(expansionKey)} onOpenHover={onOpenHover} />
-              )}
             </React.Fragment>
           );
         })}
@@ -2887,7 +2924,7 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
   );
 }
 
-function ArmoryExpand({ item, onClose, onOpenHover }) {
+function ArmoryExpand({ item, collapsing, onClose, onOpenHover }) {
   const r = item.record;
   const isWeapon = item.kind === 'weapon';
   const range = isWeapon ? r.range : r.range;
@@ -2903,6 +2940,14 @@ function ArmoryExpand({ item, onClose, onOpenHover }) {
   const hasStats = isWeapon || (range || attacks || power || damage);
 
   return (
+    // The wrapper animates its grid row 0fr → 1fr so the info unfolds inside
+    // the pill and rows below slide (not jump) out of the way. While
+    // `collapsing` it folds back to 0fr before unmounting. Clicks inside
+    // must not bubble to the pill's expand/collapse toggle.
+    <div
+      className={'armory-expand-wrap' + (collapsing ? ' is-collapsing' : '')}
+      onClick={(e) => e.stopPropagation()}
+    >
     <div className="armory-expand">
       {hasStats && (
         <div className="armory-expand__stats">
@@ -2950,6 +2995,7 @@ function ArmoryExpand({ item, onClose, onOpenHover }) {
         <div style={{ marginTop: 6, opacity: 0.85, fontSize: 11.5 }}>{description}</div>
       )}
       <button className="armory-expand__close" onClick={onClose}>Close</button>
+    </div>
     </div>
   );
 }
