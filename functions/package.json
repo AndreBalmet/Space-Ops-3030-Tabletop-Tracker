@@ -1,0 +1,10 @@
+{
+  "name": "spaceops-functions",
+  "description": "Space-Ops 3030 Cloud Functions (MailerLite promo relay)",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-functions": "^6.1.0"
+  },
+  "private": true
+}

@@ -4,6 +4,10 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## Infrastructure — 2026-07-22 (no app change)
+
+- **MailerLite promo relay live (Phase 7)**: new Cloud Function `promoRelay` (`functions/`) — when an account is created with the news-updates consent box ticked, the email is pushed to the MailerLite subscriber list. API token lives in Cloud Secret Manager, never in the repo. Unsubscribes are handled entirely by MailerLite's own links. Tested end-to-end.
+
 ## v15.7.0 — 2026-07-22
 
 ### Audit log (Phase 5 of the accounts plan)
