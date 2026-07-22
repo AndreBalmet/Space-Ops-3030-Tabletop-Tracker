@@ -4,6 +4,16 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.5.0 — 2026-07-22
+
+### Phase 3 client: authenticated database access (rules deploy follows separately)
+- **Every Firebase write (and protected read) now carries the player's ID token** — minted on demand from the session's refresh token, cached ~1h, auto-rotated. Teams, tombstones, migration, profile, admin-flag checks, and admin XLSX uploads all go through the new `authedFetch`.
+- **Login is email-first**: `/usernames` will no longer be world-readable (it holds emails), so new devices log in by email once; after that the username works again on that device (local cache). The four shared `playtest1–4` accounts keep username login everywhere via a rules exception.
+- **Legacy shared-password `admin` login retired** — admin tools now come only from the per-account `/admins` flag (Phase 4 accounts).
+- **Legacy `/players/<name>` mirror writes removed** — they existed for the retired tracker. Canonical storage is `/teams/<uid>` + `/deletedTeams/<uid>` only; the old path will be frozen read-only by the rules.
+- Signup's username-availability check moved after account creation (authed), with the claim-once rules write as the real uniqueness guard.
+- New `database.rules.json` + `firebase.json` in the repo: gameData publicly readable / admin-writable; teams + tombstones owner-only; profiles owner-only (admin-readable); usernames locked except playtest; `/sessions`, `/templates`, `/admin` (legacy password hash) closed. **Rules are committed but deployed separately after this build is live**, so players' apps are token-ready before the door closes.
+
 ## v15.4.0 — 2026-07-22
 
 ### Legacy tracker retired — the app is now team building + viewing only

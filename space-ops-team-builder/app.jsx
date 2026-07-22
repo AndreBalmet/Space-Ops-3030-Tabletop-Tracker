@@ -385,25 +385,26 @@ async function loadGameDataFromFirebase() {
 
 // --- Team storage resolution (Phase 2: uid-keyed canonical storage) ---
 // Auth accounts store teams canonically under /teams/<uid> (a stable key the
-// Phase 3 rules can enforce owner-only writes against) with tombstones under
-// /deletedTeams/<uid>. Every write is ALSO mirrored to the legacy
-// /players/<username>/teams path so the legacy tracker (sessions/combat),
-// which reads teams by player name, keeps working. Legacy typed-name
-// sessions (pre-v15.1 logins with no auth session) use the old paths only.
+// Phase 3 rules enforce owner-only access against) with tombstones under
+// /deletedTeams/<uid>. The legacy /players/<username> mirror writes were
+// REMOVED in v15.5.0 — they existed solely so the (now retired) legacy
+// tracker could read teams by player name. Legacy typed-name sessions
+// (pre-v15.1 logins with no auth session) still resolve to the old paths,
+// which the Phase 3 rules freeze read-only.
 function teamStorage(player) {
   const sess = loadAuthSession();
-  const legacyTeams = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/teams`;
-  const legacyTombs = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/deletedTeams`;
   if (sess && sess.uid && sess.username === player) {
     return {
       isUid: true,
       teamsUrl: `${FIREBASE_DB_URL}/teams/${encodeURIComponent(sess.uid)}`,
       tombsUrl: `${FIREBASE_DB_URL}/deletedTeams/${encodeURIComponent(sess.uid)}`,
-      mirrorTeamsUrl: legacyTeams,
-      mirrorTombsUrl: legacyTombs,
     };
   }
-  return { isUid: false, teamsUrl: legacyTeams, tombsUrl: legacyTombs, mirrorTeamsUrl: null, mirrorTombsUrl: null };
+  return {
+    isUid: false,
+    teamsUrl: `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/teams`,
+    tombsUrl: `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}/deletedTeams`,
+  };
 }
 
 // One-time migration per account: if the uid-keyed location is empty and the
@@ -412,18 +413,19 @@ function teamStorage(player) {
 async function migrateTeamsToUid(player) {
   const st = teamStorage(player);
   if (!st.isUid) return 0;
+  const legacyBase = `${FIREBASE_DB_URL}/players/${encodeURIComponent(player)}`;
   try {
-    const canonical = await fetch(`${st.teamsUrl}.json?shallow=true`).then((r) => (r.ok ? r.json() : null));
+    const canonical = await authedFetch(`${st.teamsUrl}.json?shallow=true`).then((r) => (r.ok ? r.json() : null));
     if (canonical && Object.keys(canonical).length > 0) return 0; // already migrated
-    const legacy = await fetch(`${st.mirrorTeamsUrl}.json`).then((r) => (r.ok ? r.json() : null));
+    const legacy = await authedFetch(`${legacyBase}/teams.json`).then((r) => (r.ok ? r.json() : null));
     if (!legacy || Object.keys(legacy).length === 0) return 0; // nothing to migrate
-    const res = await fetch(`${st.teamsUrl}.json`, { method: 'PUT', body: JSON.stringify(legacy) });
+    const res = await authedFetch(`${st.teamsUrl}.json`, { method: 'PUT', body: JSON.stringify(legacy) });
     if (!res.ok) return 0;
     // Tombstones too — otherwise a stale device's backfill could resurrect
     // teams that were deleted before the migration.
-    const legacyTombs = await fetch(`${st.mirrorTombsUrl}.json`).then((r) => (r.ok ? r.json() : null));
+    const legacyTombs = await authedFetch(`${legacyBase}/deletedTeams.json`).then((r) => (r.ok ? r.json() : null));
     if (legacyTombs && Object.keys(legacyTombs).length > 0) {
-      await fetch(`${st.tombsUrl}.json`, { method: 'PUT', body: JSON.stringify(legacyTombs) });
+      await authedFetch(`${st.tombsUrl}.json`, { method: 'PUT', body: JSON.stringify(legacyTombs) });
     }
     console.log(`[fb] migrated ${Object.keys(legacy).length} team(s) to account storage for ${player}`);
     return Object.keys(legacy).length;
@@ -436,7 +438,7 @@ async function migrateTeamsToUid(player) {
 async function fetchFirebaseTeams(playerName) {
   if (!playerName) return [];
   try {
-    const res = await fetch(`${teamStorage(playerName).teamsUrl}.json`);
+    const res = await authedFetch(`${teamStorage(playerName).teamsUrl}.json`);
     if (!res.ok) return [];
     const data = await res.json();
     if (!data) return [];
@@ -509,24 +511,48 @@ const authAccountInfo = (idToken) => authRequest('lookup', { idToken }).then((d)
 const USERNAME_RE = /^[A-Za-z0-9][A-Za-z0-9 _-]{2,19}$/;
 const usernameKey = (u) => (u || '').trim().toLowerCase();
 
-async function fetchUsernameRecord(username) {
+async function fetchUsernameRecord(username, idToken) {
   const key = usernameKey(username);
   if (!key) return null;
   try {
-    const res = await fetch(`${FIREBASE_DB_URL}/usernames/${encodeURIComponent(key)}.json`);
+    const qs = idToken ? `?auth=${encodeURIComponent(idToken)}` : '';
+    const res = await fetch(`${FIREBASE_DB_URL}/usernames/${encodeURIComponent(key)}.json${qs}`);
     return res.ok ? await res.json() : null;
   } catch { return null; }
 }
-async function writeUsernameRecord(username, rec) {
-  const res = await fetch(`${FIREBASE_DB_URL}/usernames/${encodeURIComponent(usernameKey(username))}.json`, {
+
+// Device-local username → email cache (Phase 3): /usernames is no longer
+// world-readable (it holds emails), so a fresh device logs in by EMAIL once —
+// after that, this cache lets the username work again on that device. The
+// playtest1–4 records stay publicly readable via a rules exception, so those
+// shared accounts log in by username anywhere.
+const LOGIN_NAMES_KEY = 'spaceops.loginNames.v1';
+const cachedLoginEmail = (username) => {
+  try { return (JSON.parse(localStorage.getItem(LOGIN_NAMES_KEY) || '{}'))[usernameKey(username)] || null; }
+  catch { return null; }
+};
+const cacheLoginEmail = (username, email) => {
+  if (!username || !email) return;
+  try {
+    const map = JSON.parse(localStorage.getItem(LOGIN_NAMES_KEY) || '{}');
+    map[usernameKey(username)] = email;
+    localStorage.setItem(LOGIN_NAMES_KEY, JSON.stringify(map));
+  } catch { /* quota */ }
+};
+// Signup/login-flow writes happen before the auth SESSION exists, so these
+// take the flow's fresh idToken explicitly (Phase 3 rules require it).
+async function writeUsernameRecord(username, rec, idToken) {
+  const qs = idToken ? `?auth=${encodeURIComponent(idToken)}` : '';
+  const res = await fetch(`${FIREBASE_DB_URL}/usernames/${encodeURIComponent(usernameKey(username))}.json${qs}`, {
     method: 'PUT', body: JSON.stringify(rec),
   });
   // Throw on rules denial etc. — a silently-missing username record breaks
   // login-by-username later, which is much harder to debug than failing here.
   if (!res.ok) throw new Error('PROFILE_WRITE_FAILED');
 }
-async function writeUserProfile(uid, profile) {
-  const res = await fetch(`${FIREBASE_DB_URL}/users/${encodeURIComponent(uid)}.json`, {
+async function writeUserProfile(uid, profile, idToken) {
+  const qs = idToken ? `?auth=${encodeURIComponent(idToken)}` : '';
+  const res = await fetch(`${FIREBASE_DB_URL}/users/${encodeURIComponent(uid)}.json${qs}`, {
     method: 'PUT', body: JSON.stringify(profile),
   });
   if (!res.ok) throw new Error('PROFILE_WRITE_FAILED');
@@ -534,9 +560,10 @@ async function writeUserProfile(uid, profile) {
 // Roll back a half-created account (auth user exists, profile writes failed)
 // so the player can retry cleanly instead of hitting EMAIL_EXISTS forever.
 const authDeleteAccount = (idToken) => authRequest('delete', { idToken }).catch(() => {});
-async function fetchUserProfile(uid) {
+async function fetchUserProfile(uid, idToken) {
   try {
-    const res = await fetch(`${FIREBASE_DB_URL}/users/${encodeURIComponent(uid)}.json`);
+    const qs = idToken ? `?auth=${encodeURIComponent(idToken)}` : '';
+    const res = await fetch(`${FIREBASE_DB_URL}/users/${encodeURIComponent(uid)}.json${qs}`);
     return res.ok ? await res.json() : null;
   } catch { return null; }
 }
@@ -548,6 +575,56 @@ const writeAuthSession = (s) => {
   if (s) localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(s));
   else localStorage.removeItem(AUTH_SESSION_KEY);
 };
+
+// --- ID-token management (Phase 3: locked database) ---
+// Firebase ID tokens live ~1 hour. We mint them on demand from the session's
+// long-lived refreshToken and cache in memory; `authedFetch` appends
+// ?auth=<idToken> to every RTDB request that touches a protected path. With
+// no session (logged out) requests go out unauthenticated and the rules
+// decide what's public.
+let _idToken = null;
+let _idTokenExp = 0;
+let _idTokenFor = null;   // refreshToken the cached idToken was minted from
+let _idTokenPromise = null;
+async function getIdToken() {
+  const sess = loadAuthSession();
+  if (!sess || !sess.refreshToken) return null;
+  const fresh = _idToken && _idTokenFor === sess.refreshToken && Date.now() < _idTokenExp - 60000;
+  if (fresh) return _idToken;
+  if (_idTokenPromise) return _idTokenPromise;
+  _idTokenPromise = (async () => {
+    try {
+      const res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FIREBASE_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(sess.refreshToken),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.id_token) throw new Error((data && data.error && data.error.message) || 'TOKEN_REFRESH_FAILED');
+      _idToken = data.id_token;
+      _idTokenExp = Date.now() + (parseInt(data.expires_in, 10) || 3600) * 1000;
+      _idTokenFor = data.refresh_token || sess.refreshToken;
+      // Firebase occasionally rotates the refresh token — persist the new one.
+      if (data.refresh_token && data.refresh_token !== sess.refreshToken) {
+        writeAuthSession({ ...sess, refreshToken: data.refresh_token });
+      }
+      return _idToken;
+    } catch (err) {
+      console.warn('[auth] id-token refresh failed:', err);
+      return null;
+    } finally {
+      _idTokenPromise = null;
+    }
+  })();
+  return _idTokenPromise;
+}
+// fetch() with the caller's ID token attached (when logged in). Handles URLs
+// that already carry a query string (?shallow=true etc.).
+async function authedFetch(url, opts) {
+  const token = await getIdToken();
+  if (token) url += (url.includes('?') ? '&' : '?') + 'auth=' + encodeURIComponent(token);
+  return fetch(url, opts);
+}
 
 // Reverse of `convertFbTeam` — pack a local team object into the legacy
 // tracker's `/players/<player>/teams/<id>` shape so iPad ↔ laptop ↔ legacy
@@ -605,12 +682,7 @@ async function saveTeamToFirebase(player, team) {
   const st = teamStorage(player);
   const body = JSON.stringify(convertTeamToFb(team));
   try {
-    const res = await fetch(`${st.teamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body });
-    // Mirror to the legacy name-keyed path (fire-and-forget) so the legacy
-    // tracker's sessions keep seeing this account's teams.
-    if (res.ok && st.mirrorTeamsUrl) {
-      fetch(`${st.mirrorTeamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body }).catch(() => {});
-    }
+    const res = await authedFetch(`${st.teamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body });
     return res.ok;
   } catch (err) {
     console.warn('[fb] team save failed:', err);
@@ -643,7 +715,7 @@ const queuePendingTombstone = (player, teamId, ts) => {
   const rest = loadPendingTombstones().filter((e) => !(e.player === player && e.teamId === base));
   rest.push({
     player, teamId: base, ts: ts || Date.now(),
-    urls: { tombsUrl: st.tombsUrl, teamsUrl: st.teamsUrl, mirrorTombsUrl: st.mirrorTombsUrl, mirrorTeamsUrl: st.mirrorTeamsUrl },
+    urls: { tombsUrl: st.tombsUrl, teamsUrl: st.teamsUrl },
   });
   writePendingTombstones(rest);
 };
@@ -664,12 +736,8 @@ async function flushPendingTombstones() {
       const st = e.urls || teamStorage(e.player);
       const fbId = encodeURIComponent(stripFbPrefix(e.teamId));
       const body = JSON.stringify(e.ts);
-      await fetch(`${st.tombsUrl}/${fbId}.json`, { method: 'PUT', body });
-      await fetch(`${st.teamsUrl}/${fbId}.json`, { method: 'DELETE' });
-      if (st.mirrorTeamsUrl) {
-        fetch(`${st.mirrorTombsUrl}/${fbId}.json`, { method: 'PUT', body }).catch(() => {});
-        fetch(`${st.mirrorTeamsUrl}/${fbId}.json`, { method: 'DELETE' }).catch(() => {});
-      }
+      await authedFetch(`${st.tombsUrl}/${fbId}.json`, { method: 'PUT', body });
+      await authedFetch(`${st.teamsUrl}/${fbId}.json`, { method: 'DELETE' });
       flushed++;
     } catch { remaining.push(e); }
   }
@@ -694,14 +762,8 @@ async function deleteTeamFromFirebase(player, teamId, ts) {
     // tombstone newer → purge local copy; local newer (team was edited after
     // the delete elsewhere) → the edit wins and the tombstone is cleared.
     const ts = JSON.stringify(stamp);
-    await fetch(`${st.tombsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: ts });
-    const res = await fetch(`${st.teamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' });
-    // Keep the legacy mirror in step so the legacy tracker (and any
-    // pre-v15.2 device still reading the old path) sees the delete too.
-    if (st.mirrorTeamsUrl) {
-      fetch(`${st.mirrorTombsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: ts }).catch(() => {});
-      fetch(`${st.mirrorTeamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' }).catch(() => {});
-    }
+    await authedFetch(`${st.tombsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: ts });
+    const res = await authedFetch(`${st.teamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' });
     if (!res.ok) queuePendingTombstone(player, fbId, stamp);
     return res.ok;
   } catch (err) {
@@ -715,7 +777,7 @@ async function deleteTeamFromFirebase(player, teamId, ts) {
 async function fetchDeletedTeamIds(player) {
   if (!player) return {};
   try {
-    const res = await fetch(`${teamStorage(player).tombsUrl}.json`);
+    const res = await authedFetch(`${teamStorage(player).tombsUrl}.json`);
     if (!res.ok) return {};
     return (await res.json()) || {};
   } catch { return {}; }
@@ -725,8 +787,7 @@ async function clearTombstone(player, teamId) {
   const st = teamStorage(player);
   const fbId = encodeURIComponent(stripFbPrefix(teamId));
   try {
-    await fetch(`${st.tombsUrl}/${fbId}.json`, { method: 'DELETE' });
-    if (st.mirrorTombsUrl) fetch(`${st.mirrorTombsUrl}/${fbId}.json`, { method: 'DELETE' }).catch(() => {});
+    await authedFetch(`${st.tombsUrl}/${fbId}.json`, { method: 'DELETE' });
   } catch { /* non-fatal — a stale tombstone loses to a newer savedAt anyway */ }
 }
 
@@ -1127,7 +1188,7 @@ function App({ dataVersion }) {
     // needed; takes effect on next app load / player change).
     const sess = loadAuthSession();
     if (!sess || !player || isAdmin) return;
-    fetch(`${FIREBASE_DB_URL}/admins/${encodeURIComponent(sess.uid)}.json`)
+    authedFetch(`${FIREBASE_DB_URL}/admins/${encodeURIComponent(sess.uid)}.json`)
       .then((r) => (r.ok ? r.json() : null))
       .then((v) => { if (v === true) setIsAdmin(true); })
       .catch(() => {});
@@ -1692,13 +1753,8 @@ function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, has
 // ============================================================
 // LOGIN MODAL
 // ============================================================
-// SHA-256 of a string as lowercase hex — matches the legacy tracker's _sha()
-// so the admin/passwordHash check is interchangeable between the two apps.
-async function sha256Hex(s) {
-  const buf = new TextEncoder().encode(s);
-  const digest = await crypto.subtle.digest('SHA-256', buf);
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+// The legacy shared-password 'admin' login (SHA-256 vs /admin/passwordHash)
+// was retired in v15.5.0 — admin = an account flagged in /admins (Phase 4).
 
 function AuthModal({ onLogin, onClose }) {
   // modes: 'login' | 'create' | 'verify' (email confirmation pending) |
@@ -1714,9 +1770,6 @@ function AuthModal({ onLogin, onClose }) {
   const [busy, setBusy] = useState(false);
   // Account awaiting email verification: { idToken, uid, email, username, refreshToken }
   const [pending, setPending] = useState(null);
-  // The reserved 'admin' name keeps the legacy shared-password flow until
-  // Phase 4 replaces it with per-account /admins flags.
-  const isAdminAttempt = mode === 'login' && identifier.trim().toLowerCase() === 'admin';
 
   const inputStyle = {
     width: '100%',
@@ -1732,11 +1785,14 @@ function AuthModal({ onLogin, onClose }) {
 
   const completeLogin = async (uid, mail, uname, refreshToken) => {
     writeAuthSession({ uid, email: mail, username: uname, refreshToken, at: Date.now() });
+    // Remember username → email on this device so the username keeps working
+    // for login here even though /usernames is locked (Phase 3).
+    cacheLoginEmail(uname, mail);
     // Per-account admin flag (Phase 4): accounts listed in /admins get the
     // admin tools with their own login — no shared password needed.
     let admin = false;
     try {
-      const res = await fetch(`${FIREBASE_DB_URL}/admins/${encodeURIComponent(uid)}.json`);
+      const res = await authedFetch(`${FIREBASE_DB_URL}/admins/${encodeURIComponent(uid)}.json`);
       admin = res.ok && (await res.json()) === true;
     } catch { /* offline — admin tools just stay hidden this session */ }
     onLogin(uname, admin);
@@ -1747,28 +1803,23 @@ function AuthModal({ onLogin, onClose }) {
     if (!id || !password) return;
     setError(''); setBusy(true);
     try {
-      if (isAdminAttempt) {
-        const [hash, res] = await Promise.all([
-          sha256Hex(password),
-          fetch(`${FIREBASE_DB_URL}/admin/passwordHash.json`),
-        ]);
-        const stored = res.ok ? await res.json() : null;
-        if (!stored) { setError('Admin not configured in Firebase.'); setBusy(false); return; }
-        if (hash !== stored) { setError('Incorrect admin password.'); setBusy(false); setPassword(''); return; }
-        onLogin('admin', true);
-        return;
-      }
-      // Username → email lookup so players can log in with either.
+      // Username → email resolution: this device's cache first, then the
+      // /usernames registry (world-readable ONLY for the playtest accounts
+      // since Phase 3 locked it — everyone else uses email on new devices).
       let loginEmail = id;
       if (!id.includes('@')) {
-        const rec = await fetchUsernameRecord(id);
-        if (!rec || !rec.email) { setError('No account found with that username.'); setBusy(false); return; }
+        const rec = cachedLoginEmail(id) ? { email: cachedLoginEmail(id) } : await fetchUsernameRecord(id);
+        if (!rec || !rec.email) {
+          setError('Log in with your email address on this device (usernames work again after the first login here).');
+          setBusy(false);
+          return;
+        }
         loginEmail = rec.email;
       }
       const data = await authSignIn(loginEmail, password);
       const [info, profile] = await Promise.all([
         authAccountInfo(data.idToken),
-        fetchUserProfile(data.localId),
+        fetchUserProfile(data.localId, data.idToken),
       ]);
       const uname = (profile && profile.username) || loginEmail.split('@')[0];
       if (!info || !info.emailVerified) {
@@ -1794,19 +1845,29 @@ function AuthModal({ onLogin, onClose }) {
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setBusy(true);
     try {
-      const existing = await fetchUsernameRecord(uname);
-      if (existing) { setError('That username is taken.'); setBusy(false); return; }
       const data = await authSignUp(mail, password);
+      // Availability check happens AFTER account creation (with its token):
+      // /usernames isn't world-readable since Phase 3, so a pre-auth check
+      // can't see existing names. The claim-once write rule is the real
+      // uniqueness guard; this authed read just gives a friendly error.
+      const existing = await fetchUsernameRecord(uname, data.idToken);
+      if (existing) {
+        await authDeleteAccount(data.idToken);
+        setError('That username is taken.');
+        setBusy(false);
+        return;
+      }
       try {
         await Promise.all([
-          writeUserProfile(data.localId, { username: uname, email: mail, promoConsent: !!consent, createdAt: Date.now() }),
-          writeUsernameRecord(uname, { uid: data.localId, email: mail }),
+          writeUserProfile(data.localId, { username: uname, email: mail, promoConsent: !!consent, createdAt: Date.now() }, data.idToken),
+          writeUsernameRecord(uname, { uid: data.localId, email: mail }, data.idToken),
         ]);
       } catch (profileErr) {
-        // Profile writes denied (e.g. DB rules missing /users + /usernames).
-        // Roll the auth account back so a retry doesn't hit EMAIL_EXISTS.
+        // Profile writes denied (rules rejection — e.g. the username was
+        // claimed in a race). Roll the auth account back so a retry doesn't
+        // hit EMAIL_EXISTS.
         await authDeleteAccount(data.idToken);
-        setError('Account setup failed (server rules). Nothing was saved — tell the admin, then try again.');
+        setError('Account setup failed — the username may have just been taken. Try again.');
         setBusy(false);
         return;
       }
@@ -1855,8 +1916,8 @@ function AuthModal({ onLogin, onClose }) {
     try {
       let mail = id;
       if (!id.includes('@')) {
-        const rec = await fetchUsernameRecord(id);
-        if (!rec || !rec.email) { setError('No account found with that username.'); setBusy(false); return; }
+        const rec = cachedLoginEmail(id) ? { email: cachedLoginEmail(id) } : await fetchUsernameRecord(id);
+        if (!rec || !rec.email) { setError('Enter your email address to reset your password.'); setBusy(false); return; }
         mail = rec.email;
       }
       await authSendPasswordReset(mail);
@@ -1883,7 +1944,7 @@ function AuthModal({ onLogin, onClose }) {
         {mode === 'login' && (
           <>
             <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: -6, marginBottom: 16 }}>
-              {isAdminAttempt ? 'Enter the admin password to access admin tools.' : 'Log in with your username or email.'}
+              Log in with your email — or your username, on a device you've logged in from before.
             </p>
             <input
               autoFocus type="text" value={identifier}
@@ -2116,7 +2177,7 @@ function XlsxUploadModal({ onClose, onUploaded }) {
           continue;
         }
         setStatus(`Uploading ${sheetName} (${mapped.length} rows)…`);
-        const res = await fetch(`${FIREBASE_DB_URL}/gameData/${info.key}.json`, {
+        const res = await authedFetch(`${FIREBASE_DB_URL}/gameData/${info.key}.json`, {
           method: 'PUT',
           body: JSON.stringify(mapped),
         });
@@ -2131,7 +2192,7 @@ function XlsxUploadModal({ onClose, onUploaded }) {
 
       // Stamp lastUpdated with Firebase server-side timestamp.
       setStatus('Stamping lastUpdated…');
-      await fetch(`${FIREBASE_DB_URL}/gameData/lastUpdated.json`, {
+      await authedFetch(`${FIREBASE_DB_URL}/gameData/lastUpdated.json`, {
         method: 'PUT',
         body: JSON.stringify({ '.sv': 'timestamp' }),
       });
