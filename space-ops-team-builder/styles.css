@@ -273,10 +273,14 @@ button { transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15
 /* Exit: Builder holds the popup mounted with .is-closing for ~180ms. */
 .armory-modal-backdrop.is-closing { animation: fade-out 0.18s ease forwards; }
 .armory-modal-backdrop.is-closing .armory-modal { animation: modal-drop 0.18s ease forwards; }
-/* Rows cascade in as the popup opens (per-row --i set inline, capped). */
+/* Rows cascade in on popup open AND filter switch (per-row --i, capped).
+   Motion ONLY — no opacity. Any fade (even a partial one) reads as the whole
+   panel flashing bright on filter switches; solid rows rippling downward
+   into place give the same top-to-bottom reveal without a luminance jump. */
+@keyframes row-cascade { from { transform: translateY(9px); } }
 .armory-modal .armory-row {
-  animation: rise-in 0.32s var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 22ms);
+  animation: row-cascade 0.26s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 14ms);
 }
 
 /* No vertical dividers between columns — column color shifts mark the

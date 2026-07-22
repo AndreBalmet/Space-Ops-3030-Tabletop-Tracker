@@ -4,6 +4,10 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.3.2 — 2026-07-22
+
+- Armory filter switches no longer flash: the row cascade is now motion-only (rows stay fully solid and ripple downward into place) — any opacity fade, even partial, read as the panel flashing bright on each switch.
+
 ## v15.3.1 — 2026-07-22
 
 ### Motion polish (pure CSS, no new dependencies)
