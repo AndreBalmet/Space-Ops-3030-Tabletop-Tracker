@@ -4,6 +4,11 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.5.2 — 2026-07-22
+
+- **React error boundary**: any unexpected render crash now shows a branded "Something broke — Reload" card (teams stay safe in the cloud) instead of a silent white page, and logs the component stack to the console. The v15.5.0 login crash would have presented as this card instead of a dead page.
+- Process: every push is now preceded by a full two-state (logged-in + logged-out) click-through smoke pass of the whole app.
+
 ## v15.5.1 — 2026-07-22
 
 - **HOTFIX**: the v15.5.0 login modal crashed to a white page (three leftover references to the removed legacy-admin `isAdminAttempt` flag). Login and account creation render correctly again.

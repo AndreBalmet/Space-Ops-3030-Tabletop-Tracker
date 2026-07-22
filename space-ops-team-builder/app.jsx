@@ -3765,4 +3765,42 @@ function AppRoot() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('app')).render(<AppRoot />);
+// Last line of defense: any uncaught render error shows a reload card
+// instead of unmounting the whole tree to a silent white page (which is
+// exactly how the v15.5.0 login-modal crash presented).
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[boundary] render crash:', error, info && info.componentStack);
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#fff', color: '#111', fontFamily: "'Roboto', Helvetica, Arial, sans-serif", padding: 24 }}>
+        <div style={{ maxWidth: 420, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, letterSpacing: '0.14em', color: '#D9302D', textTransform: 'uppercase', marginBottom: 6 }}>Error</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 10px' }}>Something broke</h2>
+          <p style={{ fontSize: 13, lineHeight: 1.6, color: '#6B6B6B', margin: '0 0 18px' }}>
+            The app hit an unexpected error. Your teams are safe in the cloud — reloading usually fixes it.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ font: 'inherit', fontSize: 13, fontWeight: 800, color: '#fff', background: '#D9302D', border: 0, borderRadius: 4, padding: '10px 22px', cursor: 'pointer' }}
+          >Reload</button>
+        </div>
+      </div>
+    );
+  }
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(
+  <ErrorBoundary>
+    <AppRoot />
+  </ErrorBoundary>
+);
