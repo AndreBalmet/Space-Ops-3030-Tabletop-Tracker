@@ -1,0 +1,25 @@
+# Keep the public deploy surface to exactly what the app needs:
+# the root redirect (index.html) + /space-ops-team-builder/.
+# Everything below stays in the repo but is NOT served at the domain.
+
+# Retired legacy tracker (reference copy only)
+legacy/
+
+# Old app versions / experiments
+space-ops-3030-v14.76/
+space-ops-3030-v14.76.html
+space-ops-builder/
+
+# Repo docs & tooling (not app assets)
+README.md
+CHANGELOG.md
+docs/
+figma-integration/
+create_user_guide.py
+database.rules.json
+firebase.json
+.firebaserc
+
+# Root images (only ever used by the retired tracker / repo docs)
+*.png
+*.jpg

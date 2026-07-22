@@ -4,6 +4,10 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.5.1 — 2026-07-22
+
+- **HOTFIX**: the v15.5.0 login modal crashed to a white page (three leftover references to the removed legacy-admin `isAdminAttempt` flag). Login and account creation render correctly again.
+
 ## v15.5.0 — 2026-07-22
 
 ### Phase 3 client: authenticated database access (rules deploy follows separately)

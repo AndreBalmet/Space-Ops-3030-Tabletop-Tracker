@@ -1957,14 +1957,12 @@ function AuthModal({ onLogin, onClose }) {
               type="password" value={password}
               onChange={(e) => { setPassword(e.target.value); setError(''); }}
               onKeyDown={(e) => { if (e.key === 'Enter') submitLogin(); }}
-              placeholder={isAdminAttempt ? 'Admin password' : 'Password'}
+              placeholder="Password"
               style={{ ...inputStyle, marginTop: 8 }}
             />
-            {!isAdminAttempt && (
-              <div style={{ fontSize: 12, marginTop: 10, color: 'var(--muted)' }}>
-                <span style={linkStyle} onClick={() => switchMode('forgot')}>Forgot password?</span>
-              </div>
-            )}
+            <div style={{ fontSize: 12, marginTop: 10, color: 'var(--muted)' }}>
+              <span style={linkStyle} onClick={() => switchMode('forgot')}>Forgot password?</span>
+            </div>
           </>
         )}
 
@@ -2069,7 +2067,7 @@ function AuthModal({ onLogin, onClose }) {
           )}
         </div>
 
-        {mode === 'login' && !isAdminAttempt && (
+        {mode === 'login' && (
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, textAlign: 'right' }}>
             New player? <span style={linkStyle} onClick={() => switchMode('create')}>Create account</span>
           </div>
