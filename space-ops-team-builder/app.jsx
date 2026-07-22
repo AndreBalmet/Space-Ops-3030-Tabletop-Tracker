@@ -435,11 +435,15 @@ async function migrateTeamsToUid(player) {
   }
 }
 
+// Returns the team list, or NULL when the cloud can't be reached — callers
+// must distinguish "no teams" from "fetch failed" (treating failure as empty
+// used to make the Load modal look like every team vanished, and made the
+// backfill think the cloud was empty).
 async function fetchFirebaseTeams(playerName) {
   if (!playerName) return [];
   try {
     const res = await authedFetch(`${teamStorage(playerName).teamsUrl}.json`);
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const data = await res.json();
     if (!data) return [];
     const teams = Object.entries(data).map(([fbId, fbTeam]) => ({ ...convertFbTeam(fbId, fbTeam), owner: playerName }));
@@ -452,7 +456,7 @@ async function fetchFirebaseTeams(playerName) {
       : teams.filter((t) => !((pending.get(stripFbPrefix(t.id)) || 0) > (t.savedAt || 0)));
   } catch (err) {
     console.warn('[fb] fetch failed:', err);
-    return [];
+    return null;
   }
 }
 
@@ -1152,9 +1156,12 @@ function App({ dataVersion }) {
   const skipNux = () => markNux(...NUX_CHAPTERS);
   const replayNux = () => { setNux({}); writeNux({}); };
   const [firebaseTeams, setFirebaseTeams] = useState(null); // null = loading, [] = empty
-  // Set when the open team is replaced by a fresher cloud copy, so the
-  // auto-save that follows doesn't push the identical data straight back up.
-  const skipCloudPushRef = useRef(false);
+  // Holds the exact team OBJECT adopted from the cloud, so the auto-save that
+  // follows doesn't push the identical data straight back up. Tracked by
+  // identity (not a boolean): an edit made during the debounce window creates
+  // a NEW object, which no longer matches and pushes normally — a boolean
+  // flag used to swallow that first quick edit (code-review bug #3).
+  const skipCloudPushRef = useRef(null);
 
   useEffect(() => {
     if (player) localStorage.setItem(PLAYER_KEY, player);
@@ -1178,8 +1185,8 @@ function App({ dataVersion }) {
       // cloud's own timestamp and NOT pushed back up — it's byte-identical,
       // and re-stamping `modified` would make every other device see a
       // phantom "newer" copy and re-adopt in a loop (backfill included).
-      const adopted = skipCloudPushRef.current;
-      skipCloudPushRef.current = false;
+      // Identity check: only the literal adopted object is suppressed.
+      const adopted = team === skipCloudPushRef.current;
       const snapshot = {
         ...team,
         owner: team.owner || player,
@@ -1236,6 +1243,13 @@ function App({ dataVersion }) {
       await migrated;
       const [teams, dead] = await Promise.all([fetchFirebaseTeams(player), fetchDeletedTeamIds(player)]);
       if (cancelled) return;
+      if (teams === null) {
+        // Cloud unreachable — surface as an error state ('error'), NOT an
+        // empty list, and skip the tombstone purge (its fetch may have
+        // failed the same way). Local teams stay visible in the Load modal.
+        setFirebaseTeams('error');
+        return;
+      }
       setFirebaseTeams(teams);
       // Propagate deletions made on other devices: purge any local copy
       // whose tombstone is newer than its last local save, and close the
@@ -1283,14 +1297,15 @@ function App({ dataVersion }) {
     const localTs = (localRow && localRow.savedAt) || team.savedAt || team.createdAt || 0;
     if ((cloud.savedAt || 0) > localTs) {
       console.log('[fb] cloud copy of open team is newer — adopting');
-      skipCloudPushRef.current = true;
-      const { _source, ...rest } = cloud;
-      setTeam({
-        ...rest,
+      const next = {
+        ...cloud,
         id: base,
         owner: cloud.owner || player,
         assets: (cloud.assets || []).map((a) => ({ ...a, instanceId: ++nextInstanceId })),
-      });
+      };
+      delete next._source;
+      skipCloudPushRef.current = next;
+      setTeam(next);
     }
   }, [firebaseTeams]);
   // Backfill: push any local team that isn't yet on Firebase. Returns the
@@ -1306,6 +1321,10 @@ function App({ dataVersion }) {
     // legacy teams. Idempotent + cheap once migration has happened.
     await migrateTeamsToUid(player).catch(() => {});
     const fbTeams = await fetchFirebaseTeams(player);
+    // Cloud unreachable → ABORT the backfill. Treating failure as "cloud is
+    // empty" would re-push every local team, resurrecting ones deleted
+    // elsewhere whose tombstones we also couldn't fetch.
+    if (!Array.isArray(fbTeams)) return 0;
     const fbIds = new Set(fbTeams.map((t) => stripFbPrefix(t.id)));
     // Migration: local teams saved before the `owner` field existed have no
     // owner. Claim the ones that already live in THIS player's cloud account
@@ -1349,7 +1368,7 @@ function App({ dataVersion }) {
     console.log(`[fb] backfilled ${pushed}/${toPush.length} local-only teams to /players/${player}/teams`);
     if (pushed > 0) {
       const refreshed = await fetchFirebaseTeams(player);
-      setFirebaseTeams(refreshed);
+      if (Array.isArray(refreshed)) setFirebaseTeams(refreshed);
     }
     return pushed;
   }, [player]);
@@ -1429,7 +1448,7 @@ function App({ dataVersion }) {
           showToast('Team saved (synced to cloud)');
           auditLog('team-save', { teamId: stripFbPrefix(snapshot.id), teamName: snapshot.name || '' });
           const refreshed = await fetchFirebaseTeams(player);
-          setFirebaseTeams(refreshed);
+          if (Array.isArray(refreshed)) setFirebaseTeams(refreshed);
         } else {
           showToast('Team saved locally — cloud sync failed');
         }
@@ -1530,7 +1549,7 @@ function App({ dataVersion }) {
             if (!player) { setModal({ kind: 'login', next: 'load' }); return; }
             setModal({ kind: 'load' });
           }}
-          hasSaved={(player ? teamsOwnedBy(player) : loadSavedTeams()).length > 0 || (firebaseTeams && firebaseTeams.length > 0)}
+          hasSaved={(player ? teamsOwnedBy(player) : loadSavedTeams()).length > 0 || (Array.isArray(firebaseTeams) && firebaseTeams.length > 0)}
           isAdmin={isAdmin}
           onAdminUpload={() => setModal({ kind: 'xlsx' })}
         />
@@ -3599,6 +3618,9 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams, player }) {
   // be able to load) everyone else's teams.
   const local = teamsOwnedBy(player);
   const fbLoading = firebaseTeams === null;
+  // 'error' = the cloud couldn't be reached — show local teams plus a banner
+  // instead of silently pretending the cloud list is empty.
+  const fbError = firebaseTeams === 'error';
   const fb = Array.isArray(firebaseTeams) ? firebaseTeams : [];
   const fbBases = new Set(fb.map((t) => stripFbPrefix(t.id)));
   // Dedup: a local team and its FB mirror share the same base id (the local
@@ -3620,6 +3642,11 @@ function LoadModal({ onPick, onClose, onDelete, firebaseTeams, player }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>Load Team</h2>
+        {fbError && (
+          <div style={{ margin: '0 0 12px', padding: '8px 12px', border: '1px solid #8a6d1f', background: 'rgba(255,209,102,0.10)', borderRadius: 6, fontSize: 12.5, lineHeight: 1.5, color: '#7a6118' }}>
+            <strong>Couldn't reach the cloud</strong> — your synced teams may be missing from this list. Check your connection; teams saved on this device are still shown.
+          </div>
+        )}
         {list.length === 0 && !fbLoading ? (
           <div className="modal__empty">No saved teams yet.<br />Build one and hit Save Team.</div>
         ) : (

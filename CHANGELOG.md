@@ -4,6 +4,11 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.7.1 — 2026-07-22
+
+- **Fixed the last open sync bug (code-review #3)**: an edit made within the half-second after the app adopted a newer cloud copy could silently stay device-local. The adopted snapshot is now tracked by object identity, so only the literal adopted copy skips the cloud push — any edit publishes normally.
+- **Cloud outages are no longer silent**: if the team list can't be fetched, the Load Team modal shows a "Couldn't reach the cloud" notice while still listing this device's teams (it used to just look like every synced team vanished). The backfill also aborts instead of treating an unreachable cloud as empty — which could previously re-push teams deleted elsewhere.
+
 ## Infrastructure — 2026-07-22 (no app change)
 
 - **MailerLite promo relay live (Phase 7)**: new Cloud Function `promoRelay` (`functions/`) — when an account is created with the news-updates consent box ticked, the email is pushed to the MailerLite subscriber list. API token lives in Cloud Secret Manager, never in the repo. Unsubscribes are handled entirely by MailerLite's own links. Tested end-to-end.
