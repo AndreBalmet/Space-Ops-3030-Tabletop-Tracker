@@ -440,7 +440,14 @@ async function fetchFirebaseTeams(playerName) {
     if (!res.ok) return [];
     const data = await res.json();
     if (!data) return [];
-    return Object.entries(data).map(([fbId, fbTeam]) => ({ ...convertFbTeam(fbId, fbTeam), owner: playerName }));
+    const teams = Object.entries(data).map(([fbId, fbTeam]) => ({ ...convertFbTeam(fbId, fbTeam), owner: playerName }));
+    // Hide teams with a queued-but-unflushed offline delete so they can't
+    // resurrect in the Load list mid-flush — unless the cloud copy was edited
+    // elsewhere AFTER the delete, in which case the edit wins (same rule the
+    // cloud tombstones use).
+    const pending = new Map(loadPendingTombstones().filter((e) => e.player === playerName).map((e) => [e.teamId, e.ts]));
+    return pending.size === 0 ? teams
+      : teams.filter((t) => !((pending.get(stripFbPrefix(t.id)) || 0) > (t.savedAt || 0)));
   } catch (err) {
     console.warn('[fb] fetch failed:', err);
     return [];
@@ -547,30 +554,48 @@ const writeAuthSession = (s) => {
 // tracker can all see the same teams. We split each asset's slots back into
 // `weapons` and `inventory` by kind; `defaults.weapons` / `defaults.equipment`
 // (the free loadout the model ships with) round-trip via the same field names.
+function assetToFbModel(a) {
+  const m = findModel(a.modelId);
+  // Carried items (see fbModelToAsset): items that didn't resolve against the
+  // current game data go back into the array they came from, so a renamed or
+  // removed weapon/equipment survives the round-trip instead of vanishing.
+  const carried = (from) => (a.unknownItems || []).filter((i) => i && i.from === from).map((i) => i.name);
+  const weapons = [
+    ...(a.slots || []).filter((s) => s && s.kind === 'weapon').map((s) => s.name),
+    ...carried('weapons'),
+  ];
+  const inventory = [
+    ...(a.slots || []).filter((s) => s && s.kind === 'equipment').map((s) => s.name),
+    ...carried('inventory'),
+  ];
+  const out = {
+    name: (m && m.name) || a.modelId,
+    weapons,
+    inventory,
+    defaultWeapons: (a.defaults && Array.isArray(a.defaults.weapons)) ? a.defaults.weapons : [],
+    defaultInventory: (a.defaults && Array.isArray(a.defaults.equipment)) ? a.defaults.equipment : [],
+  };
+  // Persist the per-asset custom name (the rename in Team View). Uses the
+  // same `customName` field the legacy tracker reads/writes, so the name
+  // round-trips through Firebase and shows on every device. Omitted when
+  // unset so Firebase doesn't store empty strings.
+  if (a.customName) out.customName = a.customName;
+  return out;
+}
+
 function convertTeamToFb(team) {
   return {
     name: team.name || 'Untitled',
     faction: team.factionId || 'Arc Rangers',
     created: team.createdAt || Date.now(),
     modified: Date.now(),
-    models: (team.assets || []).map((a) => {
-      const m = findModel(a.modelId);
-      const weapons = (a.slots || []).filter((s) => s && s.kind === 'weapon').map((s) => s.name);
-      const inventory = (a.slots || []).filter((s) => s && s.kind === 'equipment').map((s) => s.name);
-      const out = {
-        name: (m && m.name) || a.modelId,
-        weapons,
-        inventory,
-        defaultWeapons: (a.defaults && Array.isArray(a.defaults.weapons)) ? a.defaults.weapons : [],
-        defaultInventory: (a.defaults && Array.isArray(a.defaults.equipment)) ? a.defaults.equipment : [],
-      };
-      // Persist the per-asset custom name (the rename in Team View). Uses the
-      // same `customName` field the legacy tracker reads/writes, so the name
-      // round-trips through Firebase and shows on every device. Omitted when
-      // unset so Firebase doesn't store empty strings.
-      if (a.customName) out.customName = a.customName;
-      return out;
-    }),
+    models: [
+      ...(team.assets || []).map(assetToFbModel),
+      // Re-attach models that weren't in the current game data when this team
+      // loaded (see convertFbTeam) -- preserved verbatim so a rename or removal
+      // in the master XLSX never permanently deletes them from saved teams.
+      ...((team.unknownModels || []).filter((m) => m && m.name)),
+    ],
   };
 }
 
@@ -593,10 +618,74 @@ async function saveTeamToFirebase(player, team) {
   }
 }
 
-async function deleteTeamFromFirebase(player, teamId) {
+// --- Offline delete queue (bug #2) ---
+// A team deleted while offline removed the local copy, but the cloud tombstone
+// write failed silently -- so the cloud copy survived, reappeared on the next
+// refetch, and other devices never purged it. Queue the tombstone locally and
+// flush it on the next `online` event (the same offline-retry shape the
+// backfill already uses for saves).
+const PENDING_TOMBS_KEY = 'spaceops.pendingTombs.v1';
+const loadPendingTombstones = () => {
+  try { const a = JSON.parse(localStorage.getItem(PENDING_TOMBS_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch { return []; }
+};
+const writePendingTombstones = (arr) => {
+  try { localStorage.setItem(PENDING_TOMBS_KEY, JSON.stringify(arr)); } catch { /* quota */ }
+};
+const queuePendingTombstone = (player, teamId, ts) => {
+  if (!player || !teamId) return;
+  const base = stripFbPrefix(teamId);
+  // Freeze the storage URLs NOW. The flush can run after a logout/account
+  // switch, when teamStorage(player) would no longer see this player's auth
+  // session and would silently fall back to the legacy name path — deleting
+  // the mirror but leaving the canonical /teams/<uid> copy alive to resurrect.
+  const st = teamStorage(player);
+  const rest = loadPendingTombstones().filter((e) => !(e.player === player && e.teamId === base));
+  rest.push({
+    player, teamId: base, ts: ts || Date.now(),
+    urls: { tombsUrl: st.tombsUrl, teamsUrl: st.teamsUrl, mirrorTombsUrl: st.mirrorTombsUrl, mirrorTeamsUrl: st.mirrorTeamsUrl },
+  });
+  writePendingTombstones(rest);
+};
+// Retry every queued delete. Runs on login and on the `online` event. Each
+// entry re-writes its tombstone with the ORIGINAL deletion timestamp (so a
+// team edited elsewhere after the delete still wins) and deletes the cloud
+// copy; entries that succeed drop off the queue, failures stay for next time.
+async function flushPendingTombstones() {
+  if (!navigator.onLine) return 0;
+  const queue = loadPendingTombstones();
+  if (queue.length === 0) return 0;
+  const remaining = [];
+  let flushed = 0;
+  for (const e of queue) {
+    try {
+      // Prefer the URLs frozen at queue time (see queuePendingTombstone);
+      // fall back to live resolution for entries queued by older builds.
+      const st = e.urls || teamStorage(e.player);
+      const fbId = encodeURIComponent(stripFbPrefix(e.teamId));
+      const body = JSON.stringify(e.ts);
+      await fetch(`${st.tombsUrl}/${fbId}.json`, { method: 'PUT', body });
+      await fetch(`${st.teamsUrl}/${fbId}.json`, { method: 'DELETE' });
+      if (st.mirrorTeamsUrl) {
+        fetch(`${st.mirrorTombsUrl}/${fbId}.json`, { method: 'PUT', body }).catch(() => {});
+        fetch(`${st.mirrorTeamsUrl}/${fbId}.json`, { method: 'DELETE' }).catch(() => {});
+      }
+      flushed++;
+    } catch { remaining.push(e); }
+  }
+  writePendingTombstones(remaining);
+  if (flushed > 0) console.log(`[fb] flushed ${flushed} queued offline delete(s)`);
+  return flushed;
+}
+
+async function deleteTeamFromFirebase(player, teamId, ts) {
   if (!player || !teamId) return false;
   const fbId = stripFbPrefix(teamId);
   const st = teamStorage(player);
+  const stamp = ts || Date.now();
+  // Offline: the tombstone PUT below would throw and the cloud copy would
+  // survive (bug #2). Queue the delete and flush on reconnect instead.
+  if (!navigator.onLine) { queuePendingTombstone(player, fbId, stamp); return false; }
   try {
     // Tombstone FIRST, then delete. Without the tombstone, any other device
     // that still holds a local copy would "backfill" the team right back
@@ -604,7 +693,7 @@ async function deleteTeamFromFirebase(player, teamId) {
     // Devices compare the tombstone timestamp against their local savedAt:
     // tombstone newer → purge local copy; local newer (team was edited after
     // the delete elsewhere) → the edit wins and the tombstone is cleared.
-    const ts = JSON.stringify(Date.now());
+    const ts = JSON.stringify(stamp);
     await fetch(`${st.tombsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: ts });
     const res = await fetch(`${st.teamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' });
     // Keep the legacy mirror in step so the legacy tracker (and any
@@ -613,9 +702,11 @@ async function deleteTeamFromFirebase(player, teamId) {
       fetch(`${st.mirrorTombsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: ts }).catch(() => {});
       fetch(`${st.mirrorTeamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' }).catch(() => {});
     }
+    if (!res.ok) queuePendingTombstone(player, fbId, stamp);
     return res.ok;
   } catch (err) {
-    console.warn('[fb] team delete failed:', err);
+    console.warn('[fb] team delete failed - queued for retry:', err);
+    queuePendingTombstone(player, fbId, stamp);
     return false;
   }
 }
@@ -639,62 +730,117 @@ async function clearTombstone(player, teamId) {
   } catch { /* non-fatal — a stale tombstone loses to a newer savedAt anyway */ }
 }
 
+// Retired model names -> their current equivalents, so a team saved under an
+// old name still resolves after a rename in the master XLSX. Add entries here
+// when you rename a model. Anything matching NO alias is still preserved
+// verbatim (see the unknownModels carry-through below) -- nothing is ever
+// silently dropped.
+const RETIRED_MODEL_ALIASES = {
+  // 'Ranger-Captain in Hardsuit': 'Veteran Captain',  // example -- fill in real renames
+};
+const resolveModelName = (name) => {
+  if (!name) return name;
+  return RETIRED_MODEL_ALIASES[name] || RETIRED_MODEL_ALIASES[name.toLowerCase()] || name;
+};
+
+// Same idea for weapons/equipment: renamed items heal via this table; anything
+// unmatched is carried through the round-trip (see fbModelToAsset) instead of
+// dropped -- the Damp Claws / Dual Wield loss was this exact shape.
+const RETIRED_ITEM_ALIASES = {
+  // 'Old Item Name': 'Current Item Name',
+};
+const resolveItemName = (name) => {
+  if (!name) return name;
+  return RETIRED_ITEM_ALIASES[name] || RETIRED_ITEM_ALIASES[name.toLowerCase()] || name;
+};
+
+// Find a model def by (alias-resolved) stored name, or null.
+const findModelByStoredName = (storedName) => {
+  const lookupName = resolveModelName(storedName);
+  return DATA.models.find((m) => m.name === lookupName)
+    || DATA.models.find((m) => (m.name || '').toLowerCase() === (lookupName || '').toLowerCase())
+    || null;
+};
+
+// One stored FB model record -> a builder asset, given its resolved model def.
+function fbModelToAsset(fbm, def) {
+  const totalSlots = num(def.totalSlots) || 0;
+  const slots = Array.from({ length: totalSlots }, () => null);
+  const defaultInv = Array.isArray(fbm.defaultInventory) ? fbm.defaultInventory : [];
+  const defaultWep = Array.isArray(fbm.defaultWeapons) ? fbm.defaultWeapons : [];
+  const defaultInvSet = new Set(defaultInv);
+  const defaultWepSet = new Set(defaultWep);
+  // Live tracker stores some items in BOTH weapons[] and inventory[] (e.g. grenades,
+  // cyberdecks) — dedup inventory against everything. But duplicates WITHIN
+  // weapons[] are meaningful: two copies of the same melee weapon = Dual
+  // Wield, and each occupies its own slot. Collapsing them here is what
+  // silently stripped the second weapon (and the Dual Wield buff) every
+  // time a team round-tripped through the cloud.
+  const seen = new Set();
+  const items = [];
+  const collect = (src, defaults, allowDupes, from) => {
+    if (!Array.isArray(src)) return;
+    for (const v of src) {
+      const name = (typeof v === 'string' ? v : v?.name) || '';
+      if (!name || defaults.has(name)) continue;
+      if (!allowDupes && seen.has(name)) continue;
+      seen.add(name);
+      items.push({ name, from });
+    }
+  };
+  collect(fbm.weapons, defaultWepSet, true, 'weapons');
+  collect(fbm.inventory, defaultInvSet, false, 'inventory');
+  let slotIdx = 0;
+  const unknownItems = [];
+  for (const it of items) {
+    const name = resolveItemName(it.name);
+    const kind = findWeapon(name) ? 'weapon' : (findEquipment(name) ? 'equipment' : null);
+    // Unresolvable (renamed/removed in the XLSX) or out of slots (capacity
+    // shrank in the data): carry the item instead of dropping it — the cloud
+    // auto-republish would otherwise make the loss permanent. assetToFbModel
+    // writes carried items back to their source array, so they re-resolve
+    // whenever the name returns to the data or an alias is added.
+    if (!kind) {
+      console.warn('[fb] unknown item (preserved):', it.name);
+      unknownItems.push(it);
+      continue;
+    }
+    if (slotIdx >= totalSlots) { unknownItems.push(it); continue; }
+    slots[slotIdx++] = { kind, name };
+  }
+  return {
+    instanceId: ++nextInstanceId,
+    modelId: def.id,
+    slots,
+    // Preserve free defaults so the view page can render the full model loadout.
+    defaults: { weapons: defaultWep, equipment: defaultInv },
+    // Restore the per-asset custom name (rename in Team View). Ignore a
+    // customName that just echoes the model's own name — that's the legacy
+    // tracker's default, not a real rename.
+    ...(fbm.customName && fbm.customName !== def.name ? { customName: fbm.customName } : {}),
+    ...(unknownItems.length ? { unknownItems } : {}),
+  };
+}
+
 function convertFbTeam(fbId, fb) {
   const factionId = normalizeFactionId(fb.faction || 'Arc Rangers');
   const fbModels = Array.isArray(fb.models) ? fb.models : [];
   const assets = [];
+  const unknownModels = [];
   for (const fbm of fbModels) {
     if (!fbm || !fbm.name) continue;
-    const def = DATA.models.find((m) => m.name === fbm.name)
-      || DATA.models.find((m) => (m.name || '').toLowerCase() === (fbm.name || '').toLowerCase());
+    const def = findModelByStoredName(fbm.name);
     if (!def) {
-      console.warn('[fb] unknown model (skipped):', fbm.name);
+      // Not in current game data (renamed/removed in the XLSX, or a faction
+      // not loaded). DON'T drop it -- since the cloud auto-republishes, that
+      // would permanently delete the model from the team. Carry the raw
+      // record through untouched; convertTeamToFb writes it back, and it
+      // self-heals if the name returns to game data or an alias is added.
+      console.warn('[fb] unknown model (preserved as unavailable):', fbm.name);
+      unknownModels.push(fbm);
       continue;
     }
-    const totalSlots = num(def.totalSlots) || 0;
-    const slots = Array.from({ length: totalSlots }, () => null);
-    const defaultInv = Array.isArray(fbm.defaultInventory) ? fbm.defaultInventory : [];
-    const defaultWep = Array.isArray(fbm.defaultWeapons) ? fbm.defaultWeapons : [];
-    const defaultInvSet = new Set(defaultInv);
-    const defaultWepSet = new Set(defaultWep);
-    // Live tracker stores some items in BOTH weapons[] and inventory[] (e.g. grenades,
-    // cyberdecks) — dedup inventory against everything. But duplicates WITHIN
-    // weapons[] are meaningful: two copies of the same melee weapon = Dual
-    // Wield, and each occupies its own slot. Collapsing them here is what
-    // silently stripped the second weapon (and the Dual Wield buff) every
-    // time a team round-tripped through the cloud.
-    const seen = new Set();
-    const itemNames = [];
-    const collect = (src, defaults, allowDupes) => {
-      if (!Array.isArray(src)) return;
-      for (const v of src) {
-        const name = (typeof v === 'string' ? v : v?.name) || '';
-        if (!name || defaults.has(name)) continue;
-        if (!allowDupes && seen.has(name)) continue;
-        seen.add(name);
-        itemNames.push(name);
-      }
-    };
-    collect(fbm.weapons, defaultWepSet, true);
-    collect(fbm.inventory, defaultInvSet, false);
-    let slotIdx = 0;
-    for (const name of itemNames) {
-      if (slotIdx >= totalSlots) break;
-      const kind = findWeapon(name) ? 'weapon' : (findEquipment(name) ? 'equipment' : null);
-      if (!kind) continue;
-      slots[slotIdx++] = { kind, name };
-    }
-    assets.push({
-      instanceId: ++nextInstanceId,
-      modelId: def.id,
-      slots,
-      // Preserve free defaults so the view page can render the full model loadout.
-      defaults: { weapons: defaultWep, equipment: defaultInv },
-      // Restore the per-asset custom name (rename in Team View). Ignore a
-      // customName that just echoes the model's own name — that's the legacy
-      // tracker's default, not a real rename.
-      ...(fbm.customName && fbm.customName !== def.name ? { customName: fbm.customName } : {}),
-    });
+    assets.push(fbModelToAsset(fbm, def));
   }
   return {
     id: 'fb-' + fbId,
@@ -704,7 +850,49 @@ function convertFbTeam(fbId, fb) {
     createdAt: fb.created || Date.now(),
     savedAt: fb.modified || fb.created,
     _source: 'firebase',
+    ...(unknownModels.length ? { unknownModels } : {}),
   };
+}
+
+// The local twin of convertFbTeam's carry-through, applied wherever a team
+// enters memory from localStorage (mount restore, Load Team). Assets whose
+// model no longer resolves (XLSX rename/removal) move into team.unknownModels
+// in FB shape — assetToFbModel republishes them, so they survive — instead of
+// being silently dropped and then auto-saved away. Previously-unknown models
+// whose names resolve again (data restored, or an alias added) are re-adopted
+// as live assets. Also re-instances every kept asset (instanceIds are
+// session-scoped).
+function reconcileTeamAssets(team) {
+  if (!team || !Array.isArray(team.assets)) return team;
+  const assets = [];
+  const unknownModels = [];
+  for (const a of team.assets) {
+    if (findModel(a.modelId)) { assets.push({ ...a, instanceId: ++nextInstanceId }); continue; }
+    // Model ids fall back to names for XLSX data, so the alias table applies
+    // to local assets too — a mapped rename heals in place.
+    const aliased = resolveModelName(a.modelId);
+    if (aliased !== a.modelId && findModel(aliased)) {
+      assets.push({ ...a, modelId: aliased, instanceId: ++nextInstanceId });
+      continue;
+    }
+    if (!a.modelId) continue; // pre-v15.0.1 id:'' orphan — unidentifiable, drop as before
+    console.warn('[team] unavailable model (preserved):', a.modelId);
+    unknownModels.push(assetToFbModel(a));
+  }
+  for (const fbm of team.unknownModels || []) {
+    if (!fbm || !fbm.name) continue;
+    const def = findModelByStoredName(fbm.name);
+    if (def) {
+      console.log('[team] unavailable model healed:', fbm.name);
+      assets.push(fbModelToAsset(fbm, def));
+    } else {
+      unknownModels.push(fbm);
+    }
+  }
+  const out = { ...team, assets };
+  if (unknownModels.length) out.unknownModels = unknownModels;
+  else delete out.unknownModels;
+  return out;
 }
 
 // ============================================================
@@ -729,17 +917,11 @@ function App({ dataVersion }) {
   const [team, setTeam] = useState(() => {
     const cur = loadCurrent();
     if (!cur || !Array.isArray(cur.assets)) return null;
-    // Asset instanceIds need to be fresh per session (nextInstanceId is
-    // module-scoped and resets on reload). Also drop orphan assets whose
-    // modelId no longer resolves — happens to anyone whose team was saved
-    // while every Firebase model had id:'' (the bug fixed in this revision),
-    // since their assets all carry modelId:''.
-    const hydrated = cur.assets
-      .filter((a) => !!findModel(a.modelId))
-      .map((a) => ({ ...a, instanceId: ++nextInstanceId }));
-    const dropped = cur.assets.length - hydrated.length;
-    if (dropped > 0) console.warn(`[team] dropped ${dropped} orphan asset(s) on restore`);
-    return { ...cur, assets: hydrated };
+    // Re-instances assets (instanceIds are session-scoped) and preserves
+    // assets whose model no longer resolves as unknownModels rather than
+    // dropping them — dropping here used to permanently delete renamed
+    // models via the auto-save republish, even after the cloud-side fix.
+    return reconcileTeamAssets(cur);
   });
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null); // {kind:'load'} | {kind:'login'}
@@ -941,9 +1123,13 @@ function App({ dataVersion }) {
   }, [player]);
 
   useEffect(() => {
-    // On player login, run backfill once.
+    // On player login: flush queued offline deletes BEFORE the backfill reads
+    // cloud state, so the backfill never races a half-applied delete.
     if (!player) return;
-    runBackfill().catch((err) => console.warn('[fb] backfill failed:', err));
+    (async () => {
+      await flushPendingTombstones().catch(() => {});
+      await runBackfill().catch((err) => console.warn('[fb] backfill failed:', err));
+    })();
   }, [player, runBackfill]);
 
   useEffect(() => {
@@ -951,8 +1137,10 @@ function App({ dataVersion }) {
     // built/saved offline syncs up as soon as the network's back. Also
     // refreshes firebaseTeams in case other devices added new teams while
     // this one was offline.
-    const onOnline = () => {
+    const onOnline = async () => {
       if (player) {
+        // Deletes first, then backfill — same ordering as the login effect.
+        await flushPendingTombstones().catch(() => {});
         runBackfill().catch((err) => console.warn('[fb] online backfill failed:', err));
       }
     };
@@ -983,14 +1171,14 @@ function App({ dataVersion }) {
     // Normalize the id (strip any 'fb-' prefix from a cloud listing) so the
     // auto-save updates the team's existing local row rather than creating a
     // sibling duplicate. Drop the _source marker — it only describes where
-    // this listing came from, not the team itself. Re-instance loaded assets.
+    // this listing came from, not the team itself. reconcileTeamAssets
+    // re-instances assets and preserves/heals unavailable models.
     const { _source, ...rest } = saved;
-    setTeam({
+    setTeam(reconcileTeamAssets({
       ...rest,
       id: stripFbPrefix(saved.id),
       owner: saved.owner || player,
-      assets: (saved.assets || []).map((a) => ({ ...a, instanceId: ++nextInstanceId })),
-    });
+    }));
     setScreen('builder');
     setModal(null);
   };
@@ -2639,6 +2827,22 @@ function TeamView({ team, player, onBack, onExportPDF, onLoadOpen, onRenameAsset
           </div>
           <div className="team-view__rating"><strong>{rating}</strong>/{cap} Rating</div>
         </header>
+
+        {team.unknownModels && team.unknownModels.length > 0 && (
+          <div style={{ margin: '0 0 18px', padding: '10px 14px', border: '1px solid #8a6d1f', background: 'rgba(255,209,102,0.10)', borderRadius: 8, fontSize: 13, lineHeight: 1.5, color: '#e6d6a8' }}>
+            <strong>{team.unknownModels.length} model{team.unknownModels.length > 1 ? 's' : ''} unavailable in the current game data</strong> and hidden from this roster, but preserved (not deleted): {team.unknownModels.map((m) => m.name).join(', ')}. {team.unknownModels.length > 1 ? 'They' : 'It'} will reappear if the name returns to the data or an alias is added. The rating below excludes {team.unknownModels.length > 1 ? 'them' : 'it'}.
+          </div>
+        )}
+        {(() => {
+          // Items carried through because their names don't resolve against
+          // current game data (see fbModelToAsset) — preserved, not shown.
+          const carried = (team.assets || []).flatMap((a) => (a.unknownItems || []).map((i) => i.name));
+          return carried.length > 0 ? (
+            <div style={{ margin: '0 0 18px', padding: '10px 14px', border: '1px solid #8a6d1f', background: 'rgba(255,209,102,0.10)', borderRadius: 8, fontSize: 13, lineHeight: 1.5, color: '#e6d6a8' }}>
+              <strong>{carried.length} item{carried.length > 1 ? 's' : ''} unavailable in the current game data</strong> and hidden from loadouts, but preserved (not deleted): {carried.join(', ')}.
+            </div>
+          ) : null;
+        })()}
 
         <div className="team-view__grid">
           {team.assets.length === 0 ? (

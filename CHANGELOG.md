@@ -4,6 +4,15 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.2.1 — 2026-07-22
+
+### Data-loss bug fixes (cloud round-trip)
+- **Renaming/removing a model in the master XLSX no longer permanently deletes it from saved teams.** Previously, when a team loaded from the cloud, any model whose name wasn't in the current game data was silently skipped — and since v15.0.26 auto-publishes every load, the team was then republished *without* that model, making the loss permanent. Unknown models are now carried through the cloud round-trip verbatim (`convertFbTeam` → `unknownModels` → `convertTeamToFb`) instead of dropped, so the data survives. Team View shows a note listing any unavailable models. Added a `RETIRED_MODEL_ALIASES` table so deliberate renames can be mapped old→new; anything not aliased is still preserved rather than lost, and models self-heal if their name returns to the data.
+- **The same protection now covers the local paths too.** The localStorage restore on page load (and Load Team) used to *drop* assets whose model no longer resolved — which republished the pruned team and defeated the cloud-side fix for anyone who simply had the team open. `reconcileTeamAssets` now moves unresolvable assets into `unknownModels` (preserving loadout + custom name), applies the alias table to local assets, and re-adopts previously-unknown models whose names resolve again.
+- **Renamed/removed weapons and equipment are preserved too.** Item names that don't resolve against current game data (or don't fit after a slot-capacity reduction) are carried per-asset (`unknownItems`) and written back to their original array on save, instead of silently vanishing — the same failure shape as the v15.0.28 Dual Wield loss. New `RETIRED_ITEM_ALIASES` table for deliberate item renames. Team View lists preserved-but-unavailable items.
+- **Deleting a team while offline now sticks.** Previously the local copy was removed but the cloud tombstone write failed silently, so the cloud copy survived, reappeared on the next refetch, and other devices never purged it. Offline deletes are now queued locally (`spaceops.pendingTombs.v1`) and flushed on the next `online` event (and on login) — the tombstone is re-written with the *original* deletion timestamp so a team edited elsewhere after the delete still wins. Same offline-retry shape the save backfill already uses. The queue freezes the storage URLs at delete time (so a later account switch can't misroute the flush to the wrong path), queued-but-unflushed deletes are hidden from every cloud team fetch (no resurrection window mid-flush), and the flush completes before the backfill runs on login/reconnect.
+- No data-model or API changes; the legacy tracker and pre-v15.2 devices are unaffected.
+
 ## v15.2.0 — 2026-07-08
 
 ### Teams re-keyed to account storage (Phase 2 of the accounts plan)
