@@ -896,6 +896,139 @@ function reconcileTeamAssets(team) {
 }
 
 // ============================================================
+// NUX — first-time-user tour
+// ============================================================
+// Chapters fire contextually the first time each part of the app is seen:
+// 'welcomed' (intro popup on Home) → 'home' (menu tour) → 'builder' (first
+// time in the builder) → 'armory' (first time the armory popup opens) →
+// 'view' (first Team View). Completed chapters are flagged in localStorage;
+// "Skip Tutorial" flags everything. Replay via the link on the Home screen.
+const NUX_KEY = 'spaceops.nux.v1';
+const NUX_CHAPTERS = ['welcomed', 'home', 'builder', 'armory', 'view'];
+const loadNux = () => {
+  try { const o = JSON.parse(localStorage.getItem(NUX_KEY) || '{}'); return o && typeof o === 'object' ? o : {}; }
+  catch { return {}; }
+};
+const writeNux = (o) => {
+  try { localStorage.setItem(NUX_KEY, JSON.stringify(o)); } catch { /* quota */ }
+};
+
+// Spotlight tour overlay. Each step: { sel, title, body, onEnter } — `sel` is
+// a [data-tour] selector to highlight (missing/null → centered card). The
+// backdrop blocks interaction while the tour runs; Skip ends the whole
+// tutorial (onSkip), finishing the last step completes the chapter (onDone).
+function TourOverlay({ steps, onDone, onSkip }) {
+  const [idx, setIdx] = useState(0);
+  const [rect, setRect] = useState(null);
+  const scrolledRef = useRef(-1);
+  const step = steps[idx];
+
+  useEffect(() => {
+    if (!step) return;
+    let raf = 0;
+    const measure = () => {
+      const el = step.sel ? document.querySelector(step.sel) : null;
+      if (!el) { setRect(null); return; }
+      // Bring an off-screen target into view once per step.
+      if (scrolledRef.current !== idx) {
+        scrolledRef.current = idx;
+        const r0 = el.getBoundingClientRect();
+        if (r0.top < 60 || r0.bottom > window.innerHeight - 60) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      const r = el.getBoundingClientRect();
+      setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+    };
+    measure();
+    const onMove = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(measure); };
+    window.addEventListener('resize', onMove);
+    window.addEventListener('scroll', onMove, true);
+    // Layout can shift under the tour (font loads, column animations) —
+    // re-measure on a slow tick so the spotlight never drifts.
+    const iv = setInterval(measure, 400);
+    return () => {
+      window.removeEventListener('resize', onMove);
+      window.removeEventListener('scroll', onMove, true);
+      clearInterval(iv);
+      cancelAnimationFrame(raf);
+    };
+  }, [idx, step && step.sel]);
+
+  if (!step) return null;
+  const last = idx === steps.length - 1;
+  const next = () => {
+    if (last) { onDone(); return; }
+    const s = steps[idx + 1];
+    if (s && s.onEnter) s.onEnter();
+    setIdx(idx + 1);
+  };
+  const back = () => setIdx(Math.max(0, idx - 1));
+
+  // Card sits under the target when there's room, above it otherwise,
+  // clamped to the viewport. No target → centered.
+  const CARD_W = 300, CARD_H = 190, GAP = 14;
+  const cardStyle = rect
+    ? {
+        width: CARD_W,
+        left: Math.max(16, Math.min(rect.left, window.innerWidth - CARD_W - 16)),
+        top: rect.top + rect.height + GAP + CARD_H < window.innerHeight
+          ? rect.top + rect.height + GAP
+          : Math.max(16, rect.top - GAP - CARD_H),
+      }
+    : { width: CARD_W + 20, left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
+
+  return (
+    <div className="tour">
+      <div className={'tour__backdrop' + (rect ? '' : ' is-dim')} />
+      {rect && (
+        <div
+          className="tour__spot"
+          style={{ top: rect.top - 5, left: rect.left - 5, width: rect.width + 10, height: rect.height + 10 }}
+        />
+      )}
+      <div className="tour__card" style={cardStyle}>
+        <div className="tag">Tutorial — {idx + 1}/{steps.length}</div>
+        <h3 className="tour__title">{step.title}</h3>
+        <p className="tour__body">{step.body}</p>
+        <div className="tour__actions">
+          <button className="tour__skip" onClick={onSkip || onDone}>Skip Tutorial</button>
+          <span className="tour__nav">
+            {idx > 0 && <button onClick={back}>Back</button>}
+            <button className="tour__next" onClick={next}>{last ? 'Done' : 'Next'}</button>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Intro popup shown on the Home screen before any chapter runs.
+function WelcomeModal({ onTour, onSkip }) {
+  return (
+    <div className="modal-backdrop">
+      <div className="modal">
+        <div className="tag">Welcome</div>
+        <h2>Space-Ops 3030 Team Builder</h2>
+        <p style={{ fontSize: 13, lineHeight: 1.6, margin: '10px 0 4px' }}>
+          Build your ops team: pick a faction, add models, equip gear from the
+          Armory, and stay under the rating cap. Teams save to your account and
+          sync to every device.
+        </p>
+        <p style={{ fontSize: 13, lineHeight: 1.6, margin: '0 0 6px' }}>
+          First time here? Take a quick tour — it walks you through each screen
+          as you reach it.
+        </p>
+        <div className="modal__actions">
+          <button onClick={onSkip}>Skip Tutorial</button>
+          <button onClick={onTour} style={{ color: 'var(--red)', fontWeight: 800 }}>Take the Tour</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // ROOT APP
 // ============================================================
 function App({ dataVersion }) {
@@ -925,6 +1058,18 @@ function App({ dataVersion }) {
   });
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null); // {kind:'load'} | {kind:'login'}
+  // NUX chapter flags ({welcomed:1, home:1, ...}); missing key = not seen yet.
+  const [nux, setNux] = useState(loadNux);
+  const markNux = (...chapters) => {
+    setNux((cur) => {
+      const out = { ...cur };
+      for (const c of chapters) out[c] = 1;
+      writeNux(out);
+      return out;
+    });
+  };
+  const skipNux = () => markNux(...NUX_CHAPTERS);
+  const replayNux = () => { setNux({}); writeNux({}); };
   const [firebaseTeams, setFirebaseTeams] = useState(null); // null = loading, [] = empty
   // Set when the open team is replaced by a fresher cloud copy, so the
   // auto-save that follows doesn't push the identical data straight back up.
@@ -1277,6 +1422,35 @@ function App({ dataVersion }) {
           hasSaved={(player ? teamsOwnedBy(player) : loadSavedTeams()).length > 0 || (firebaseTeams && firebaseTeams.length > 0)}
           isAdmin={isAdmin}
           onAdminUpload={() => setModal({ kind: 'xlsx' })}
+          onReplayTour={replayNux}
+        />
+      )}
+      {/* NUX: intro popup, then the Home menu chapter. Suppressed while any
+          other modal is up so the tour never fights a real dialog. */}
+      {screen === 'home' && !modal && !nux.welcomed && (
+        <WelcomeModal onTour={() => markNux('welcomed')} onSkip={skipNux} />
+      )}
+      {screen === 'home' && !modal && nux.welcomed && !nux.home && (
+        <TourOverlay
+          onDone={() => markNux('home')}
+          onSkip={skipNux}
+          steps={[
+            ...(!player ? [{
+              sel: '[data-tour="login"]',
+              title: 'Log In',
+              body: 'Create a free account so your teams save to the cloud and follow you to any device.',
+            }] : []),
+            {
+              sel: '[data-tour="create"]',
+              title: 'Create Team',
+              body: 'Start a new company from scratch. You can build several and switch between them.',
+            },
+            {
+              sel: '[data-tour="load"]',
+              title: 'Load Team',
+              body: 'Reopen any saved team. Teams sync automatically — edits made on one device show up on the rest.',
+            },
+          ]}
         />
       )}
       {screen === 'builder' && team && (
@@ -1289,6 +1463,9 @@ function App({ dataVersion }) {
           onDelete={deleteTeamGlobal}
           onView={() => setScreen('view')}
           onBack={() => setScreen('home')}
+          nux={nux}
+          onNuxDone={markNux}
+          onNuxSkip={skipNux}
         />
       )}
       {screen === 'view' && team && (
@@ -1314,6 +1491,17 @@ function App({ dataVersion }) {
               showToast('PDF export failed — see console');
             }
           }}
+        />
+      )}
+      {screen === 'view' && team && !nux.view && (
+        <TourOverlay
+          onDone={() => markNux('view')}
+          onSkip={skipNux}
+          steps={[{
+            sel: null,
+            title: 'Team View',
+            body: 'Your play-time reference — one card per model with stats, weapons, and gear. Underlined terms are clickable for their full rules, click a model’s name to give it a custom one, and Export to PDF for the table.',
+          }]}
         />
       )}
 
@@ -1410,7 +1598,7 @@ function Topbar({ crumbs }) {
 // ============================================================
 // HOME SCREEN
 // ============================================================
-function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, hasSaved, isAdmin, onAdminUpload }) {
+function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, hasSaved, isAdmin, onAdminUpload, onReplayTour }) {
   const [editingName, setEditingName] = useState(false);
   const [draft, setDraft] = useState(player);
   useEffect(() => { setDraft(player); }, [player]);
@@ -1451,16 +1639,17 @@ function Home({ player, onChangePlayer, onLogin, onLogout, onCreate, onLoad, has
         )}
       </p>
       <div className="home__menu">
-        <button onClick={onCreate}>Create Team</button>
-        <button onClick={onLoad} disabled={!hasSaved}>Load Team</button>
+        <button data-tour="create" onClick={onCreate}>Create Team</button>
+        <button data-tour="load" onClick={onLoad} disabled={!hasSaved}>Load Team</button>
         {isAdmin && (
           <button onClick={onAdminUpload}>Update Game Data (Admin)</button>
         )}
         {loggedIn
           ? <button onClick={onLogout}>Log Out</button>
-          : <button onClick={onLogin}>Log In</button>
+          : <button data-tour="login" onClick={onLogin}>Log In</button>
         }
       </div>
+      <button className="home__replay-tour" onClick={onReplayTour}>Replay Tutorial</button>
       </div>
     </div>
   );
@@ -1969,7 +2158,7 @@ function XlsxUploadModal({ onClose, onUploaded }) {
 // ============================================================
 // BUILDER (3-column layout)
 // ============================================================
-function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, onBack }) {
+function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, onBack, nux, onNuxDone, onNuxSkip }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedInstanceId, setSelectedInstanceId] = useState(null);
   const [armoryOpen, setArmoryOpen] = useState(false);
@@ -2076,18 +2265,12 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
     setArmoryOpen(true);
   };
 
-  const layoutClass = [
-    'builder',
-    selected ? 'has-detail' : '',
-    armoryOpen ? 'has-armory' : '',
-  ].filter(Boolean).join(' ');
-
   const rating = teamRating(team);
   const cap = 50;
   const overBudget = rating > cap;
 
   return (
-    <div className={layoutClass}>
+    <div className="builder">
       {/* === Column 1: Team summary (or picker) === */}
       <div className="builder__col builder__col--summary">
         <SummaryColumn
@@ -2114,9 +2297,13 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
         />
       </div>
 
-      {/* === Column 2: Asset detail === */}
-      {selected && (
-        <div className="builder__col builder__col--detail">
+      {/* === Column 2: Asset detail — always present so the two main columns
+          hold a stable 50/50 split; shows a hint until an asset is selected. === */}
+      <div className={'builder__col builder__col--detail' + (selected ? '' : ' is-empty')}>
+        {!selected && (
+          <div className="detail-empty">Select a team asset to view and equip it.</div>
+        )}
+        {selected && (
           <AssetDetail
             asset={selected}
             onDuplicate={duplicateSelected}
@@ -2143,12 +2330,79 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
               setExpandedArmoryKey((slot.kind === 'weapon' ? 'w:' : 'e:') + slot.name);
             }}
           />
-        </div>
+        )}
+      </div>
+
+      {/* NUX: builder walkthrough (first time here), then armory tips the
+          first time the popup opens. */}
+      {nux && !nux.builder && !armoryOpen && (
+        <TourOverlay
+          onDone={() => onNuxDone('builder')}
+          onSkip={onNuxSkip}
+          steps={[
+            {
+              sel: '[data-tour="team-name"]',
+              title: 'Name & Faction',
+              body: 'Type your company name, and pick a faction below it. Switching faction clears the roster, so choose first.',
+            },
+            {
+              sel: '[data-tour="add-asset"]',
+              title: 'Add Models',
+              body: 'The + opens the model picker — one Leader, plus Operator and Support assets. + and − set how many of each.',
+            },
+            {
+              sel: '[data-tour="rating"]',
+              title: 'Rating Budget',
+              body: 'Every model and item costs Rating. Keep the team at 50 or under — the total turns red when you’re over.',
+            },
+            {
+              sel: '[data-tour="roster"]',
+              title: 'Your Roster',
+              body: 'Models group by role here. Click one to open its stats and loadout on the right.',
+            },
+            {
+              sel: '[data-tour="carry"]',
+              title: 'Carry Capacity',
+              onEnter: () => { if (!selected && team.assets.length > 0) selectAsset(team.assets[0].instanceId); },
+              body: 'Each model has gear slots. Click "Equip from the Armory" to open the gear list, or − to unequip.',
+            },
+            {
+              sel: '[data-tour="team-mgmt"]',
+              title: 'Save & View',
+              body: 'Save Team publishes to your account in the cloud. View Team is the play-time card reference for the table.',
+            },
+          ]}
+        />
+      )}
+      {nux && nux.builder && !nux.armory && armoryOpen && selected && (
+        <TourOverlay
+          onDone={() => onNuxDone('armory')}
+          onSkip={onNuxSkip}
+          steps={[
+            {
+              sel: '[data-tour="armory-filter"]',
+              title: 'The Armory',
+              body: 'Everything your faction can equip. Filter by ranged, melee, equipment, or cyberdeck.',
+            },
+            {
+              sel: '[data-tour="armory-list"]',
+              title: 'Equip Gear',
+              body: '+ equips an item, − removes it. Click an item’s name to see its full stats and traits.',
+            },
+            {
+              sel: '[data-tour="armory-done"]',
+              title: 'All Set',
+              body: 'Done (or clicking outside) closes the Armory. Everything you build auto-saves as you go.',
+            },
+          ]}
+        />
       )}
 
-      {/* === Column 3: Armory === */}
+      {/* === Armory popup — opens from "Equip from the Armory" / loadout pills.
+          Backdrop click or Done closes it. === */}
       {armoryOpen && selected && (
-        <div className="builder__col builder__col--armory">
+        <div className="armory-modal-backdrop" onClick={() => setArmoryOpen(false)}>
+          <div className="armory-modal" onClick={(e) => e.stopPropagation()}>
           <ArmoryPanel
             faction={team.factionId}
             filter={armoryFilter}
@@ -2169,6 +2423,7 @@ function Builder({ team, setTeam, player, onSave, onLoadOpen, onDelete, onView, 
             onClose={() => setArmoryOpen(false)}
             onOpenHover={openHover}
           />
+          </div>
         </div>
       )}
 
@@ -2225,6 +2480,7 @@ function SummaryColumn(props) {
       <div className="tag" style={{ marginBottom: 2 }}>PLAYER: {player.toUpperCase()}</div>
       <input
         className="team-name"
+        data-tour="team-name"
         value={team.name}
         onChange={(e) => onChangeName(e.target.value)}
         spellCheck={false}
@@ -2236,18 +2492,18 @@ function SummaryColumn(props) {
           ))}
         </select>
       </div>
-      <div className={'team-rating' + (overBudget ? ' over' : '')}>
+      <div className={'team-rating' + (overBudget ? ' over' : '')} data-tour="rating">
         <strong>{rating}</strong>/{cap} Rating
       </div>
 
       <div className="section">
         <div className="section__head">
           <h2 className="section__title">Team Assets</h2>
-          <button className="section__btn" aria-label="Add asset" onClick={onTogglePicker}>+</button>
+          <button className="section__btn" data-tour="add-asset" aria-label="Add asset" onClick={onTogglePicker}>+</button>
         </div>
 
         {!pickerOpen && (
-          <div className="assets">
+          <div className="assets" data-tour="roster">
             {BUCKETS.map((b) => grouped[b.key].length > 0 && (
               <div key={b.key} className="asset-group">
                 <div className="asset-group__tag">{b.label}</div>
@@ -2306,7 +2562,7 @@ function SummaryColumn(props) {
         )}
       </div>
 
-      <div className="management">
+      <div className="management" data-tour="team-mgmt">
         <h3 className="management__title">Team Management</h3>
         <div className="management__list">
           <button onClick={onSave}>Save Team</button>
@@ -2381,7 +2637,7 @@ function AssetDetail({ asset, onDuplicate, onDelete, onUnequip, onOpenArmoryForS
       </div>
 
       <div className="tag" style={{ color: 'var(--red)' }}>Carry Capacity</div>
-      <div className="carry">
+      <div className="carry" data-tour="carry">
         <div className="carry__slots">
           {asset.slots.map((slot, i) => {
             const item = slot && (slot.kind === 'weapon' ? findWeapon(slot.name) : findEquipment(slot.name));
@@ -2562,7 +2818,7 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
       <div className="asset-detail__tag">Armory</div>
       <h2 className="armory__title">Armory</h2>
 
-      <div className="armory__filter">
+      <div className="armory__filter" data-tour="armory-filter">
         <span className="label">Filter</span>
         <div className="armory__filter-tabs">
           {ARMORY_TABS.map((t) => (
@@ -2582,7 +2838,7 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
         {filter === 'cybertech' && 'Cybertech'}
       </div>
 
-      <div className="armory__list">
+      <div className="armory__list" data-tour="armory-list">
         {items.map((it) => {
           // Expansion key stays simple (kind + name) so AssetDetail's pill
           // click can target an armory row by name alone. React's
@@ -2623,6 +2879,7 @@ function ArmoryPanel({ faction, filter, onFilter, asset, onEquip, onRemove, expa
       <div style={{ marginTop: 20 }}>
         <button
           onClick={onClose}
+          data-tour="armory-done"
           style={{ background: 'none', border: 0, font: 'inherit', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
         >Done</button>
       </div>

@@ -163,24 +163,15 @@ button { font-family: inherit; }
 .home__menu button:disabled { color: var(--muted); cursor: default; }
 
 /* ==== Builder layout ====
-   Columns are flex tracks. Default: just summary (max-width capped).
-   has-detail: summary + detail share the width.
-   has-armory: all three share.
-   On narrow viewports, drop summary first, then detail, so the deepest
-   open column always stays visible. */
-/* Builder uses FIXED column widths per the page-8 grid reference — columns
-   do not resize with viewport so alignment stays consistent. */
+   Two permanent 50/50 columns: Team summary (left) + Asset detail (right).
+   The Armory is a popup (.armory-modal) opened from "Equip from the Armory"
+   or a loadout pill — no third column. Content inside each column is
+   width-capped and gravitates toward the center dividing line. */
 .builder {
   display: grid;
-  grid-template-columns: 600px;
+  grid-template-columns: 1fr 1fr;
   align-items: stretch;
   min-height: 100vh;
-}
-.builder.has-detail {
-  grid-template-columns: 600px 290px;
-}
-.builder.has-armory {
-  grid-template-columns: 600px 290px 605px;
 }
 
 .builder__col {
@@ -193,42 +184,126 @@ button { font-family: inherit; }
 }
 .builder__col--summary {
   background: var(--bg);
-  /* Push content rightward inside col 1 — the col's white bg fills the left
-     "margin" area while content right-aligns to match the page-6 layout. */
-  padding-left: 320px;
-  padding-right: 28px;
+  /* Content stack hugs the center dividing line (right edge of col 1). */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
-.builder__col--detail  { background: var(--panel-1); }
-.builder__col--armory  {
-  background: var(--panel-2);
-  /* Content sits at the left of col 3; extra right padding extends the gray
-     bg toward the viewport edge, matching the mock. */
-  padding-right: 290px;
+.builder__col--summary > * { width: 100%; max-width: 560px; }
+.builder__col--detail {
+  background: var(--panel-1);
+}
+.builder__col--detail > * { width: 100%; max-width: 480px; }
+.builder__col--detail .detail-empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding-top: 6px;
 }
 
-/* Smooth slide-in when a new column appears. Mounted via React conditional
-   rendering — the animation fires on mount only. */
+/* Smooth slide-in on mount (fires when the detail content first appears). */
 @keyframes col-slide-in {
   from { opacity: 0; transform: translateX(-24px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-.builder__col--detail,
-.builder__col--armory {
+.builder__col--detail > * {
   animation: col-slide-in 0.28s ease-out;
 }
 
-/* Page-6 alignment: when the summary column is visible, push the detail and
-   armory columns down so each column's first section divider lands on the
-   same horizontal line as the Team Assets divider in the summary column.
-   The offset is the height of the summary column's team header above its
-   Team Assets divider, PLUS the 40px topbar clearance already in --col base. */
-.builder.has-detail .builder__col--detail,
-.builder.has-armory .builder__col--armory {
+/* Page-6 alignment: push the detail column down so its first section divider
+   lands on the same horizontal line as the Team Assets divider in the summary
+   column. The offset is the height of the summary column's team header above
+   its Team Assets divider, PLUS the 40px topbar clearance already in --col. */
+.builder__col--detail {
   padding-top: var(--col-header-offset, 180px);
+}
+
+/* ==== Armory popup (was column 3) ==== */
+.armory-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: grid; place-items: center;
+  z-index: 150;
+  padding: 24px;
+}
+.armory-modal {
+  background: var(--panel-2);
+  border-radius: 6px;
+  width: min(640px, 100%);
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 28px 32px 36px;
+  animation: col-slide-in 0.28s ease-out;
 }
 
 /* No vertical dividers between columns — column color shifts mark the
    boundary (matches mock pages 2–6). */
+
+/* ==== NUX tour (first-time-user walkthrough) ==== */
+/* Sits above the armory popup (z 150) and the HoverBox (200) so tour steps
+   can point at elements inside them. The backdrop blocks interaction; the
+   spotlight is a cutout drawn with a huge box-shadow. */
+.tour__backdrop {
+  position: fixed; inset: 0;
+  z-index: 260;
+}
+.tour__spot {
+  position: fixed;
+  z-index: 261;
+  border-radius: 6px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+  pointer-events: none;
+  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+/* No target (centered card): dim the whole screen via the backdrop instead
+   of the spotlight's shadow. */
+.tour__backdrop.is-dim { background: rgba(0,0,0,0.55); }
+.tour__card {
+  position: fixed;
+  z-index: 262;
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 16px 18px 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
+.tour__title {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 2px 0 6px;
+}
+.tour__body {
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+.tour__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.tour__actions button {
+  background: none; border: 0; padding: 0;
+  font: inherit; font-size: 12px;
+  cursor: pointer;
+}
+.tour__skip { color: var(--muted); }
+.tour__skip:hover { color: var(--red); }
+.tour__nav { display: flex; gap: 14px; }
+.tour__nav button:hover { color: var(--red); }
+.tour__next { color: var(--red); font-weight: 800; text-decoration: underline; }
+
+/* Replay link on the Home screen */
+.home__replay-tour {
+  background: none; border: 0; padding: 0;
+  font: inherit; font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  margin-top: 26px;
+  text-decoration: underline;
+}
+.home__replay-tour:hover { color: var(--red); }
 
 /* ==== Section labels (small red caps) ==== */
 .tag {
@@ -625,13 +700,19 @@ button { font-family: inherit; }
 }
 
 .armory-expand {
-  grid-column: 3;
+  /* Rendered as a SIBLING of .armory-row (not inside its grid), so align it
+     under the pill with a margin matching the row's −/+ gutter:
+     18px + 6px + 18px + 6px. */
+  margin-left: 48px;
   background: var(--pill-dark);
   color: var(--pill-text);
-  padding: 10px 14px 12px;
-  border-top: 1px solid rgba(255,255,255,0.1);
+  /* No top padding: the pill's own 8px bottom padding provides the gap, so
+     the space above the first red label matches the 8px above the item name. */
+  padding: 0 14px 12px;
   border-radius: 0 0 var(--radius-pill) var(--radius-pill);
-  margin-top: -2px;
+  /* Cancel the list's 6px flex gap so the info box connects seamlessly to
+     the pill above it — one continuous dark block. */
+  margin-top: -6px;
   position: relative;
 }
 .armory-expand__stats {
@@ -1233,20 +1314,21 @@ span.is-dangerous {
   .home__inner { width: 100%; max-width: 100%; }
   .home__title { white-space: normal; font-size: 26px; }
 
-  /* Builder — stack the three columns vertically, full width, even gutters */
-  .builder,
-  .builder.has-detail,
-  .builder.has-armory { grid-template-columns: 1fr; }
+  /* Builder — stack the two columns vertically, full width, even gutters */
+  .builder { grid-template-columns: 1fr; }
   .builder__col {
     min-height: auto;
     overflow: visible;
     padding: 56px 18px 28px;
   }
   .builder__col--summary { padding-left: 18px; padding-right: 18px; }
-  .builder__col--armory { padding-right: 18px; }
-  /* Drop the desktop divider-alignment top offset when columns are stacked. */
-  .builder.has-detail .builder__col--detail,
-  .builder.has-armory .builder__col--armory { padding-top: 28px; }
+  /* Drop the desktop divider-alignment top offset when columns are stacked,
+     and hide the empty detail column entirely (no gray placeholder block). */
+  .builder__col--detail { padding-top: 28px; }
+  .builder__col--detail.is-empty { display: none; }
+  /* Armory popup gets the full phone width minus gutters. */
+  .armory-modal-backdrop { padding: 12px; }
+  .armory-modal { padding: 20px 18px 28px; max-height: 92vh; }
 
   /* Team View — one card per row so cards never exceed the viewport */
   .team-view__inner { padding: 64px 18px 60px; }
@@ -1271,22 +1353,10 @@ span.is-dangerous {
    trigger on standard 1080p / 1440p screens. Proportions match the design
    mock — only the scale changes. */
 @media (min-width: 1700px) {
-  .builder {
-    grid-template-columns: 780px;
-  }
-  .builder.has-detail {
-    grid-template-columns: 780px 377px;
-  }
-  .builder.has-armory {
-    grid-template-columns: 780px 377px 787px;
-  }
-  .builder__col--summary {
-    /* Same content-right-edge feel as the standard layout — scaled padding. */
-    padding-left: 416px;
-  }
-  .builder__col--armory {
-    padding-right: 377px;
-  }
+  /* Columns stay 50/50 — just let the content stacks grow. */
+  .builder__col--summary > * { max-width: 720px; }
+  .builder__col--detail > * { max-width: 620px; }
+  .armory-modal { width: min(800px, 100%); }
 }
 
 /* ==== Team View grid on tablets (iPad) ====

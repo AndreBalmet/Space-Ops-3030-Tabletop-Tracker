@@ -4,6 +4,17 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.3.0 — 2026-07-22
+
+### Builder layout: two 50/50 columns + Armory popup
+- The builder is now **two equal main columns** — Team Assets (left) and the selected asset's detail (right) — instead of three fixed-width columns. Content in each column is width-capped and gravitates toward the center line; the right column shows a hint until a model is selected (and is hidden on phones when empty).
+- **The Armory is now a popup** (centered modal over a dimmed backdrop) opened from "Equip from the Armory" or any loadout pill. Backdrop click or Done closes it; equipping keeps it open for multi-equip. Scales up on wide screens, full-width on phones.
+- Armory item info dropdown now matches the item pill's width and connects to it seamlessly (no gap, aligned spacing).
+
+### First-time-user tutorial (NUX)
+- New guided walkthrough in the app's design language: welcome popup on first visit, then spotlight tours that fire contextually — Home menu, first time in the Builder (6 steps: name/faction, adding models, rating budget, roster, carry capacity, save/view), first time the Armory opens (3 steps), and first Team View.
+- Spotlight highlights the real UI element (red outline + dimmed page) with a step card, Back/Next/Skip; "Skip Tutorial" ends everything. Progress persists in `spaceops.nux.v1`; a "Replay Tutorial" link on the Home screen resets it.
+
 ## v15.2.1 — 2026-07-22
 
 ### Data-loss bug fixes (cloud round-trip)
