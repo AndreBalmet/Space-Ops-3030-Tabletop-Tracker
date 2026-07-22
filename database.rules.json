@@ -12,19 +12,20 @@
     "teams": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
+        ".write": "auth != null && auth.uid === $uid && auth.token.email_verified === true"
       }
     },
     "deletedTeams": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
+        ".write": "auth != null && auth.uid === $uid && auth.token.email_verified === true"
       }
     },
 
     "users": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
+        ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid"
       }
     },
@@ -35,8 +36,8 @@
       "playtest3": { ".read": true },
       "playtest4": { ".read": true },
       "$name": {
-        ".read": "auth != null",
-        ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid"
+        ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.child('uid').val() === auth.uid && !newData.exists()))"
       }
     },
 
@@ -47,8 +48,15 @@
     },
 
     "players": {
-      ".read": "auth != null",
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       ".write": false
+    },
+
+    "audit": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$entry": {
+        ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid && auth.token.email_verified === true"
+      }
     },
 
     "sessions":  { ".read": false, ".write": false },

@@ -4,6 +4,18 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.7.0 — 2026-07-22
+
+### Audit log (Phase 5 of the accounts plan)
+- New append-only `/audit` trail: explicit team saves, team deletes (including queued offline deletes), and gameData XLSX uploads are logged with who/what/when. Entries carry the writer's own uid, can never be modified or deleted (rules-enforced, verified — not even by admins), and only admins can read the log. Auditing is fire-and-forget and never blocks gameplay. Debounced auto-saves are deliberately not logged.
+
+### Security hardening (PII triple-check)
+- **`/usernames` lookups are now admin-only** (were readable by any logged-in account — and signup is open, so a throwaway account could harvest emails by guessing usernames). Signup now relies on the rules' claim-once write as the uniqueness check ("that username is taken" on rejection), with the claim freed again if profile setup fails. Playtest1–4 stay publicly readable by design.
+- **`/players` (legacy team data) reads are now admin-only** (were any-logged-in-user; all accounts have long since migrated to uid storage).
+- **Team, tombstone, and audit writes now require a verified email** (`auth.token.email_verified`) — throwaway unverified accounts can no longer write anything.
+- Admins can list `/users` (needed for the future promo-list export); each player can still only read their own profile; anonymous access denied everywhere it was before.
+- Verified end-to-end after deploy: 9-probe anonymous matrix, owner/admin flows, claim/re-claim/self-delete branches all behave as specified.
+
 ## v15.6.0 — 2026-07-22
 
 - **Live cross-device sync**: visible tabs now poll for team changes every 20 seconds, so two open devices see each other's edits without needing a tab switch (hidden tabs skip the tick; foreground-refetch behavior unchanged).

@@ -626,6 +626,24 @@ async function authedFetch(url, opts) {
   return fetch(url, opts);
 }
 
+// Append-only audit trail (Phase 5): explicit team saves, team deletes, and
+// gameData uploads. POST generates a push id; the rules forbid touching
+// existing entries and require each entry to carry the writer's own uid.
+// Fire-and-forget — auditing must never block or break gameplay. Debounced
+// auto-saves are deliberately NOT logged (every edit would be an entry).
+function auditLog(action, detail) {
+  (async () => {
+    try {
+      const sess = loadAuthSession();
+      if (!sess || !sess.uid) return;
+      await authedFetch(`${FIREBASE_DB_URL}/audit.json`, {
+        method: 'POST',
+        body: JSON.stringify({ ts: Date.now(), uid: sess.uid, player: sess.username || '', action, ...(detail || {}) }),
+      });
+    } catch { /* never let auditing interfere */ }
+  })();
+}
+
 // Reverse of `convertFbTeam` — pack a local team object into the legacy
 // tracker's `/players/<player>/teams/<id>` shape so iPad ↔ laptop ↔ legacy
 // tracker can all see the same teams. We split each asset's slots back into
@@ -738,6 +756,7 @@ async function flushPendingTombstones() {
       const body = JSON.stringify(e.ts);
       await authedFetch(`${st.tombsUrl}/${fbId}.json`, { method: 'PUT', body });
       await authedFetch(`${st.teamsUrl}/${fbId}.json`, { method: 'DELETE' });
+      auditLog('team-delete', { teamId: stripFbPrefix(e.teamId), queued: true });
       flushed++;
     } catch { remaining.push(e); }
   }
@@ -765,6 +784,7 @@ async function deleteTeamFromFirebase(player, teamId, ts) {
     await authedFetch(`${st.tombsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'PUT', body: ts });
     const res = await authedFetch(`${st.teamsUrl}/${encodeURIComponent(fbId)}.json`, { method: 'DELETE' });
     if (!res.ok) queuePendingTombstone(player, fbId, stamp);
+    else auditLog('team-delete', { teamId: fbId });
     return res.ok;
   } catch (err) {
     console.warn('[fb] team delete failed - queued for retry:', err);
@@ -1407,6 +1427,7 @@ function App({ dataVersion }) {
       saveTeamToFirebase(player, snapshot).then(async (ok) => {
         if (ok) {
           showToast('Team saved (synced to cloud)');
+          auditLog('team-save', { teamId: stripFbPrefix(snapshot.id), teamName: snapshot.name || '' });
           const refreshed = await fetchFirebaseTeams(player);
           setFirebaseTeams(refreshed);
         } else {
@@ -1852,28 +1873,25 @@ function AuthModal({ onLogin, onClose }) {
     setBusy(true);
     try {
       const data = await authSignUp(mail, password);
-      // Availability check happens AFTER account creation (with its token):
-      // /usernames isn't world-readable since Phase 3, so a pre-auth check
-      // can't see existing names. The claim-once write rule is the real
-      // uniqueness guard; this authed read just gives a friendly error.
-      const existing = await fetchUsernameRecord(uname, data.idToken);
-      if (existing) {
+      // Claim the username FIRST. The rules' claim-once write IS the
+      // uniqueness check — /usernames reads are admin-only (no lookup means
+      // no email-harvesting surface, even for logged-in accounts).
+      try {
+        await writeUsernameRecord(uname, { uid: data.localId, email: mail }, data.idToken);
+      } catch (claimErr) {
         await authDeleteAccount(data.idToken);
         setError('That username is taken.');
         setBusy(false);
         return;
       }
       try {
-        await Promise.all([
-          writeUserProfile(data.localId, { username: uname, email: mail, promoConsent: !!consent, createdAt: Date.now() }, data.idToken),
-          writeUsernameRecord(uname, { uid: data.localId, email: mail }, data.idToken),
-        ]);
+        await writeUserProfile(data.localId, { username: uname, email: mail, promoConsent: !!consent, createdAt: Date.now() }, data.idToken);
       } catch (profileErr) {
-        // Profile writes denied (rules rejection — e.g. the username was
-        // claimed in a race). Roll the auth account back so a retry doesn't
-        // hit EMAIL_EXISTS.
+        // Free the username claim, then roll the auth account back so a
+        // retry doesn't hit EMAIL_EXISTS or a squatted name.
+        await fetch(`${FIREBASE_DB_URL}/usernames/${encodeURIComponent(usernameKey(uname))}.json?auth=${encodeURIComponent(data.idToken)}`, { method: 'DELETE' }).catch(() => {});
         await authDeleteAccount(data.idToken);
-        setError('Account setup failed — the username may have just been taken. Try again.');
+        setError('Account setup failed — nothing was saved. Try again.');
         setBusy(false);
         return;
       }
@@ -2216,6 +2234,11 @@ function XlsxUploadModal({ onClose, onUploaded }) {
       });
 
       setStatus(`Done — ${localResults.filter((r) => r.ok).length} of ${localResults.length} sheets uploaded.`);
+      auditLog('gamedata-upload', {
+        sheetsUploaded: localResults.filter((r) => r.ok).length,
+        sheetsTotal: localResults.length,
+        file: (file && file.name) || '',
+      });
       setDone(true);
       setUploading(false);
       onUploaded && onUploaded();
