@@ -4,6 +4,11 @@ All notable changes to the Space-Ops 3030 Tracker are documented in this file. N
 
 ---
 
+## v15.6.0 — 2026-07-22
+
+- **Live cross-device sync**: visible tabs now poll for team changes every 20 seconds, so two open devices see each other's edits without needing a tab switch (hidden tabs skip the tick; foreground-refetch behavior unchanged).
+- **XLSX upload undo insurance**: every admin upload first snapshots the current `/gameData` to `/gameData_backup` (admin-only path, rules deployed). If the backup write fails, the upload aborts with nothing changed — a bad upload is now recoverable by restoring the snapshot.
+
 ## v15.5.2 — 2026-07-22
 
 - **React error boundary**: any unexpected render crash now shows a branded "Something broke — Reload" card (teams stay safe in the cloud) instead of a silent white page, and logs the component stack to the console. The v15.5.0 login crash would have presented as this card instead of a dead page.

@@ -1242,7 +1242,13 @@ function App({ dataVersion }) {
     // show up without a manual reload.
     const onVis = () => { if (document.visibilityState === 'visible') refresh(); };
     document.addEventListener('visibilitychange', onVis);
-    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVis); };
+    // Live sync: also poll while the tab is VISIBLE, so two devices open
+    // side-by-side see each other's edits within ~20s (foreground refetch
+    // alone only syncs on a focus change). Hidden tabs skip the tick.
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible' && navigator.onLine) refresh();
+    }, 20000);
+    return () => { cancelled = true; clearInterval(poll); document.removeEventListener('visibilitychange', onVis); };
   }, [player]);
   useEffect(() => {
     // Cross-device sync for the OPEN team: if the cloud copy is newer than
@@ -2157,6 +2163,20 @@ function XlsxUploadModal({ onClose, onUploaded }) {
     try {
       const buf = await file.arrayBuffer();
       const wb = window.XLSX.read(new Uint8Array(buf), { type: 'array' });
+
+      // Undo insurance: snapshot the CURRENT /gameData to /gameData_backup
+      // before overwriting anything. A bad upload is then recoverable by
+      // copying the backup's `data` back over /gameData. If the backup write
+      // fails, ABORT — never do a destructive upload without a restore point.
+      setStatus('Backing up current game data…');
+      const current = await fetch(`${FIREBASE_DB_URL}/gameData.json`).then((r) => (r.ok ? r.json() : null));
+      if (current) {
+        const bres = await authedFetch(`${FIREBASE_DB_URL}/gameData_backup.json`, {
+          method: 'PUT',
+          body: JSON.stringify({ savedAt: Date.now(), data: current }),
+        });
+        if (!bres.ok) throw new Error(`backup write failed (HTTP ${bres.status}) — upload aborted, nothing was changed`);
+      }
 
       for (const sheetName of wb.SheetNames) {
         const info = XLSX_SHEET_MAP[sheetName];
